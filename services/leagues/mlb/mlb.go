@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"goalfeed/clients/leagues/mlb"
 	"goalfeed/models"
-	"goalfeed/targets/database"
 	"goalfeed/utils"
 	"strconv"
 	"strings"
@@ -171,7 +170,7 @@ func (s MLBService) teamFromScheduleTeam(scheduleTeam mlb.MLBScheduleTeam) model
 		ExtID:    teamResp.Abbreviation,
 		LeagueID: models.LeagueIdMLB,
 	}
-	return database.GetOrCreateTeam(team)
+	return team
 
 }
 func (s MLBService) gameFromSchedule(scheduleGame mlb.MLBScheduleResponseGame) models.Game {

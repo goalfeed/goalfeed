@@ -1,4 +1,4 @@
-package pusher
+package homeassistant
 
 import (
 	"bytes"
@@ -9,8 +9,8 @@ import (
 )
 
 func SendEvent(event models.Event) {
-	homeAssistantURL := config.GetString("HOME_ASSISTANT_URL")
-	accessToken := config.GetString("HOME_ASSISTANT_ACCESS_TOKEN")
+	homeAssistantURL := config.GetString("home_assistant.url")
+	accessToken := config.GetString("home_assistant.access_token")
 
 	// Construct the URL for the Home Assistant event endpoint
 	url := homeAssistantURL + "/api/events/goal"

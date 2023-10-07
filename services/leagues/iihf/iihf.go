@@ -3,7 +3,6 @@ package iihf
 import (
 	"goalfeed/clients/leagues/iihf"
 	"goalfeed/models"
-	"goalfeed/targets/database"
 	"time"
 )
 
@@ -71,7 +70,7 @@ func teamFromScheduleTeam(scheduleTeam iihf.IIHFScheduleTeam) models.Team {
 		ExtID:    scheduleTeam.TeamCode,
 		LeagueID: models.LeagueIdIIHF,
 	}
-	return database.GetOrCreateTeam(team)
+	return team
 
 }
 func gameFromSchedule(scheduleGame iihf.IIHFScheduleResponseGame) models.Game {

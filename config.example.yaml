@@ -1,2 +1,8 @@
-HOME_ASSISTANT_URL: "http://yourhomeassistanturl"
-HOME_ASSISTANT_ACCESS_TOKEN: "yourhomeassistantaccesstoken"
+home_assistant:
+  url: "http://yourhomeassistanturl"
+  access_token: "yourhomeassistantaccesstoken"
+watch:
+  nhl:
+    - WPG
+  mlb:
+    - TOR

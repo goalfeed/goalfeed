@@ -3,17 +3,19 @@ package main
 import (
 	"fmt"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 	mlbClients "goalfeed/clients/leagues/mlb"
 	nhlClients "goalfeed/clients/leagues/nhl"
+	"goalfeed/config"
 	"goalfeed/models"
 	"goalfeed/services/leagues"
 	"goalfeed/services/leagues/mlb"
 	"goalfeed/services/leagues/nhl"
-	"goalfeed/targets/database"
-	"goalfeed/targets/pusher"
+	"goalfeed/targets/homeassistant"
 	"goalfeed/targets/redis"
 	"goalfeed/utils"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -39,6 +41,13 @@ var (
 
 func init() {
 	_ = godotenv.Load()
+	rootCmd.PersistentFlags().StringSlice("nhl", []string{}, "NHL teams to watch")
+	rootCmd.PersistentFlags().StringSlice("mlb", []string{}, "MLB teams to watch")
+
+	// Bind these flags to viper
+	viper.BindPFlag("watch.nhl", rootCmd.PersistentFlags().Lookup("nhl"))
+	viper.BindPFlag("watch.mlb", rootCmd.PersistentFlags().Lookup("mlb"))
+
 }
 
 func main() {
@@ -81,8 +90,6 @@ func runTickers() {
 }
 
 func initialize() {
-	logger.Info("Init DB")
-	database.InitializeDatabase()
 	logger.Info("Puck Drop! Initializing Goalfeed Process")
 
 	leagueServices[models.LeagueIdNHL] = nhl.NHLService{Client: nhlClients.NHLApiClient{}}
@@ -104,10 +111,16 @@ func checkForNewActiveGames(service leagues.ILeagueService) {
 	gamesChan := make(chan []models.Game)
 	go service.GetActiveGames(gamesChan)
 	for _, game := range <-gamesChan {
-		if !gameIsMonitored(game) {
-			logger.Info(fmt.Sprintf("Adding %s game (%s @ %s) to active monitored games", service.GetLeagueName(), game.CurrentState.Away.Team.TeamCode, game.CurrentState.Home.Team.TeamCode))
-			redis.SetGame(game)
-			redis.AppendActiveGame(game)
+		// Check if the home and away teams are being monitored
+		if teamIsMonitoredByLeague(game.CurrentState.Home.Team.TeamCode, service.GetLeagueName()) ||
+			teamIsMonitoredByLeague(game.CurrentState.Away.Team.TeamCode, service.GetLeagueName()) {
+			if !gameIsMonitored(game) {
+				logger.Info(fmt.Sprintf("Adding %s game (%s @ %s) to active monitored games", service.GetLeagueName(), game.CurrentState.Away.Team.TeamCode, game.CurrentState.Home.Team.TeamCode))
+				redis.SetGame(game)
+				redis.AppendActiveGame(game)
+			}
+		} else {
+			logger.Info(fmt.Sprintf("Skipping %s game (%s @ %s) as teams are not being monitored", service.GetLeagueName(), game.CurrentState.Away.Team.TeamCode, game.CurrentState.Home.Team.TeamCode))
 		}
 	}
 }
@@ -138,7 +151,7 @@ func checkGame(gameKey string) {
 	}
 
 	service := leagueServices[int(game.LeagueId)]
-	logger.Info(fmt.Sprintf("[%s - %s @ %s] Checking", service.GetLeagueName(), game.CurrentState.Away.Team.TeamCode, game.CurrentState.Home.Team.TeamCode))
+	logger.Info(fmt.Sprintf("[%s - %s %d @ %s %d] Checking", service.GetLeagueName(), game.CurrentState.Away.Team.TeamCode, game.CurrentState.Away.Score, game.CurrentState.Home.Team.TeamCode, game.CurrentState.Home.Score))
 	game.IsFetching = true
 	redis.SetGame(game)
 
@@ -162,20 +175,28 @@ func checkGame(gameKey string) {
 func fireGoalEvents(events chan []models.Event, game models.Game) {
 	for _, event := range <-events {
 		logger.Info(fmt.Sprintf("Goal %s", event.TeamCode))
-		go pusher.SendEvent(event)
-		var scoringTeam models.Team
-		if event.TeamCode == game.CurrentState.Home.Team.TeamCode {
-			scoringTeam = game.CurrentState.Home.Team
-		} else {
-			scoringTeam = game.CurrentState.Away.Team
-		}
-		go database.InsertGoal(scoringTeam)
+		go homeassistant.SendEvent(event)
 	}
 }
+func teamIsMonitoredByLeague(teamCode, leagueName string) bool {
+	// Convert leagueName to lowercase for consistency
+	leagueName = strings.ToLower(leagueName)
 
+	// Get the teams to watch for the given league from the configuration
+	teamsToWatch := config.GetStringSlice("watch." + leagueName)
+
+	// Check if the teamCode is in the list of teams to watch
+	for _, team := range teamsToWatch {
+		if strings.EqualFold(team, teamCode) {
+			return true
+		}
+	}
+
+	return false
+}
 func sendTestGoal() {
 	logger.Info("Sending test goal")
-	go pusher.SendEvent(models.Event{
+	go homeassistant.SendEvent(models.Event{
 		TeamCode:   "TEST",
 		TeamName:   "TEST",
 		LeagueId:   0,
