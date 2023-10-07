@@ -26,10 +26,10 @@ You can also use a YAML configuration file to specify the teams you want to watc
 
 ```yaml
 watch:
-nhl:
-- WPG
-mlb:
-- TOR
+  nhl:
+  - WPG
+  mlb:
+  - TOR
 ```
 
 Save this configuration to a file, for example, `config.yaml`. Then, you can run Goalfeed with the configuration file:
