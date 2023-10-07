@@ -2,9 +2,9 @@ package main
 
 import (
 	"fmt"
+	"github.com/spf13/cobra"
 	mlbClients "goalfeed/clients/leagues/mlb"
 	nhlClients "goalfeed/clients/leagues/nhl"
-	"goalfeed/config"
 	"goalfeed/models"
 	"goalfeed/services/leagues"
 	"goalfeed/services/leagues/mlb"
@@ -13,13 +13,24 @@ import (
 	"goalfeed/targets/pusher"
 	"goalfeed/targets/redis"
 	"goalfeed/utils"
+	"os"
 	"sync"
 	"time"
 
-	"github.com/bugsnag/bugsnag-go/v2"
 	"github.com/joho/godotenv"
 )
 
+var version string // This will be populated by the build process
+
+var rootCmd = &cobra.Command{
+	Use:   "goalfeed",
+	Short: "Goalfeed main application",
+	Long:  `Starts the Goalfeed application.`,
+	Run: func(cmd *cobra.Command, args []string) {
+		initialize()
+		runTickers()
+	},
+}
 var (
 	leagueServices = map[int]leagues.ILeagueService{}
 	needRefresh    = false
@@ -28,16 +39,14 @@ var (
 
 func init() {
 	_ = godotenv.Load()
-	bugsnag.Configure(bugsnag.Configuration{
-		APIKey:          config.GetString("BUGSNAG_API_KEY"),
-		ReleaseStage:    config.GetString("RELEASE_STAGE"),
-		ProjectPackages: []string{"main", "github.com/org/myapp"},
-	})
 }
 
 func main() {
-	initialize()
-	runTickers()
+	rootCmd.Version = version
+	if err := rootCmd.Execute(); err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
 }
 
 func runTickers() {
