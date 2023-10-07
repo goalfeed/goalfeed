@@ -10,33 +10,33 @@ Goalfeed allows users to specify which NHL and MLB teams they want to watch. Thi
 
 You can specify the NHL and MLB teams you want to watch using flags:
 
-\```bash
+```bash
 goalfeed --watch.nhl <team1,team2,...> --watch.mlb <team1,team2,...>
-\```
+```
 
 For example:
 
-\```bash
+```bash
 goalfeed --watch.nhl "WPG" --watch.mlb "TOR"
-\```
+```
 
 ### Using a YAML Configuration File
 
 You can also use a YAML configuration file to specify the teams you want to watch. Here's an example of the structure:
 
-\```yaml
+```yaml
 watch:
 nhl:
 - WPG
 mlb:
 - TOR
-\```
+```
 
 Save this configuration to a file, for example, `config.yaml`. Then, you can run Goalfeed with the configuration file:
 
-\```bash
+```bash
 goalfeed --config /path/to/config.yaml
-\```
+```
 
 Ensure that the path to the configuration file is correctly specified.
 
@@ -46,16 +46,16 @@ Goalfeed supports the use of environment variables for configuration. This is pa
 
 To specify teams using environment variables:
 
-\```bash
+```bash
 export GOALFEED_WATCH_NHL="WPG"
 export GOALFEED_WATCH_MLB="TOR"
-\```
+```
 
 Then, simply run the `goalfeed` command without any flags:
 
-\```bash
+```bash
 goalfeed
-\```
+```
 
 Goalfeed will pick up the environment variables and use them for configuration.
 
