@@ -1,4 +1,4 @@
-package redis
+package memoryStore
 
 import (
 	"encoding/json"
