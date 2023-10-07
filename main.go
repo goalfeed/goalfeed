@@ -12,7 +12,7 @@ import (
 	"goalfeed/services/leagues/mlb"
 	"goalfeed/services/leagues/nhl"
 	"goalfeed/targets/homeassistant"
-	"goalfeed/targets/redis"
+	"goalfeed/targets/memoryStore"
 	"goalfeed/utils"
 	"os"
 	"strings"
@@ -116,8 +116,8 @@ func checkForNewActiveGames(service leagues.ILeagueService) {
 			teamIsMonitoredByLeague(game.CurrentState.Away.Team.TeamCode, service.GetLeagueName()) {
 			if !gameIsMonitored(game) {
 				logger.Info(fmt.Sprintf("Adding %s game (%s @ %s) to active monitored games", service.GetLeagueName(), game.CurrentState.Away.Team.TeamCode, game.CurrentState.Home.Team.TeamCode))
-				redis.SetGame(game)
-				redis.AppendActiveGame(game)
+				memoryStore.SetGame(game)
+				memoryStore.AppendActiveGame(game)
 			}
 		} else {
 			logger.Info(fmt.Sprintf("Skipping %s game (%s @ %s) as teams are not being monitored", service.GetLeagueName(), game.CurrentState.Away.Team.TeamCode, game.CurrentState.Home.Team.TeamCode))
@@ -126,7 +126,7 @@ func checkForNewActiveGames(service leagues.ILeagueService) {
 }
 
 func gameIsMonitored(game models.Game) bool {
-	for _, activeGameKey := range redis.GetActiveGameKeys() {
+	for _, activeGameKey := range memoryStore.GetActiveGameKeys() {
 		if activeGameKey == game.GetGameKey() {
 			return true
 		}
@@ -135,17 +135,17 @@ func gameIsMonitored(game models.Game) bool {
 }
 
 func watchActiveGames() {
-	for _, gameKey := range redis.GetActiveGameKeys() {
+	for _, gameKey := range memoryStore.GetActiveGameKeys() {
 		go checkGame(gameKey)
 	}
 }
 
 func checkGame(gameKey string) {
-	game, err := redis.GetGameByGameKey(gameKey)
+	game, err := memoryStore.GetGameByGameKey(gameKey)
 	if err != nil {
 		logger.Error(err.Error())
 		logger.Error(fmt.Sprintf("[%s] Game not found, skipping", gameKey))
-		redis.DeleteActiveGameKey(gameKey)
+		memoryStore.DeleteActiveGameKey(gameKey)
 		needRefresh = true
 		return
 	}
@@ -153,7 +153,7 @@ func checkGame(gameKey string) {
 	service := leagueServices[int(game.LeagueId)]
 	logger.Info(fmt.Sprintf("[%s - %s %d @ %s %d] Checking", service.GetLeagueName(), game.CurrentState.Away.Team.TeamCode, game.CurrentState.Away.Score, game.CurrentState.Home.Team.TeamCode, game.CurrentState.Home.Score))
 	game.IsFetching = true
-	redis.SetGame(game)
+	memoryStore.SetGame(game)
 
 	updateChan := make(chan models.GameUpdate)
 	eventChan := make(chan []models.Event)
@@ -165,10 +165,11 @@ func checkGame(gameKey string) {
 
 	if game.CurrentState.Status == models.StatusEnded {
 		logger.Info(fmt.Sprintf("[%s - %s @ %s] Game has ended", service.GetLeagueName(), game.CurrentState.Away.Team.TeamCode, game.CurrentState.Home.Team.TeamCode))
-		redis.DeleteActiveGame(game)
+		memoryStore.DeleteActiveGame(game)
+		memoryStore.DeleteActiveGameKey(game.GetGameKey()) // Ensure the game key is removed from active game keys
 	} else {
 		game.IsFetching = false
-		redis.SetGame(game)
+		memoryStore.SetGame(game)
 	}
 }
 
