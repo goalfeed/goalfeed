@@ -18,6 +18,10 @@ func TestTeamIsMonitoredByLeague(t *testing.T) {
 	viper.Set("watch.mlb", []string{"TOR"})
 	assert.True(t, teamIsMonitoredByLeague("WPG", "nhl"), "Expected TOR to be monitored for NHL based on command-line arguments")
 
+	// Test with different cases
+	assert.True(t, teamIsMonitoredByLeague("wpg", "nhl"), "Expected wpg (in lowercase) to be monitored for NHL")
+	assert.True(t, teamIsMonitoredByLeague("WpG", "nhl"), "Expected WpG (in mixed case) to be monitored for NHL")
+
 	// Test with configuration
 	viper.SetConfigName("config.example")
 	viper.AddConfigPath(".")
