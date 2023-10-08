@@ -6,16 +6,10 @@ import (
 	"goalfeed/services/leagues"
 	"testing"
 
-	"github.com/joho/godotenv"
 	"github.com/stretchr/testify/assert"
-	"log"
 )
 
 func init() {
-	err := godotenv.Load("../../../.env")
-	if err != nil {
-		log.Fatal(err)
-	}
 }
 
 func TestGetEvents(t *testing.T) {
@@ -92,5 +86,10 @@ func TestGetGameUpdate(t *testing.T) {
 	assert.Equal(t, update.OldState.Home.Score, activeGame.CurrentState.Home.Score)
 	assert.Equal(t, update.NewState.Away.Score, newAway)
 	assert.Equal(t, update.NewState.Home.Score, newHome)
+}
 
+func TestGetLeagueName(t *testing.T) {
+	var mockClient = nhlClients.MockNHLApiClient{}
+	service := getMockService(mockClient)
+	assert.Equal(t, "NHL", service.GetLeagueName())
 }
