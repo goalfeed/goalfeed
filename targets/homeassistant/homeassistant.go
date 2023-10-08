@@ -5,9 +5,12 @@ import (
 	"encoding/json"
 	"goalfeed/config"
 	"goalfeed/models"
+	"goalfeed/utils"
 	"net/http"
 	"os"
 )
+
+var logger = utils.GetLogger()
 
 func SendEvent(event models.Event) {
 	// Detect if running inside Home Assistant add-on environment
@@ -17,13 +20,15 @@ func SendEvent(event models.Event) {
 	// If not running inside Home Assistant, use the existing configuration
 	if homeAssistantURL == "" {
 		homeAssistantURL = config.GetString("home_assistant.url")
+	} else {
+		homeAssistantURL = homeAssistantURL + "/core/"
 	}
 	if accessToken == "" {
 		accessToken = config.GetString("home_assistant.access_token")
 	}
 
 	// Construct the URL for the Home Assistant event endpoint
-	url := homeAssistantURL + "/core/api/events/goal"
+	url := homeAssistantURL + "/api/events/goal"
 
 	// Convert the event to JSON
 	jsonData, err := json.Marshal(event)
@@ -45,12 +50,14 @@ func SendEvent(event models.Event) {
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		panic("Failed to send event to Home Assistant")
+		logger.Warn(err)
+		logger.Warn("Failed to send event to Home Assistant")
 	}
 	defer resp.Body.Close()
 
 	// Handle non-2xx status codes (you can expand on this as needed)
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		panic("Failed to send event to Home Assistant")
+		logger.Warn(resp.Status)
+		logger.Warn("Failed to send event to Home Assistant")
 	}
 }
