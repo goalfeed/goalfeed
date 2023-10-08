@@ -6,14 +6,24 @@ import (
 	"goalfeed/config"
 	"goalfeed/models"
 	"net/http"
+	"os"
 )
 
 func SendEvent(event models.Event) {
-	homeAssistantURL := config.GetString("home_assistant.url")
-	accessToken := config.GetString("home_assistant.access_token")
+	// Detect if running inside Home Assistant add-on environment
+	homeAssistantURL := os.Getenv("SUPERVISOR_API")
+	accessToken := os.Getenv("SUPERVISOR_TOKEN")
+
+	// If not running inside Home Assistant, use the existing configuration
+	if homeAssistantURL == "" {
+		homeAssistantURL = config.GetString("home_assistant.url")
+	}
+	if accessToken == "" {
+		accessToken = config.GetString("home_assistant.access_token")
+	}
 
 	// Construct the URL for the Home Assistant event endpoint
-	url := homeAssistantURL + "/api/events/goal"
+	url := homeAssistantURL + "/core/api/events/goal"
 
 	// Convert the event to JSON
 	jsonData, err := json.Marshal(event)
