@@ -1,21 +1,13 @@
 package iihf
 
 import (
-	"github.com/joho/godotenv"
 	"github.com/stretchr/testify/assert"
 	iihfClients "goalfeed/clients/leagues/iihf"
 	"goalfeed/models"
 	"goalfeed/services/leagues"
 	"testing"
-	"log"
 )
 
-func init() {
-	err := godotenv.Load("../../../.env")
-	if err != nil {
-		log.Fatal(err)
-	}
-}
 func TestGetEvents(t *testing.T) {
 
 	var mockClient = iihfClients.MockIIHFApiClient{}
