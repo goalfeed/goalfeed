@@ -51,6 +51,9 @@ func init() {
 }
 
 func main() {
+
+	homeAssistantURL := os.Getenv("SUPERVISOR_API")
+	fmt.Println(homeAssistantURL)
 	rootCmd.Version = version
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println(err)
