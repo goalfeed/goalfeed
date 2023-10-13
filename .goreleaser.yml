@@ -24,7 +24,6 @@ archives:
   - id: goalfeed
     format: tar.gz
     files:
-      - LICENSE
       - README.md
 
 release:
