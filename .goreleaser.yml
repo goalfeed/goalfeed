@@ -5,7 +5,7 @@ before:
 
 builds:
   - id: goalfeed
-    main: ./cmd/your-app/main.go
+    main: ./main.go
     binary: goalfeed
     goos:
       - linux
