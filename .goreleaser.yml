@@ -1,0 +1,33 @@
+before:
+  hooks:
+    - go mod tidy
+    - go generate ./...
+
+builds:
+  - id: goalfeed
+    main: ./cmd/your-app/main.go
+    binary: goalfeed
+    goos:
+      - linux
+      - windows
+      - darwin
+    goarch:
+      - arm
+      - arm64
+      - amd64
+      - 386
+    goarm:
+      - 6  # for armhf
+      - 7  # for armv7
+
+archives:
+  - id: goalfeed
+    format: tar.gz
+    files:
+      - README.md
+
+release:
+  github:
+    owner: goalfeed
+    name: goalfeed
+
