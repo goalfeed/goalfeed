@@ -21,7 +21,7 @@ func SendEvent(event models.Event) {
 	if homeAssistantURL == "" {
 		homeAssistantURL = config.GetString("home_assistant.url")
 	} else {
-		homeAssistantURL = homeAssistantURL + "/core/"
+		homeAssistantURL = homeAssistantURL + "/core"
 	}
 	if accessToken == "" {
 		accessToken = config.GetString("home_assistant.access_token")
