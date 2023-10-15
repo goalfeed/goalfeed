@@ -69,9 +69,6 @@ jobs:
         id: get-tag
         run: echo "::set-output name=tag::$(git describe --tags --abbrev=0)"
 
-      - name: Install GH CLI
-        uses: cli/gh-action@v1
-
       - name: Clone target repository and create PR using GH CLI
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
