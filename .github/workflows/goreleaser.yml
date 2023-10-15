@@ -80,13 +80,14 @@ jobs:
       - name: Check out code
         uses: actions/checkout@v2
 
-      - name: Extract version from tag
+      - name: Extract version from latest release using GH CLI
         id: extract-version
         run: |
-          TAG=$(git describe --tags --abbrev=0)
+          TAG=$(gh release list --limit 1 --repo goalfeed/goalfeed | awk '{print $1}')  # Get the latest release tag
           VERSION="${TAG#v}"  # Remove the 'v' prefix for config.yaml
           echo "::set-output name=version_config::\"$VERSION\""  # Wrap in double quotes for config.yaml
           echo "::set-output name=version_docker::$TAG"  # Keep 'v' prefix for Dockerfile
+        shell: bash
 
       - name: Clone target repository and create PR using GH CLI
         env:
