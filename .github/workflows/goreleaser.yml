@@ -6,7 +6,22 @@ on:
       - 'main'
 
 jobs:
+  run-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v2
+
+      - name: Set up Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: '^1.21'
+
+      - name: Run tests
+        run: go test ./...
+
   bump-version:
+    needs: run-tests
     runs-on: ubuntu-latest
     steps:
       - name: Check out code
@@ -57,3 +72,28 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  create-pr:
+    needs: goreleaser
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v2
+
+      - name: Get latest release tag
+        id: get-tag
+        run: echo "::set-output name=tag::$(git describe --tags --abbrev=0)"
+
+      - name: Create PR in hassio-goalfeed-repository
+        uses: peter-evans/create-pull-request@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "Update Goalfeed Addon to version ${{ steps.get-tag.outputs.tag }}"
+          title: "Update Goalfeed Addon to version ${{ steps.get-tag.outputs.tag }}"
+          branch: "update-version-${{ steps.get-tag.outputs.tag }}"
+          base: "main"
+          repository: "goalfeed/hassio-goalfeed-repository"
+          path: "goalfeed"
+          modify-files: |
+            sed -i 's/^version: .*/version: ${{ steps.get-tag.outputs.tag }}/' config.yaml
+            sed -i 's/ARG GOALFEED_VERSION=.*/ARG GOALFEED_VERSION=${{ steps.get-tag.outputs.tag }}/' Dockerfile
