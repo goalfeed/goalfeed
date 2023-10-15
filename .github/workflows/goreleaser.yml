@@ -82,6 +82,8 @@ jobs:
 
       - name: Extract version from latest release using GH CLI
         id: extract-version
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           TAG=$(gh release list --limit 1 --repo goalfeed/goalfeed | awk '{print $1}')  # Get the latest release tag
           VERSION="${TAG#v}"  # Remove the 'v' prefix for config.yaml
