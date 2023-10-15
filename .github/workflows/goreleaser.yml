@@ -89,7 +89,8 @@ jobs:
           echo "::set-output name=version_config::\"$VERSION\""  # Wrap in double quotes for config.yaml
           echo "::set-output name=version_docker::$TAG"  # Keep 'v' prefix for Dockerfile
         shell: bash
-      - name: Clone target repository, modify files, and create PR
+
+      - name: Update target repository and create PR
         env:
           GH_TOKEN: ${{ secrets.HASSIO_REPO_PR_TOKEN }}
         run: |
@@ -102,16 +103,20 @@ jobs:
           cd hassio-goalfeed-repository/goalfeed
           
           # Modify the files using the extracted version
-          sed -i 's/^version: .*/version: ${{ steps.extract-version.outputs.version_config }}/' config.yaml
+          sed -i 's/^version: .*/version: "${{ steps.extract-version.outputs.version_config }}"/' config.yaml
           sed -i 's/ARG GOALFEED_VERSION=.*/ARG GOALFEED_VERSION=${{ steps.extract-version.outputs.version_docker }}/' Dockerfile
           
-          # Commit and push changes
+          # Commit changes
           BRANCH_NAME="update-version-${{ steps.extract-version.outputs.version_config }}"
           git checkout -b "$BRANCH_NAME"
           git add .
           git commit -m "Update to version ${{ steps.extract-version.outputs.version_config }}"
+          
+          # Set the remote URL to include the GITHUB_TOKEN for authentication
+          git remote set-url origin https://x-access-token:${GH_TOKEN}@github.com/goalfeed/hassio-goalfeed-repository.git
+          
+          # Push changes
           git push origin "$BRANCH_NAME"
           
           # Create PR using GH CLI with the token directly
           gh pr create --base main --head "$BRANCH_NAME" --title "Update to version ${{ steps.extract-version.outputs.version_config }}" --body "This PR updates the version to ${{ steps.extract-version.outputs.version_config }}." --repo goalfeed/hassio-goalfeed-repository --token $GH_TOKEN
-        shell: bash
