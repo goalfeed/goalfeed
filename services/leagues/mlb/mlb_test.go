@@ -6,18 +6,8 @@ import (
 	"goalfeed/services/leagues"
 	"testing"
 
-	"log"
-
-	"github.com/joho/godotenv"
 	"github.com/stretchr/testify/assert"
 )
-
-func init() {
-	err := godotenv.Load("../../../.env")
-	if err != nil {
-		log.Fatal(err)
-	}
-}
 
 func TestGetEvents(t *testing.T) {
 
