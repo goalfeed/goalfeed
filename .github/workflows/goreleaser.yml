@@ -103,7 +103,7 @@ jobs:
           cd hassio-goalfeed-repository/goalfeed
           
           # Modify the files using the extracted version
-          sed -i 's/^version: .*/version: "${{ steps.extract-version.outputs.version_config }}"/' config.yaml
+          sed -i 's/^version: .*/version: ${{ steps.extract-version.outputs.version_config }}/' config.yaml
           sed -i 's/ARG GOALFEED_VERSION=.*/ARG GOALFEED_VERSION=${{ steps.extract-version.outputs.version_docker }}/' Dockerfile
           
           # Commit changes
@@ -119,4 +119,4 @@ jobs:
           git push origin "$BRANCH_NAME"
           
           # Create PR using GH CLI with the token directly
-          gh pr create --base main --head "$BRANCH_NAME" --title "Update to version ${{ steps.extract-version.outputs.version_config }}" --body "This PR updates the version to ${{ steps.extract-version.outputs.version_config }}." --repo goalfeed/hassio-goalfeed-repository --token $GH_TOKEN
+          gh pr create --base main --head "$BRANCH_NAME" --title "Update to version ${{ steps.extract-version.outputs.version_config }}" --body "This PR updates the version to ${{ steps.extract-version.outputs.version_config }}." --repo goalfeed/hassio-goalfeed-repository
