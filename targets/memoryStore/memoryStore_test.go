@@ -60,4 +60,39 @@ func TestGameByGameKey(t *testing.T) {
 	}
 }
 
+func TestActiveGamesCRUD(t *testing.T) {
+	// Create a sample game
+	game := models.Game{
+		GameCode: "game1",
+		LeagueId: 1,
+	}
+
+	// Add the game
+	AppendActiveGame(game)
+
+	// Check if the game is in the active games list
+	activeGames := GetActiveGameKeys()
+	found := false
+	for _, gameKey := range activeGames {
+		if gameKey == game.GetGameKey() {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("Expected game with key %s to be in the active games list", game.GetGameKey())
+	}
+
+	// Delete the game
+	DeleteActiveGame(game)
+
+	// Check if the game is no longer in the active games list
+	activeGames = GetActiveGameKeys()
+	for _, gameKey := range activeGames {
+		if gameKey == game.GetGameKey() {
+			t.Fatalf("Did not expect game with key %s to be in the active games list after deletion", game.GetGameKey())
+		}
+	}
+}
+
 // Add more tests as needed for other functions
