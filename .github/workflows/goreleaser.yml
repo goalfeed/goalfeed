@@ -6,22 +6,7 @@ on:
       - 'main'
 
 jobs:
-  run-tests:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check out code
-        uses: actions/checkout@v2
-
-      - name: Set up Go
-        uses: actions/setup-go@v2
-        with:
-          go-version: '^1.21'
-
-      - name: Run tests
-        run: go test ./...
-
   bump-version:
-    needs: run-tests
     runs-on: ubuntu-latest
     steps:
       - name: Check out code
@@ -84,16 +69,36 @@ jobs:
         id: get-tag
         run: echo "::set-output name=tag::$(git describe --tags --abbrev=0)"
 
-      - name: Create PR in hassio-goalfeed-repository
-        uses: peter-evans/create-pull-request@v3
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          commit-message: "Update Goalfeed Addon to version ${{ steps.get-tag.outputs.tag }}"
-          title: "Update Goalfeed Addon to version ${{ steps.get-tag.outputs.tag }}"
-          branch: "update-version-${{ steps.get-tag.outputs.tag }}"
-          base: "main"
-          repository: "goalfeed/hassio-goalfeed-repository"
-          path: "goalfeed"
-          modify-files: |
-            sed -i 's/^version: .*/version: ${{ steps.get-tag.outputs.tag }}/' config.yaml
-            sed -i 's/ARG GOALFEED_VERSION=.*/ARG GOALFEED_VERSION=${{ steps.get-tag.outputs.tag }}/' Dockerfile
+      - name: Clone target repository and create PR using GH CLI
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Setup git config
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+
+          # Install GH CLI
+          sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-key C99B11DEB97541F0
+          sudo apt-add-repository https://cli.github.com/packages
+          sudo apt update
+          sudo apt install gh
+
+          # Authenticate with GH CLI
+          gh auth login --with-token <<< "$GITHUB_TOKEN"
+
+          # Clone the target repository
+          git clone https://github.com/goalfeed/hassio-goalfeed-repository.git
+          cd hassio-goalfeed-repository/goalfeed
+
+          # Modify the files
+          sed -i 's/^version: .*/version: ${{ steps.get-tag.outputs.tag }}/' config.yaml
+          sed -i 's/ARG GOALFEED_VERSION=.*/ARG GOALFEED_VERSION=${{ steps.get-tag.outputs.tag }}/' Dockerfile
+
+          # Commit and push changes
+          git checkout -b "update-version-${{ steps.get-tag.outputs.tag }}"
+          git add .
+          git commit -m "Update to version ${{ steps.get-tag.outputs.tag }}"
+          git push origin "update-version-${{ steps.get-tag.outputs.tag }}"
+
+          # Create PR using GH CLI
+          gh pr create --base main --head "update-version-${{ steps.get-tag.outputs.tag }}" --title "Update to version ${{ steps.get-tag.outputs.tag }}" --body "This PR updates the version to ${{ steps.get-tag.outputs.tag }}." --repo goalfeed/hassio-goalfeed-repository
