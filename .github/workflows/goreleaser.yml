@@ -69,6 +69,9 @@ jobs:
         id: get-tag
         run: echo "::set-output name=tag::$(git describe --tags --abbrev=0)"
 
+      - name: Install GH CLI
+        uses: cli/gh-action@v1
+
       - name: Clone target repository and create PR using GH CLI
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -76,12 +79,6 @@ jobs:
           # Setup git config
           git config --global user.name "GitHub Actions"
           git config --global user.email "actions@github.com"
-
-          # Install GH CLI
-          sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-key C99B11DEB97541F0
-          sudo apt-add-repository https://cli.github.com/packages
-          sudo apt update
-          sudo apt install gh
 
           # Authenticate with GH CLI
           gh auth login --with-token <<< "$GITHUB_TOKEN"
