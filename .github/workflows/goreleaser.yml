@@ -91,30 +91,29 @@ jobs:
           echo "::set-output name=version_docker::$TAG"  # Keep 'v' prefix for Dockerfile
         shell: bash
 
-      - name: Clone target repository and create PR using GH CLI
+      - name: Clone target repository, modify files, and create PR
         env:
           GH_TOKEN: ${{ secrets.HASSIO_REPO_PR_TOKEN }}
         run: |
           # Setup git config
           git config --global user.name "GitHub Actions"
           git config --global user.email "actions@github.com"
-
-          # Authenticate with GH CLI using the organizational secret
-          gh auth login --with-token <<< "$GH_TOKEN"
-
+          
           # Clone the target repository
           git clone https://github.com/goalfeed/hassio-goalfeed-repository.git
           cd hassio-goalfeed-repository/goalfeed
-
-          # Modify the files
+          
+          # Modify the files using the extracted version
           sed -i 's/^version: .*/version: ${{ steps.extract-version.outputs.version_config }}/' config.yaml
           sed -i 's/ARG GOALFEED_VERSION=.*/ARG GOALFEED_VERSION=${{ steps.extract-version.outputs.version_docker }}/' Dockerfile
-
+          
           # Commit and push changes
-          git checkout -b "update-version-${{ steps.extract-version.outputs.version_config }}"
+          BRANCH_NAME="update-version-${{ steps.extract-version.outputs.version_config }}"
+          git checkout -b "$BRANCH_NAME"
           git add .
           git commit -m "Update to version ${{ steps.extract-version.outputs.version_config }}"
-          git push origin "update-version-${{ steps.extract-version.outputs.version_config }}"
-
-          # Create PR using GH CLI
-          gh pr create --base main --head "update-version-${{ steps.extract-version.outputs.version_config }}" --title "Update to version ${{ steps.extract-version.outputs.version_config }}" --body "This PR updates the version to ${{ steps.extract-version.outputs.version_config }}." --repo goalfeed/hassio-goalfeed-repository
+          git push origin "$BRANCH_NAME"
+          
+          # Create PR using GH CLI with the token directly
+          gh pr create --base main --head "$BRANCH_NAME" --title "Update to version ${{ steps.extract-version.outputs.version_config }}" --body "This PR updates the version to ${{ steps.extract-version.outputs.version_config }}." --repo goalfeed/hassio-goalfeed-repository --token $GH_TOKEN
+        shell: bash
