@@ -88,9 +88,6 @@ jobs:
           echo "::set-output name=version_config::\"$VERSION\""  # Wrap in double quotes for config.yaml
           echo "::set-output name=version_docker::$TAG"  # Keep 'v' prefix for Dockerfile
 
-      - name: Install GH CLI
-        uses: cli/gh-action@v1
-
       - name: Clone target repository and create PR using GH CLI
         env:
           GH_TOKEN: ${{ secrets.HASSIO_REPO_PR_TOKEN }}
