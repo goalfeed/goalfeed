@@ -32,10 +32,6 @@ func GetActiveGameKeys() []string {
 }
 
 func SetActiveGameKeys(gameCodes []string) {
-	if len(gameCodes) < 1 {
-		return
-	}
-
 	gamesByte, _ := json.Marshal(gameCodes)
 	storageMutex.Lock()
 	storage[ACTIVE_GAME_CODES_KEY] = string(gamesByte)
