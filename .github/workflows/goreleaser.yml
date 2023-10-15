@@ -4,9 +4,6 @@ on:
   push:
     branches:
       - 'main'
-  pull_request:
-    branches:
-      - 'main'
 
 jobs:
   run-tests:
@@ -24,7 +21,6 @@ jobs:
         run: go test ./...
 
   bump-version:
-    if: github.event_name == 'push'
     needs: run-tests
     runs-on: ubuntu-latest
     steps:
@@ -55,7 +51,6 @@ jobs:
           GIT_COMMITTER_EMAIL: github-actions@github.com
 
   goreleaser:
-    if: github.event_name == 'push'
     needs: bump-version
     runs-on: ubuntu-latest
     steps:
