@@ -43,10 +43,12 @@ func init() {
 	_ = godotenv.Load()
 	rootCmd.PersistentFlags().StringSlice("nhl", []string{}, "NHL teams to watch")
 	rootCmd.PersistentFlags().StringSlice("mlb", []string{}, "MLB teams to watch")
+	rootCmd.PersistentFlags().Bool("test-goals", false, "Enable or disable sending test goals every minute")
 
 	// Bind these flags to viper
 	viper.BindPFlag("watch.nhl", rootCmd.PersistentFlags().Lookup("nhl"))
 	viper.BindPFlag("watch.mlb", rootCmd.PersistentFlags().Lookup("mlb"))
+	viper.BindPFlag("test-goals", rootCmd.PersistentFlags().Lookup("test-goals"))
 
 }
 
@@ -179,7 +181,9 @@ func checkGame(gameKey string) {
 func fireGoalEvents(events chan []models.Event, game models.Game) {
 	for _, event := range <-events {
 		logger.Info(fmt.Sprintf("Goal %s", event.TeamCode))
-		go homeassistant.SendEvent(event)
+		if teamIsMonitoredByLeague(event.TeamCode, leagueServices[int(game.LeagueId)].GetLeagueName()) {
+			go homeassistant.SendEvent(event)
+		}
 	}
 }
 func teamIsMonitoredByLeague(teamCode, leagueName string) bool {
@@ -199,6 +203,10 @@ func teamIsMonitoredByLeague(teamCode, leagueName string) bool {
 	return false
 }
 func sendTestGoal() {
+	if !viper.GetBool("test-goals") {
+		logger.Info("Test goals are disabled. Skipping sending test goal.")
+		return
+	}
 	logger.Info("Sending test goal")
 	go homeassistant.SendEvent(models.Event{
 		TeamCode:   "TEST",
