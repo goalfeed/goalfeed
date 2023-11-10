@@ -58,7 +58,7 @@ func TestGetActiveGames(t *testing.T) {
 	service := getMockService(mockClient)
 	go service.GetActiveGames(gamesChan)
 	activeGames := <-gamesChan
-	assert.Equal(t, len(activeGames), 1)
+	assert.Equal(t, 9, len(activeGames))
 }
 
 func getActiveGame(service leagues.ILeagueService) models.Game {

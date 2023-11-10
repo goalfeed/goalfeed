@@ -1,21 +1,21 @@
 package nhl
 
 import (
-	"encoding/json"
 	"fmt"
 	"goalfeed/clients/leagues/nhl"
 	"goalfeed/models"
 	"goalfeed/utils"
-	"math/rand"
 	"strconv"
 	"strings"
 	"time"
 )
 
 const (
-	STATUS_UPCOMING = "Preview"
-	STATUS_ACTIVE   = "Live"
-	STATUS_FINAL    = "Final"
+	STATUS_UPCOMING = "PRE"
+	STATUS_OFF      = "OFF"
+	STATUS_FUT      = "FUT"
+	STATUS_ACTIVE   = "LIVE"
+	STATUS_FINAL    = "FINAL"
 )
 
 type NHLService struct {
@@ -36,7 +36,7 @@ func (s NHLService) GetActiveGames(ret chan []models.Game) {
 	schedule := s.getSchedule()
 	var activeGames []models.Game
 
-	for _, date := range schedule.Dates {
+	for _, date := range schedule.GameWeek {
 		for _, game := range date.Games {
 			if gameStatusFromScheduleGame(game) == models.StatusActive {
 				activeGames = append(activeGames, s.gameFromSchedule(game))
@@ -47,13 +47,7 @@ func (s NHLService) GetActiveGames(ret chan []models.Game) {
 }
 
 func (s NHLService) GetGameUpdate(game models.Game, ret chan models.GameUpdate) {
-	fullCheckLotto := rand.Intn(180)
-	if game.CurrentState.ExtTimestamp != "" && fullCheckLotto != 1 {
-		s.getGameUpdateFromDiffPatch(game, ret)
-		// s.getGameUpdateFromScoreboard(game, ret)
-	} else {
-		s.getGameUpdateFromScoreboard(game, ret)
-	}
+	s.getGameUpdateFromScoreboard(game, ret)
 }
 func fudgeTimestamp(extTimestamp string) string {
 
@@ -66,88 +60,18 @@ func fudgeTimestamp(extTimestamp string) string {
 
 }
 
-func (s NHLService) getGameUpdateFromDiffPatch(game models.Game, ret chan models.GameUpdate) {
-
-	diff, err := s.Client.GetDiffPatch(game.GameCode, fudgeTimestamp(game.CurrentState.ExtTimestamp))
-	if err != nil {
-		s.getGameUpdateFromScoreboard(game, ret)
-		return
-	}
-	timestampPath := "/metaData/timeStamp"
-	homeGoalPath := "/liveData/linescore/teams/home/goals"
-	awayGoalPath := "/liveData/linescore/teams/away/goals"
-	statusCodePath := "/gameData/status/statusCode"
-	var extTimestamp string
-	var homeScore int
-	var awayScore int
-	var statusCode string
-	var status models.GameStatus
-
-	for _, set := range diff {
-		for _, item := range set.Diff {
-			logger.Debug(fmt.Sprintf("Path: %s", item.Path))
-			if item.Path == timestampPath {
-				json.Unmarshal(item.Value, &extTimestamp)
-			} else if item.Path == homeGoalPath {
-				logger.Info(fmt.Sprintf("Home score change - %s", game.CurrentState.Home.Team.TeamName))
-				json.Unmarshal(item.Value, &homeScore)
-			} else if item.Path == awayGoalPath {
-				logger.Info(fmt.Sprintf("Away score change - %s", game.CurrentState.Away.Team.TeamName))
-				json.Unmarshal(item.Value, &awayScore)
-			} else if item.Path == statusCodePath {
-				logger.Info("Status Code")
-				json.Unmarshal(item.Value, &statusCode)
-			}
-		}
-	}
-
-	if homeScore == 0 {
-		homeScore = game.CurrentState.Home.Score
-	}
-	if awayScore == 0 {
-		awayScore = game.CurrentState.Away.Score
-	}
-	if extTimestamp == "" {
-		extTimestamp = game.CurrentState.ExtTimestamp
-	}
-	if statusCode == "" {
-		status = game.CurrentState.Status
-	} else {
-		status = gameStatusFromStatusCode(statusCode)
-	}
-
-	newState := models.GameState{
-		Home: models.TeamState{
-			Team:  game.CurrentState.Home.Team,
-			Score: homeScore,
-		},
-		Away: models.TeamState{
-			Team:  game.CurrentState.Away.Team,
-			Score: awayScore,
-		},
-		Status:       status,
-		ExtTimestamp: extTimestamp,
-	}
-
-	ret <- models.GameUpdate{
-		OldState: game.CurrentState,
-		NewState: newState,
-	}
-}
-
 func (s NHLService) getGameUpdateFromScoreboard(game models.Game, ret chan models.GameUpdate) {
 	scoreboard := s.Client.GetNHLScoreBoard(game.GameCode)
 	newState := models.GameState{
 		Home: models.TeamState{
 			Team:  game.CurrentState.Home.Team,
-			Score: scoreboard.LiveData.Linescore.Teams.Home.Goals,
+			Score: scoreboard.HomeTeam.Score,
 		},
 		Away: models.TeamState{
 			Team:  game.CurrentState.Away.Team,
-			Score: scoreboard.LiveData.Linescore.Teams.Away.Goals,
+			Score: scoreboard.AwayTeam.Score,
 		},
-		Status:       gameStatusFromStatusCode(scoreboard.GameData.Status.StatusCode),
-		ExtTimestamp: scoreboard.MetaData.TimeStamp,
+		Status: gameStatusFromGameState(scoreboard.GameState),
 	}
 	ret <- models.GameUpdate{
 		OldState: game.CurrentState,
@@ -156,11 +80,11 @@ func (s NHLService) getGameUpdateFromScoreboard(game models.Game, ret chan model
 }
 
 func (s NHLService) teamFromScheduleTeam(scheduleTeam nhl.NHLScheduleTeam) models.Team {
-	teamResp := s.Client.GetTeam(scheduleTeam.Team.Link).Teams[0]
+	//teamResp := s.Client.GetTeam(scheduleTeam.Abbrev).Teams[0]
 	return models.Team{
-		TeamName: teamResp.Name,
-		TeamCode: teamResp.Abbreviation,
-		ExtID:    teamResp.Abbreviation,
+		TeamName: scheduleTeam.PlaceName.Default,
+		TeamCode: scheduleTeam.Abbrev,
+		ExtID:    scheduleTeam.Abbrev,
 		LeagueID: models.LeagueIdNHL,
 	}
 }
@@ -168,21 +92,29 @@ func (s NHLService) teamFromScheduleTeam(scheduleTeam nhl.NHLScheduleTeam) model
 func (s NHLService) gameFromSchedule(scheduleGame nhl.NHLScheduleResponseGame) models.Game {
 	return models.Game{
 		CurrentState: models.GameState{
-			Home:      models.TeamState{Team: s.teamFromScheduleTeam(scheduleGame.Teams.Home), Score: scheduleGame.Teams.Home.Score},
-			Away:      models.TeamState{Team: s.teamFromScheduleTeam(scheduleGame.Teams.Away), Score: scheduleGame.Teams.Away.Score},
+			Home:      models.TeamState{Team: s.teamFromScheduleTeam(scheduleGame.HomeTeam), Score: scheduleGame.HomeTeam.Score},
+			Away:      models.TeamState{Team: s.teamFromScheduleTeam(scheduleGame.AwayTeam), Score: scheduleGame.AwayTeam.Score},
 			Status:    gameStatusFromScheduleGame(scheduleGame),
 			FetchedAt: time.Now(),
 		},
-		GameCode: strconv.Itoa(scheduleGame.GamePk),
+		GameCode: strconv.Itoa(scheduleGame.ID),
 		LeagueId: models.LeagueIdNHL,
 	}
 }
 
 func gameStatusFromScheduleGame(scheduleGame nhl.NHLScheduleResponseGame) models.GameStatus {
-	switch scheduleGame.Status.AbstractGameState {
+	return gameStatusFromGameState(scheduleGame.GameState)
+}
+
+func gameStatusFromGameState(gameState string) models.GameStatus {
+	switch gameState {
 	case STATUS_FINAL:
 		return models.StatusEnded
 	case STATUS_UPCOMING:
+		return models.StatusUpcoming
+	case STATUS_FUT:
+		return models.StatusUpcoming
+	case STATUS_OFF:
 		return models.StatusUpcoming
 	case STATUS_ACTIVE:
 		return models.StatusActive
