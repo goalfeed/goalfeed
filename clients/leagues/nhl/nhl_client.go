@@ -11,19 +11,18 @@ type NHLApiClient struct {
 
 func (c NHLApiClient) GetNHLScoreBoard(gameId string) NHLScoreboardResponse {
 	var body chan []byte = make(chan []byte)
-	url := fmt.Sprintf("https://statsapi.web.nhl.com/api/v1/game/%s/feed/live", gameId)
+	url := fmt.Sprintf("https://api-web.nhle.com/v1/gamecenter/%s/landing", gameId) // Updated URL
 	go utils.GetByte(url, body)
 
 	bodyByte := <-body
 	var response NHLScoreboardResponse
-	// fmt.Println(string(bodyByte))
 	json.Unmarshal(bodyByte, &response)
 	return response
 }
 
 func (c NHLApiClient) GetNHLSchedule() NHLScheduleResponse {
 	var body chan []byte = make(chan []byte)
-	url := "https://statsapi.web.nhl.com/api/v1/schedule"
+	url := "https://api-web.nhle.com/v1/schedule/now" // Updated URL
 	go utils.GetByte(url, body)
 
 	bodyByte := <-body
@@ -32,9 +31,9 @@ func (c NHLApiClient) GetNHLSchedule() NHLScheduleResponse {
 	return response
 }
 
-func (c NHLApiClient) GetTeam(sLink string) NHLTeamResponse {
+func (c NHLApiClient) GetTeam(teamAbbr string) NHLTeamResponse {
 	var body chan []byte = make(chan []byte)
-	url := fmt.Sprintf("https://statsapi.web.nhl.com%s", sLink)
+	url := fmt.Sprintf("https://api-web.nhle.com/v1/club-schedule-season/%s/now", teamAbbr) // Updated URL
 	go utils.GetByte(url, body)
 
 	bodyByte := <-body
@@ -45,7 +44,7 @@ func (c NHLApiClient) GetTeam(sLink string) NHLTeamResponse {
 
 func (c NHLApiClient) GetDiffPatch(gameId string, timestamp string) (NHLDiffPatch, error) {
 	var body chan []byte = make(chan []byte)
-	url := fmt.Sprintf("https://statsapi.web.nhl.com/api/v1/game/%s/feed/live/diffPatch?site=en_nhl&startTimecode=%s", gameId, timestamp)
+	url := fmt.Sprintf("https://api-web.nhle.com/v1/game/%s/feed/live/diffPatch?site=en_nhl&startTimecode=%s", gameId, timestamp) // Updated URL
 	go utils.GetByte(url, body)
 
 	bodyByte := <-body

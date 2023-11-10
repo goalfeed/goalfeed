@@ -33,8 +33,8 @@ func (c MockNHLApiClient) GetNHLScoreBoard(sGameId string) NHLScoreboardResponse
 	var response NHLScoreboardResponse
 	c.GetNHLScoreBoardCalls++
 	json.Unmarshal([]byte(ActiveGameScoreboard), &response)
-	response.LiveData.Linescore.Teams.Away.Goals = awayScore
-	response.LiveData.Linescore.Teams.Home.Goals = homeScore
+	response.AwayTeam.Score = awayScore
+	response.HomeTeam.Score = homeScore
 	return response
 }
 

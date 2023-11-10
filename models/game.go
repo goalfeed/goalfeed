@@ -22,13 +22,13 @@ type TeamState struct {
 	Score int  `json:"Score"`
 }
 
-//GameState is a reflection of a games state. It contains the score and status
+// GameState is a reflection of a games state. It contains the score and status
 type GameState struct {
 	Home         TeamState  `json:"Home"`
 	Away         TeamState  `json:"Away"`
 	Status       GameStatus `json:"Status"`
 	FetchedAt    time.Time  `json:"FetchedAt"`
-	ExtTimestamp string     `json:"ExtTimestamp"`
+	ExtTimestamp string     `json:"ExtTimestamp,omitempty"`
 }
 
 type GameUpdate struct {
