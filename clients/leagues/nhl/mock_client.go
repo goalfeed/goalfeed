@@ -43,10 +43,3 @@ func (c MockNHLApiClient) GetTeam(sLink string) NHLTeamResponse {
 	json.Unmarshal([]byte(TeamResponseJson), &response)
 	return response
 }
-
-func (c MockNHLApiClient) GetDiffPatch(gameId string, timestamp string) (NHLDiffPatch, error) {
-
-	var response NHLDiffPatch
-	err := json.Unmarshal([]byte(DiffPatchResponseJson), &response)
-	return response, err
-}
