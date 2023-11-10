@@ -33,8 +33,8 @@ func (c MockNHLApiClient) GetNHLScoreBoard(sGameId string) NHLScoreboardResponse
 	var response NHLScoreboardResponse
 	c.GetNHLScoreBoardCalls++
 	json.Unmarshal([]byte(ActiveGameScoreboard), &response)
-	response.LiveData.Linescore.Teams.Away.Goals = awayScore
-	response.LiveData.Linescore.Teams.Home.Goals = homeScore
+	response.AwayTeam.Score = awayScore
+	response.HomeTeam.Score = homeScore
 	return response
 }
 
@@ -42,11 +42,4 @@ func (c MockNHLApiClient) GetTeam(sLink string) NHLTeamResponse {
 	var response NHLTeamResponse
 	json.Unmarshal([]byte(TeamResponseJson), &response)
 	return response
-}
-
-func (c MockNHLApiClient) GetDiffPatch(gameId string, timestamp string) (NHLDiffPatch, error) {
-
-	var response NHLDiffPatch
-	err := json.Unmarshal([]byte(DiffPatchResponseJson), &response)
-	return response, err
 }
