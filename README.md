@@ -1,6 +1,12 @@
 # Goalfeed
 
-Goalfeed is a service that provides real-time goal updates for NHL and MLB games. It's designed to be used with Home Assistant.
+Goalfeed is a service that provides real-time goal updates for NHL and MLB games. It's designed for Home Assistant but can be used as a standalone application.
+
+## Quickstart with Home Assistant
+
+Our wiki contains instructions for quickly getting started with Goalfeed and Home Assistant.
+- [First check out the Hassio installation page](https://github.com/goalfeed/goalfeed/wiki/Hassio-Add%E2%80%90on-Installation)
+- [Next, check out the automation tutorial](https://github.com/goalfeed/goalfeed/wiki/Goal-Automation)
 
 ## Configuration
 
