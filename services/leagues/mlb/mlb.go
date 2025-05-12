@@ -207,21 +207,19 @@ func gameStatusFromStatusCode(statusCode string) models.GameStatus {
 	}
 }
 func (s MLBService) GetEvents(update models.GameUpdate, ret chan []models.Event) {
-
 	events := append(
-		s.getGoalEvents(update.OldState.Home, update.NewState.Home),
-		s.getGoalEvents(update.OldState.Away, update.NewState.Away)...,
+		s.getGoalEvents(update.OldState.Home, update.NewState.Home, update.OldState.Away.Team),
+		s.getGoalEvents(update.OldState.Away, update.NewState.Away, update.OldState.Home.Team)...,
 	)
 	ret <- events
 }
-func (s MLBService) getGoalEvents(oldState models.TeamState, newState models.TeamState) []models.Event {
+func (s MLBService) getGoalEvents(oldState models.TeamState, newState models.TeamState, opponent models.Team) []models.Event {
 	events := []models.Event{}
 	diff := newState.Score - oldState.Score
 	if diff <= 0 {
 		return events
 	}
 	team := newState.Team
-	opponent := oldState.Team // The opponent is the other team in the game state
 
 	for i := 0; i < diff; i++ {
 		events = append(events, models.Event{
