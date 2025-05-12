@@ -2,8 +2,6 @@ package main
 
 import (
 	"fmt"
-	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 	mlbClients "goalfeed/clients/leagues/mlb"
 	nhlClients "goalfeed/clients/leagues/nhl"
 	"goalfeed/config"
@@ -18,6 +16,9 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 
 	"github.com/joho/godotenv"
 )
@@ -34,9 +35,10 @@ var rootCmd = &cobra.Command{
 	},
 }
 var (
-	leagueServices = map[int]leagues.ILeagueService{}
-	needRefresh    = false
-	logger         = utils.GetLogger()
+	leagueServices                    = map[int]leagues.ILeagueService{}
+	needRefresh                       = false
+	logger                            = utils.GetLogger()
+	eventSender    func(models.Event) = homeassistant.SendEvent // Allow this to be replaced in tests
 )
 
 func init() {
@@ -182,7 +184,7 @@ func fireGoalEvents(events chan []models.Event, game models.Game) {
 	for _, event := range <-events {
 		logger.Info(fmt.Sprintf("Goal %s", event.TeamCode))
 		if teamIsMonitoredByLeague(event.TeamCode, leagueServices[int(game.LeagueId)].GetLeagueName()) {
-			go homeassistant.SendEvent(event)
+			go eventSender(event)
 		}
 	}
 }
@@ -208,7 +210,7 @@ func sendTestGoal() {
 		return
 	}
 	logger.Info("Sending test goal")
-	go homeassistant.SendEvent(models.Event{
+	go eventSender(models.Event{
 		TeamCode:   "TEST",
 		TeamName:   "TEST",
 		LeagueId:   0,
