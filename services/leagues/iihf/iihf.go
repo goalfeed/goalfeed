@@ -114,15 +114,19 @@ func (s IIHFService) getGoalEvents(oldState models.TeamState, newState models.Te
 		return events
 	}
 	team := newState.Team
+	opponent := oldState.Team // The opponent is the other team in the game state
+
 	for i := 0; i < diff; i++ {
 		events = append(events, models.Event{
-			TeamCode:   team.TeamCode,
-			TeamName:   team.TeamName,
-			TeamHash:   team.GetTeamHash(),
-			LeagueId:   models.LeagueIdIIHF,
-			LeagueName: s.GetLeagueName(),
+			TeamCode:     team.TeamCode,
+			TeamName:     team.TeamName,
+			TeamHash:     team.GetTeamHash(),
+			LeagueId:     models.LeagueIdIIHF,
+			LeagueName:   s.GetLeagueName(),
+			OpponentCode: opponent.TeamCode,
+			OpponentName: opponent.TeamName,
+			OpponentHash: opponent.GetTeamHash(),
 		})
 	}
 	return events
-
 }
