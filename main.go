@@ -211,10 +211,13 @@ func sendTestGoal() {
 	}
 	logger.Info("Sending test goal")
 	go eventSender(models.Event{
-		TeamCode:   "TEST",
-		TeamName:   "TEST",
-		LeagueId:   0,
-		LeagueName: "TEST",
-		TeamHash:   "TESTTEST",
+		TeamCode:     "TEST",
+		TeamName:     "TEST",
+		TeamHash:     "TESTTEST",
+		LeagueId:     0,
+		LeagueName:   "TEST",
+		OpponentCode: "TEST_OPP",
+		OpponentName: "Test Opponent",
+		OpponentHash: "testopphash",
 	})
 }
