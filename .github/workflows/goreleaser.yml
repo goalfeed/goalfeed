@@ -3,7 +3,7 @@ name: Tag and Release
 on:
   push:
     branches:
-      - "main"
+      - 'main'
 
 jobs:
   run-tests:
@@ -15,7 +15,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v2
         with:
-          go-version: "^1.21"
+          go-version: '^1.21'
 
       - name: Run tests
         run: go test ./...
@@ -32,7 +32,7 @@ jobs:
         run: |
           git fetch --tags
           latestTag=$(git describe --tags `git rev-list --tags --max-count=1`)
-
+          
           if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
             # If on main branch, increment the patch version
             newTag=$(echo $latestTag | awk -F. '{$NF = $NF + 1;} 1' OFS=.)
@@ -41,7 +41,7 @@ jobs:
             branchName=$(echo "${{ github.ref }}" | sed -r "s/refs/heads\///g" | sed "s/\//-/g")
             newTag="${latestTag}-${branchName}"
           fi
-
+          
           git tag $newTag
           git push origin $newTag
           echo "NEW_TAG=${newTag}" >> $GITHUB_ENV
@@ -82,7 +82,7 @@ jobs:
       - name: Extract version from latest release using GH CLI
         id: extract-version
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.HASSIO_REPO_PR_TOKEN }}
         run: |
           TAG=$(gh release list --limit 1 --repo goalfeed/goalfeed | awk '{print $1}')  # Get the latest release tag
           VERSION="${TAG#v}"  # Remove the 'v' prefix for config.yaml
@@ -97,26 +97,26 @@ jobs:
           # Setup git config
           git config --global user.name "GitHub Actions"
           git config --global user.email "actions@github.com"
-
+          
           # Clone the target repository
           git clone https://github.com/goalfeed/hassio-goalfeed-repository.git
           cd hassio-goalfeed-repository/goalfeed
-
+          
           # Modify the files using the extracted version
           sed -i 's/^version: .*/version: ${{ steps.extract-version.outputs.version_config }}/' config.yaml
           sed -i 's/ARG GOALFEED_VERSION=.*/ARG GOALFEED_VERSION=${{ steps.extract-version.outputs.version_docker }}/' Dockerfile
-
+          
           # Commit changes
           BRANCH_NAME="update-version-${{ steps.extract-version.outputs.version_config }}"
           git checkout -b "$BRANCH_NAME"
           git add .
           git commit -m "Update to version ${{ steps.extract-version.outputs.version_config }}"
-
+          
           # Set the remote URL to include the GITHUB_TOKEN for authentication
           git remote set-url origin https://x-access-token:${GH_TOKEN}@github.com/goalfeed/hassio-goalfeed-repository.git
-
+          
           # Push changes
           git push origin "$BRANCH_NAME"
-
+          
           # Create PR using GH CLI with the token directly
           gh pr create --base main --head "$BRANCH_NAME" --title "Update to version ${{ steps.extract-version.outputs.version_config }}" --body "This PR updates the version to ${{ steps.extract-version.outputs.version_config }}." --repo goalfeed/hassio-goalfeed-repository
