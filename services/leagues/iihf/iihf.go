@@ -100,29 +100,31 @@ func gameStatusFromScheduleGame(scheduleGame iihf.IIHFScheduleResponseGame) mode
 	}
 }
 func (s IIHFService) GetEvents(update models.GameUpdate, ret chan []models.Event) {
-
 	events := append(
-		s.getGoalEvents(update.OldState.Home, update.NewState.Home),
-		s.getGoalEvents(update.OldState.Away, update.NewState.Away)...,
+		s.getGoalEvents(update.OldState.Home, update.NewState.Home, update.OldState.Away.Team),
+		s.getGoalEvents(update.OldState.Away, update.NewState.Away, update.OldState.Home.Team)...,
 	)
 	ret <- events
 }
-func (s IIHFService) getGoalEvents(oldState models.TeamState, newState models.TeamState) []models.Event {
+func (s IIHFService) getGoalEvents(oldState models.TeamState, newState models.TeamState, opponent models.Team) []models.Event {
 	events := []models.Event{}
 	diff := newState.Score - oldState.Score
 	if diff <= 0 {
 		return events
 	}
 	team := newState.Team
+
 	for i := 0; i < diff; i++ {
 		events = append(events, models.Event{
-			TeamCode:   team.TeamCode,
-			TeamName:   team.TeamName,
-			TeamHash:   team.GetTeamHash(),
-			LeagueId:   models.LeagueIdIIHF,
-			LeagueName: s.GetLeagueName(),
+			TeamCode:     team.TeamCode,
+			TeamName:     team.TeamName,
+			TeamHash:     team.GetTeamHash(),
+			LeagueId:     models.LeagueIdIIHF,
+			LeagueName:   s.GetLeagueName(),
+			OpponentCode: opponent.TeamCode,
+			OpponentName: opponent.TeamName,
+			OpponentHash: opponent.GetTeamHash(),
 		})
 	}
 	return events
-
 }
