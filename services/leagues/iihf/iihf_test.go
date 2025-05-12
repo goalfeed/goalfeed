@@ -1,15 +1,15 @@
 package iihf
 
 import (
-	"github.com/stretchr/testify/assert"
 	iihfClients "goalfeed/clients/leagues/iihf"
 	"goalfeed/models"
 	"goalfeed/services/leagues"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestGetEvents(t *testing.T) {
-
 	var mockClient = iihfClients.MockIIHFApiClient{}
 	service := getMockService(mockClient)
 	var updateChan chan models.GameUpdate = make(chan models.GameUpdate)
@@ -26,6 +26,10 @@ func TestGetEvents(t *testing.T) {
 	assert.Equal(t, activeGame.CurrentState.Away.Team.TeamName, events[0].TeamName)
 	assert.Equal(t, activeGame.CurrentState.Away.Team.LeagueID, events[0].LeagueId)
 	assert.Equal(t, service.GetLeagueName(), events[0].LeagueName)
+	assert.Equal(t, activeGame.CurrentState.Home.Team.TeamCode, events[0].OpponentCode)
+	assert.Equal(t, activeGame.CurrentState.Home.Team.GetTeamHash(), events[0].OpponentHash)
+	assert.Equal(t, activeGame.CurrentState.Home.Team.TeamName, events[0].OpponentName)
+
 	activeGame.CurrentState = update.NewState
 	newHome := activeGame.CurrentState.Home.Score + 2
 	mockClient.SetHomeScore(newHome)
@@ -39,7 +43,9 @@ func TestGetEvents(t *testing.T) {
 	assert.Equal(t, activeGame.CurrentState.Home.Team.TeamName, events[0].TeamName)
 	assert.Equal(t, activeGame.CurrentState.Home.Team.LeagueID, events[0].LeagueId)
 	assert.Equal(t, service.GetLeagueName(), events[0].LeagueName)
-
+	assert.Equal(t, activeGame.CurrentState.Away.Team.TeamCode, events[0].OpponentCode)
+	assert.Equal(t, activeGame.CurrentState.Away.Team.GetTeamHash(), events[0].OpponentHash)
+	assert.Equal(t, activeGame.CurrentState.Away.Team.TeamName, events[0].OpponentName)
 }
 
 func getMockService(mockClient iihfClients.MockIIHFApiClient) leagues.ILeagueService {

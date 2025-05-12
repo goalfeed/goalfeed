@@ -182,7 +182,18 @@ func TestCheckGame(t *testing.T) {
 		},
 	}
 
-	events := []models.Event{}
+	events := []models.Event{
+		{
+			TeamCode:     "WPG",
+			TeamName:     "Winnipeg",
+			TeamHash:     "testhash",
+			LeagueId:     int(models.LeagueIdNHL),
+			LeagueName:   "NHL",
+			OpponentCode: "TOR",
+			OpponentName: "Toronto",
+			OpponentHash: "opponenthash",
+		},
+	}
 
 	// Configure mock
 	mockService.On("GetLeagueName").Return("nhl")
@@ -215,7 +226,16 @@ func TestFireGoalEvents(t *testing.T) {
 	// Setup test data
 	game := createTestGame(models.LeagueIdNHL, "WPG", "TOR")
 	events := []models.Event{
-		{TeamCode: "WPG", TeamName: "Winnipeg", LeagueId: int(models.LeagueIdNHL)},
+		{
+			TeamCode:     "WPG",
+			TeamName:     "Winnipeg",
+			TeamHash:     "testhash",
+			LeagueId:     int(models.LeagueIdNHL),
+			LeagueName:   "NHL",
+			OpponentCode: "TOR",
+			OpponentName: "Toronto",
+			OpponentHash: "opponenthash",
+		},
 	}
 
 	// Configure viper for team monitoring
@@ -235,6 +255,9 @@ func TestFireGoalEvents(t *testing.T) {
 	eventSender = func(event models.Event) {
 		eventCalled = true
 		assert.Equal(t, "WPG", event.TeamCode)
+		assert.Equal(t, "TOR", event.OpponentCode)
+		assert.Equal(t, "Toronto", event.OpponentName)
+		assert.Equal(t, "opponenthash", event.OpponentHash)
 	}
 
 	// Test the function
@@ -255,6 +278,9 @@ func TestSendTestGoal(t *testing.T) {
 	eventSender = func(event models.Event) {
 		eventCalled = true
 		assert.Equal(t, "TEST", event.TeamCode)
+		assert.Equal(t, "TEST_OPP", event.OpponentCode)
+		assert.Equal(t, "Test Opponent", event.OpponentName)
+		assert.Equal(t, "testopphash", event.OpponentHash)
 	}
 
 	// Test when test goals are disabled
