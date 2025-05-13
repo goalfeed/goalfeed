@@ -216,8 +216,8 @@ func sendTestGoal() {
 		TeamHash:     "TESTTEST",
 		LeagueId:     0,
 		LeagueName:   "TEST",
-		OpponentCode: "TEST_OPP",
-		OpponentName: "Test Opponent",
-		OpponentHash: "testopphash",
+		OpponentCode: "TEST",
+		OpponentName: "TEST",
+		OpponentHash: "TESTTEST",
 	})
 }

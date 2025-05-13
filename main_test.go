@@ -278,9 +278,9 @@ func TestSendTestGoal(t *testing.T) {
 	eventSender = func(event models.Event) {
 		eventCalled = true
 		assert.Equal(t, "TEST", event.TeamCode)
-		assert.Equal(t, "TEST_OPP", event.OpponentCode)
-		assert.Equal(t, "Test Opponent", event.OpponentName)
-		assert.Equal(t, "testopphash", event.OpponentHash)
+		assert.Equal(t, "TEST", event.OpponentCode)
+		assert.Equal(t, "TEST", event.OpponentName)
+		assert.Equal(t, "TESTTEST", event.OpponentHash)
 	}
 
 	// Test when test goals are disabled
