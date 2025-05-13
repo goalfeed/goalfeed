@@ -195,6 +195,13 @@ func teamIsMonitoredByLeague(teamCode, leagueName string) bool {
 	// Get the teams to watch for the given league from the configuration
 	teamsToWatch := config.GetStringSlice("watch." + leagueName)
 
+	// If "*" is in the watch list, monitor all teams for this league
+	for _, team := range teamsToWatch {
+		if team == "*" {
+			return true
+		}
+	}
+
 	// Check if the teamCode is in the list of teams to watch
 	for _, team := range teamsToWatch {
 		if strings.EqualFold(team, teamCode) {
