@@ -7,4 +7,5 @@ const (
 	LeagueIdMLB  = 2
 	LeagueIdEPL  = 3
 	LeagueIdIIHF = 4
+	LeagueIdCFL  = 5
 )

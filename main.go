@@ -2,11 +2,13 @@ package main
 
 import (
 	"fmt"
+	cflClients "goalfeed/clients/leagues/cfl"
 	mlbClients "goalfeed/clients/leagues/mlb"
 	nhlClients "goalfeed/clients/leagues/nhl"
 	"goalfeed/config"
 	"goalfeed/models"
 	"goalfeed/services/leagues"
+	"goalfeed/services/leagues/cfl"
 	"goalfeed/services/leagues/mlb"
 	"goalfeed/services/leagues/nhl"
 	"goalfeed/targets/homeassistant"
@@ -45,11 +47,13 @@ func init() {
 	_ = godotenv.Load()
 	rootCmd.PersistentFlags().StringSlice("nhl", []string{}, "NHL teams to watch")
 	rootCmd.PersistentFlags().StringSlice("mlb", []string{}, "MLB teams to watch")
+	rootCmd.PersistentFlags().StringSlice("cfl", []string{}, "CFL teams to watch")
 	rootCmd.PersistentFlags().Bool("test-goals", false, "Enable or disable sending test goals every minute")
 
 	// Bind these flags to viper
 	viper.BindPFlag("watch.nhl", rootCmd.PersistentFlags().Lookup("nhl"))
 	viper.BindPFlag("watch.mlb", rootCmd.PersistentFlags().Lookup("mlb"))
+	viper.BindPFlag("watch.cfl", rootCmd.PersistentFlags().Lookup("cfl"))
 	viper.BindPFlag("test-goals", rootCmd.PersistentFlags().Lookup("test-goals"))
 
 }
@@ -101,6 +105,7 @@ func initialize() {
 
 	leagueServices[models.LeagueIdNHL] = nhl.NHLService{Client: nhlClients.NHLApiClient{}}
 	leagueServices[models.LeagueIdMLB] = mlb.MLBService{Client: mlbClients.MLBApiClient{}}
+	leagueServices[models.LeagueIdCFL] = cfl.CFLService{Client: cflClients.CFLApiClient{}}
 
 	logger.Info("Initializing Active Games")
 	checkLeaguesForActiveGames()
