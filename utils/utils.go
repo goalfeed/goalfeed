@@ -27,9 +27,11 @@ func GetByte(url string, ret chan []byte) {
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-
 		fmt.Printf("%+v\n", err)
+		ret <- []byte{}
+		return
 	}
+	defer resp.Body.Close()
 	bodyBytes, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		log.Fatal(err)

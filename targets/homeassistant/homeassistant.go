@@ -52,6 +52,7 @@ func SendEvent(event models.Event) {
 	if err != nil {
 		logger.Warn(err)
 		logger.Warn("Failed to send event to Home Assistant")
+		return
 	}
 	defer resp.Body.Close()
 

@@ -98,3 +98,39 @@ func TestGetLeagueName(t *testing.T) {
 	service := getMockService(mockClient)
 	assert.Equal(t, "NHL", service.GetLeagueName())
 }
+
+func TestFudgeTimestamp(t *testing.T) {
+	// Test the fudgeTimestamp function
+	input := "20230101_123456"
+	expected := "20230101_123446" // 123456 - 10 = 123446
+	result := fudgeTimestamp(input)
+	assert.Equal(t, expected, result)
+
+	// Test with different input
+	input2 := "20230201_000100"
+	expected2 := "20230201_000090" // 000100 - 10 = 000090
+	result2 := fudgeTimestamp(input2)
+	assert.Equal(t, expected2, result2)
+}
+
+func TestGameStatusFromStatusCode(t *testing.T) {
+	// Test ended status codes
+	assert.Equal(t, models.GameStatus(models.StatusEnded), gameStatusFromStatusCode("6"))
+	assert.Equal(t, models.GameStatus(models.StatusEnded), gameStatusFromStatusCode("7"))
+
+	// Test active status codes
+	assert.Equal(t, models.GameStatus(models.StatusActive), gameStatusFromStatusCode("1"))
+	assert.Equal(t, models.GameStatus(models.StatusActive), gameStatusFromStatusCode("2"))
+	assert.Equal(t, models.GameStatus(models.StatusActive), gameStatusFromStatusCode("3"))
+	assert.Equal(t, models.GameStatus(models.StatusActive), gameStatusFromStatusCode("unknown"))
+}
+
+func TestGameStatusFromGameState(t *testing.T) {
+	// Test all different game states
+	assert.Equal(t, models.GameStatus(models.StatusUpcoming), gameStatusFromGameState("PRE"))
+	assert.Equal(t, models.GameStatus(models.StatusUpcoming), gameStatusFromGameState("OFF"))
+	assert.Equal(t, models.GameStatus(models.StatusUpcoming), gameStatusFromGameState("FUT"))
+	assert.Equal(t, models.GameStatus(models.StatusActive), gameStatusFromGameState("LIVE"))
+	assert.Equal(t, models.GameStatus(models.StatusEnded), gameStatusFromGameState("FINAL"))
+	assert.Equal(t, models.GameStatus(models.StatusActive), gameStatusFromGameState("Unknown State"))
+}

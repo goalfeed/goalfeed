@@ -1,0 +1,1487 @@
+
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+		<title>iihf: Go Coverage Report</title>
+		<style>
+			body {
+				background: black;
+				color: rgb(80, 80, 80);
+			}
+			body, pre, #legend span {
+				font-family: Menlo, monospace;
+				font-weight: bold;
+			}
+			#topbar {
+				background: black;
+				position: fixed;
+				top: 0; left: 0; right: 0;
+				height: 42px;
+				border-bottom: 1px solid rgb(80, 80, 80);
+			}
+			#content {
+				margin-top: 50px;
+			}
+			#nav, #legend {
+				float: left;
+				margin-left: 10px;
+			}
+			#legend {
+				margin-top: 12px;
+			}
+			#nav {
+				margin-top: 10px;
+			}
+			#legend span {
+				margin: 0 5px;
+			}
+			.cov0 { color: rgb(192, 0, 0) }
+.cov1 { color: rgb(128, 128, 128) }
+.cov2 { color: rgb(116, 140, 131) }
+.cov3 { color: rgb(104, 152, 134) }
+.cov4 { color: rgb(92, 164, 137) }
+.cov5 { color: rgb(80, 176, 140) }
+.cov6 { color: rgb(68, 188, 143) }
+.cov7 { color: rgb(56, 200, 146) }
+.cov8 { color: rgb(44, 212, 149) }
+.cov9 { color: rgb(32, 224, 152) }
+.cov10 { color: rgb(20, 236, 155) }
+
+		</style>
+	</head>
+	<body>
+		<div id="topbar">
+			<div id="nav">
+				<select id="files">
+				
+				<option value="file0">goalfeed/clients/leagues/iihf/iihf_client.go (100.0%)</option>
+				
+				<option value="file1">goalfeed/clients/leagues/iihf/mock_client.go (100.0%)</option>
+				
+				<option value="file2">goalfeed/clients/leagues/mlb/mlb_client.go (100.0%)</option>
+				
+				<option value="file3">goalfeed/clients/leagues/mlb/mock_client.go (100.0%)</option>
+				
+				<option value="file4">goalfeed/clients/leagues/nhl/mock_client.go (100.0%)</option>
+				
+				<option value="file5">goalfeed/clients/leagues/nhl/nhl_client.go (100.0%)</option>
+				
+				<option value="file6">goalfeed/config/config.go (100.0%)</option>
+				
+				<option value="file7">goalfeed/main.go (88.3%)</option>
+				
+				<option value="file8">goalfeed/models/game.go (100.0%)</option>
+				
+				<option value="file9">goalfeed/models/team.go (100.0%)</option>
+				
+				<option value="file10">goalfeed/services/leagues/iihf/iihf.go (100.0%)</option>
+				
+				<option value="file11">goalfeed/services/leagues/mlb/mlb.go (88.0%)</option>
+				
+				<option value="file12">goalfeed/services/leagues/nhl/nhl.go (100.0%)</option>
+				
+				<option value="file13">goalfeed/targets/homeassistant/homeassistant.go (84.0%)</option>
+				
+				<option value="file14">goalfeed/targets/memoryStore/memoryStore.go (97.5%)</option>
+				
+				<option value="file15">goalfeed/utils/logger.go (100.0%)</option>
+				
+				<option value="file16">goalfeed/utils/utils.go (84.2%)</option>
+				
+				</select>
+			</div>
+			<div id="legend">
+				<span>not tracked</span>
+			
+				<span class="cov0">not covered</span>
+				<span class="cov8">covered</span>
+			
+			</div>
+		</div>
+		<div id="content">
+		
+		<pre class="file" id="file0" style="display: none">package iihf
+
+import (
+        "encoding/json"
+        "fmt"
+        "goalfeed/utils"
+)
+
+type IIHFApiClient struct {
+}
+
+func (c IIHFApiClient) GetIIHFScoreBoard(sGameId string) IIHFGameScoreResponse <span class="cov8" title="1">{
+        var body chan []byte = make(chan []byte)
+        url := fmt.Sprintf("https://realtime.iihf.com/gamestate/GetLatestState/%s", sGameId)
+        go utils.GetByte(url, body)
+
+        bodyByte := &lt;-body
+        var response IIHFGameScoreResponse
+        // fmt.Println(string(bodyByte))
+        json.Unmarshal(bodyByte, &amp;response)
+        return response
+}</span>
+
+func (c IIHFApiClient) GetIIHFSchedule(sEventId string) IIHFScheduleResponse <span class="cov8" title="1">{
+        var body chan []byte = make(chan []byte)
+        url := fmt.Sprintf("https://realtime.iihf.com/gamestate/GetLatestScoresState/%s", sEventId)
+        go utils.GetByte(url, body)
+
+        bodyByte := &lt;-body
+        var response IIHFScheduleResponse
+        // fmt.Println(string(bodyByte))
+        json.Unmarshal(bodyByte, &amp;response)
+        return response
+}</span>
+</pre>
+		
+		<pre class="file" id="file1" style="display: none">package iihf
+
+import (
+        "encoding/json"
+)
+
+type MockIIHFApiClient struct {
+}
+
+var homeScore = 0
+var awayScore = 0
+
+func (c MockIIHFApiClient) SetHomeScore(score int) <span class="cov8" title="1">{
+        homeScore = score
+}</span>
+func (c MockIIHFApiClient) SetAwayScore(score int) <span class="cov8" title="1">{
+        awayScore = score
+}</span>
+
+func (c MockIIHFApiClient) GetIIHFSchedule(sEventId string) IIHFScheduleResponse <span class="cov8" title="1">{
+        var response IIHFScheduleResponse
+        json.Unmarshal([]byte(UpcomingGamesSchedule), &amp;response)
+        return response
+}</span>
+func (c MockIIHFApiClient) GetIIHFScoreBoard(sGameId string) IIHFGameScoreResponse <span class="cov8" title="1">{
+        var response IIHFGameScoreResponse
+        json.Unmarshal([]byte(ActiveGameScoreboard), &amp;response)
+        response.CurrentScore.Away = awayScore
+        response.CurrentScore.Home = homeScore
+        return response
+}</span>
+</pre>
+		
+		<pre class="file" id="file2" style="display: none">package mlb
+
+import (
+        "encoding/json"
+        "fmt"
+        "goalfeed/utils"
+)
+
+type MLBApiClient struct {
+}
+
+func (c MLBApiClient) GetMLBScoreBoard(gameId string) MLBScoreboardResponse <span class="cov8" title="1">{
+        var body chan []byte = make(chan []byte)
+        url := fmt.Sprintf("https://statsapi.mlb.com/api/v1.1/game/%s/feed/live", gameId)
+        go utils.GetByte(url, body)
+
+        bodyByte := &lt;-body
+        var response MLBScoreboardResponse
+        fmt.Println(string(bodyByte))
+        json.Unmarshal(bodyByte, &amp;response)
+        return response
+}</span>
+
+func (c MLBApiClient) GetMLBSchedule() MLBScheduleResponse <span class="cov8" title="1">{
+        var body chan []byte = make(chan []byte)
+        url := "https://statsapi.mlb.com/api/v1/schedule?language=en&amp;sportId=1"
+        go utils.GetByte(url, body)
+
+        bodyByte := &lt;-body
+        var response MLBScheduleResponse
+        json.Unmarshal(bodyByte, &amp;response)
+        return response
+}</span>
+
+func (c MLBApiClient) GetTeam(sLink string) MLBTeamResponse <span class="cov8" title="1">{
+        var body chan []byte = make(chan []byte)
+        url := fmt.Sprintf("https://statsapi.mlb.com%s", sLink)
+        go utils.GetByte(url, body)
+
+        bodyByte := &lt;-body
+        var response MLBTeamResponse
+        json.Unmarshal(bodyByte, &amp;response)
+        return response
+}</span>
+
+func (c MLBApiClient) GetDiffPatch(gameId string, timestamp string) (MLBDiffPatch, error) <span class="cov8" title="1">{
+        var body chan []byte = make(chan []byte)
+        url := fmt.Sprintf("https://statsapi.mlb.com/api/v1.1/game/%s/feed/live/diffPatch?language=en&amp;startTimecode=%s", gameId, timestamp)
+        go utils.GetByte(url, body)
+
+        bodyByte := &lt;-body
+        var response MLBDiffPatch
+        err := json.Unmarshal(bodyByte, &amp;response)
+        return response, err
+}</span>
+</pre>
+		
+		<pre class="file" id="file3" style="display: none">package mlb
+
+import (
+        "encoding/json"
+)
+
+type MockMLBApiClient struct {
+}
+
+var homeScore = 0
+var awayScore = 0
+
+func (c MockMLBApiClient) SetHomeScore(score int) <span class="cov8" title="1">{
+        homeScore = score
+}</span>
+func (c MockMLBApiClient) SetAwayScore(score int) <span class="cov8" title="1">{
+        awayScore = score
+}</span>
+
+func (c MockMLBApiClient) GetMLBSchedule() MLBScheduleResponse <span class="cov8" title="1">{
+        var response MLBScheduleResponse
+        json.Unmarshal([]byte(UpcomingGamesSchedule), &amp;response)
+        return response
+}</span>
+func (c MockMLBApiClient) GetMLBScoreBoard(sGameId string) MLBScoreboardResponse <span class="cov8" title="1">{
+        var response MLBScoreboardResponse
+        json.Unmarshal([]byte(ActiveGameScoreboard), &amp;response)
+        response.LiveData.Linescore.Teams.Away.Runs = awayScore
+        response.LiveData.Linescore.Teams.Home.Runs = homeScore
+        return response
+}</span>
+
+func (c MockMLBApiClient) GetTeam(sLink string) MLBTeamResponse <span class="cov8" title="1">{
+        var response MLBTeamResponse
+        json.Unmarshal([]byte(TeamResponseJson), &amp;response)
+        return response
+}</span>
+
+func (c MockMLBApiClient) GetDiffPatch(gameId string, timestamp string) (MLBDiffPatch, error) <span class="cov8" title="1">{
+
+        var response MLBDiffPatch
+        err := json.Unmarshal([]byte(DiffPatchResponseJson), &amp;response)
+        return response, err
+}</span>
+</pre>
+		
+		<pre class="file" id="file4" style="display: none">package nhl
+
+import (
+        "encoding/json"
+)
+
+type MockNHLApiClient struct {
+        mockedGameStatus      string
+        GetNHLScheduleCalls   int
+        GetNHLScoreBoardCalls int
+}
+
+var homeScore = 0
+var awayScore = 0
+
+func (m *MockNHLApiClient) SetGameStatus(status string) <span class="cov8" title="1">{
+        m.mockedGameStatus = status
+}</span>
+func (c MockNHLApiClient) SetHomeScore(score int) <span class="cov8" title="1">{
+        homeScore = score
+}</span>
+func (c MockNHLApiClient) SetAwayScore(score int) <span class="cov8" title="1">{
+        awayScore = score
+}</span>
+
+func (c MockNHLApiClient) GetNHLSchedule() NHLScheduleResponse <span class="cov8" title="1">{
+        var response NHLScheduleResponse
+        c.GetNHLScheduleCalls++
+        json.Unmarshal([]byte(UpcomingGamesSchedule), &amp;response)
+        return response
+}</span>
+func (c MockNHLApiClient) GetNHLScoreBoard(sGameId string) NHLScoreboardResponse <span class="cov8" title="1">{
+        var response NHLScoreboardResponse
+        c.GetNHLScoreBoardCalls++
+        json.Unmarshal([]byte(ActiveGameScoreboard), &amp;response)
+        response.AwayTeam.Score = awayScore
+        response.HomeTeam.Score = homeScore
+        return response
+}</span>
+
+func (c MockNHLApiClient) GetTeam(sLink string) NHLTeamResponse <span class="cov8" title="1">{
+        var response NHLTeamResponse
+        json.Unmarshal([]byte(TeamResponseJson), &amp;response)
+        return response
+}</span>
+</pre>
+		
+		<pre class="file" id="file5" style="display: none">package nhl
+
+import (
+        "encoding/json"
+        "fmt"
+        "goalfeed/utils"
+)
+
+type NHLApiClient struct {
+}
+
+func (c NHLApiClient) GetNHLScoreBoard(gameId string) NHLScoreboardResponse <span class="cov8" title="1">{
+        var body chan []byte = make(chan []byte)
+        url := fmt.Sprintf("https://api-web.nhle.com/v1/gamecenter/%s/landing", gameId) // Updated URL
+        go utils.GetByte(url, body)
+
+        bodyByte := &lt;-body
+        var response NHLScoreboardResponse
+        json.Unmarshal(bodyByte, &amp;response)
+        return response
+}</span>
+
+func (c NHLApiClient) GetNHLSchedule() NHLScheduleResponse <span class="cov8" title="1">{
+        var body chan []byte = make(chan []byte)
+        url := "https://api-web.nhle.com/v1/schedule/now" // Updated URL
+        go utils.GetByte(url, body)
+
+        bodyByte := &lt;-body
+        var response NHLScheduleResponse
+        json.Unmarshal(bodyByte, &amp;response)
+        return response
+}</span>
+
+func (c NHLApiClient) GetTeam(teamAbbr string) NHLTeamResponse <span class="cov8" title="1">{
+        var body chan []byte = make(chan []byte)
+        url := fmt.Sprintf("https://api-web.nhle.com/v1/club-schedule-season/%s/now", teamAbbr) // Updated URL
+        go utils.GetByte(url, body)
+
+        bodyByte := &lt;-body
+        var response NHLTeamResponse
+        json.Unmarshal(bodyByte, &amp;response)
+        return response
+}</span>
+
+func (c NHLApiClient) GetDiffPatch(gameId string, timestamp string) (NHLDiffPatch, error) <span class="cov8" title="1">{
+        var body chan []byte = make(chan []byte)
+        url := fmt.Sprintf("https://api-web.nhle.com/v1/game/%s/feed/live/diffPatch?site=en_nhl&amp;startTimecode=%s", gameId, timestamp) // Updated URL
+        go utils.GetByte(url, body)
+
+        bodyByte := &lt;-body
+        var response NHLDiffPatch
+        err := json.Unmarshal(bodyByte, &amp;response)
+        return response, err
+}</span>
+</pre>
+		
+		<pre class="file" id="file6" style="display: none">package config
+
+import (
+        "github.com/spf13/viper"
+        "strings"
+)
+
+func init() <span class="cov8" title="1">{
+        // Set the file name of the configurations file
+        viper.SetConfigName("config")
+        viper.SetConfigType("yaml") // Type of the config file
+        // Set the path to look for the configurations file
+        viper.AddConfigPath(".")
+
+        // Enable environment variable overriding
+        viper.AutomaticEnv()
+
+        // Read in the configuration file
+        viper.SetEnvPrefix("GOALFEED")
+        viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+        viper.ReadInConfig()
+}</span>
+
+// Get a configuration value as string
+func GetString(key string) string <span class="cov8" title="1">{
+        return viper.GetString(key)
+}</span>
+func GetStringSlice(key string) []string <span class="cov8" title="1">{
+        return viper.GetStringSlice(key)
+}</span>
+</pre>
+		
+		<pre class="file" id="file7" style="display: none">package main
+
+import (
+        "fmt"
+        mlbClients "goalfeed/clients/leagues/mlb"
+        nhlClients "goalfeed/clients/leagues/nhl"
+        "goalfeed/config"
+        "goalfeed/models"
+        "goalfeed/services/leagues"
+        "goalfeed/services/leagues/mlb"
+        "goalfeed/services/leagues/nhl"
+        "goalfeed/targets/homeassistant"
+        "goalfeed/targets/memoryStore"
+        "goalfeed/utils"
+        "os"
+        "strings"
+        "sync"
+        "time"
+
+        "github.com/spf13/cobra"
+        "github.com/spf13/viper"
+
+        "github.com/joho/godotenv"
+)
+
+var version string // This will be populated by the build process
+
+var rootCmd = &amp;cobra.Command{
+        Use:   "goalfeed",
+        Short: "Goalfeed main application",
+        Long:  `Starts the Goalfeed application.`,
+        Run: func(cmd *cobra.Command, args []string) <span class="cov0" title="0">{
+                initialize()
+                runTickers()
+        }</span>,
+}
+var (
+        leagueServices                    = map[int]leagues.ILeagueService{}
+        needRefresh                       = false
+        logger                            = utils.GetLogger()
+        eventSender    func(models.Event) = homeassistant.SendEvent // Allow this to be replaced in tests
+)
+
+func init() <span class="cov8" title="1">{
+        _ = godotenv.Load()
+        rootCmd.PersistentFlags().StringSlice("nhl", []string{}, "NHL teams to watch")
+        rootCmd.PersistentFlags().StringSlice("mlb", []string{}, "MLB teams to watch")
+        rootCmd.PersistentFlags().Bool("test-goals", false, "Enable or disable sending test goals every minute")
+
+        // Bind these flags to viper
+        viper.BindPFlag("watch.nhl", rootCmd.PersistentFlags().Lookup("nhl"))
+        viper.BindPFlag("watch.mlb", rootCmd.PersistentFlags().Lookup("mlb"))
+        viper.BindPFlag("test-goals", rootCmd.PersistentFlags().Lookup("test-goals"))
+
+}</span>
+
+func main() <span class="cov0" title="0">{
+
+        homeAssistantURL := os.Getenv("SUPERVISOR_API")
+        fmt.Println(homeAssistantURL)
+        rootCmd.Version = version
+        if err := rootCmd.Execute(); err != nil </span><span class="cov0" title="0">{
+                fmt.Println(err)
+                os.Exit(1)
+        }</span>
+}
+
+func runTickers() <span class="cov8" title="1">{
+        var wg sync.WaitGroup
+        tickers := []struct {
+                duration time.Duration
+                task     func()
+        }{
+                {1 * time.Minute, checkLeaguesForActiveGames},
+                {1 * time.Second, watchActiveGames},
+                {1 * time.Minute, sendTestGoal},
+                {5 * time.Second, func() </span><span class="cov0" title="0">{
+                        if needRefresh </span><span class="cov0" title="0">{
+                                checkLeaguesForActiveGames()
+                                needRefresh = false
+                        }</span>
+                }},
+        }
+
+        <span class="cov8" title="1">for _, t := range tickers </span><span class="cov8" title="1">{
+                wg.Add(1)
+                go func(duration time.Duration, task func()) </span><span class="cov8" title="1">{
+                        defer wg.Done()
+                        ticker := time.NewTicker(duration)
+                        for range ticker.C </span><span class="cov8" title="1">{
+                                go task()
+                        }</span>
+                }(t.duration, t.task)
+        }
+
+        <span class="cov8" title="1">wg.Wait()</span>
+}
+
+func initialize() <span class="cov8" title="1">{
+        logger.Info("Puck Drop! Initializing Goalfeed Process")
+
+        leagueServices[models.LeagueIdNHL] = nhl.NHLService{Client: nhlClients.NHLApiClient{}}
+        leagueServices[models.LeagueIdMLB] = mlb.MLBService{Client: mlbClients.MLBApiClient{}}
+
+        logger.Info("Initializing Active Games")
+        checkLeaguesForActiveGames()
+}</span>
+
+func checkLeaguesForActiveGames() <span class="cov8" title="1">{
+        logger.Info("Updating Active Games")
+        for _, service := range leagueServices </span><span class="cov8" title="1">{
+                go checkForNewActiveGames(service)
+        }</span>
+}
+
+func checkForNewActiveGames(service leagues.ILeagueService) <span class="cov8" title="1">{
+        logger.Info(fmt.Sprintf("Checking for active %s games", service.GetLeagueName()))
+        gamesChan := make(chan []models.Game)
+        go service.GetActiveGames(gamesChan)
+        for _, game := range &lt;-gamesChan </span><span class="cov8" title="1">{
+                // Check if the home and away teams are being monitored
+                if teamIsMonitoredByLeague(game.CurrentState.Home.Team.TeamCode, service.GetLeagueName()) ||
+                        teamIsMonitoredByLeague(game.CurrentState.Away.Team.TeamCode, service.GetLeagueName()) </span><span class="cov8" title="1">{
+                        if !gameIsMonitored(game) </span><span class="cov8" title="1">{
+                                logger.Info(fmt.Sprintf("Adding %s game (%s @ %s) to active monitored games", service.GetLeagueName(), game.CurrentState.Away.Team.TeamCode, game.CurrentState.Home.Team.TeamCode))
+                                memoryStore.SetGame(game)
+                                memoryStore.AppendActiveGame(game)
+                        }</span>
+                } else<span class="cov8" title="1"> {
+                        logger.Info(fmt.Sprintf("Skipping %s game (%s @ %s) as teams are not being monitored", service.GetLeagueName(), game.CurrentState.Away.Team.TeamCode, game.CurrentState.Home.Team.TeamCode))
+                }</span>
+        }
+}
+
+func gameIsMonitored(game models.Game) bool <span class="cov8" title="1">{
+        for _, activeGameKey := range memoryStore.GetActiveGameKeys() </span><span class="cov8" title="1">{
+                if activeGameKey == game.GetGameKey() </span><span class="cov8" title="1">{
+                        return true
+                }</span>
+        }
+        <span class="cov8" title="1">return false</span>
+}
+
+func watchActiveGames() <span class="cov8" title="1">{
+        for _, gameKey := range memoryStore.GetActiveGameKeys() </span><span class="cov8" title="1">{
+                go checkGame(gameKey)
+        }</span>
+}
+
+func checkGame(gameKey string) <span class="cov8" title="1">{
+        game, err := memoryStore.GetGameByGameKey(gameKey)
+        if err != nil </span><span class="cov8" title="1">{
+                logger.Error(err.Error())
+                logger.Error(fmt.Sprintf("[%s] Game not found, skipping", gameKey))
+                memoryStore.DeleteActiveGameKey(gameKey)
+                needRefresh = true
+                return
+        }</span>
+
+        <span class="cov8" title="1">service := leagueServices[int(game.LeagueId)]
+        logger.Info(fmt.Sprintf("[%s - %s %d @ %s %d] Checking", service.GetLeagueName(), game.CurrentState.Away.Team.TeamCode, game.CurrentState.Away.Score, game.CurrentState.Home.Team.TeamCode, game.CurrentState.Home.Score))
+        game.IsFetching = true
+        memoryStore.SetGame(game)
+
+        updateChan := make(chan models.GameUpdate)
+        eventChan := make(chan []models.Event)
+        go service.GetGameUpdate(game, updateChan)
+        update := &lt;-updateChan
+        go service.GetEvents(update, eventChan)
+        go fireGoalEvents(eventChan, game)
+        game.CurrentState = update.NewState
+
+        if game.CurrentState.Status == models.StatusEnded </span><span class="cov8" title="1">{
+                logger.Info(fmt.Sprintf("[%s - %s @ %s] Game has ended", service.GetLeagueName(), game.CurrentState.Away.Team.TeamCode, game.CurrentState.Home.Team.TeamCode))
+                memoryStore.DeleteActiveGame(game)
+                memoryStore.DeleteActiveGameKey(game.GetGameKey()) // Ensure the game key is removed from active game keys
+        }</span> else<span class="cov8" title="1"> {
+                game.IsFetching = false
+                memoryStore.SetGame(game)
+        }</span>
+}
+
+func fireGoalEvents(events chan []models.Event, game models.Game) <span class="cov8" title="1">{
+        for _, event := range &lt;-events </span><span class="cov8" title="1">{
+                logger.Info(fmt.Sprintf("Goal %s", event.TeamCode))
+                if teamIsMonitoredByLeague(event.TeamCode, leagueServices[int(game.LeagueId)].GetLeagueName()) </span><span class="cov8" title="1">{
+                        go eventSender(event)
+                }</span>
+        }
+}
+func teamIsMonitoredByLeague(teamCode, leagueName string) bool <span class="cov8" title="1">{
+        // Convert leagueName to lowercase for consistency
+        leagueName = strings.ToLower(leagueName)
+
+        // Get the teams to watch for the given league from the configuration
+        teamsToWatch := config.GetStringSlice("watch." + leagueName)
+
+        // If "*" is in the watch list, monitor all teams for this league
+        for _, team := range teamsToWatch </span><span class="cov8" title="1">{
+                if team == "*" </span><span class="cov8" title="1">{
+                        return true
+                }</span>
+        }
+
+        // Check if the teamCode is in the list of teams to watch
+        <span class="cov8" title="1">for _, team := range teamsToWatch </span><span class="cov8" title="1">{
+                if strings.EqualFold(team, teamCode) </span><span class="cov8" title="1">{
+                        return true
+                }</span>
+        }
+
+        <span class="cov8" title="1">return false</span>
+}
+func sendTestGoal() <span class="cov8" title="1">{
+        if !viper.GetBool("test-goals") </span><span class="cov8" title="1">{
+                logger.Info("Test goals are disabled. Skipping sending test goal.")
+                return
+        }</span>
+        <span class="cov8" title="1">logger.Info("Sending test goal")
+        go eventSender(models.Event{
+                TeamCode:     "TEST",
+                TeamName:     "TEST",
+                TeamHash:     "TESTTEST",
+                LeagueId:     0,
+                LeagueName:   "TEST",
+                OpponentCode: "TEST",
+                OpponentName: "TEST",
+                OpponentHash: "TESTTEST",
+        })</span>
+}
+</pre>
+		
+		<pre class="file" id="file8" style="display: none">package models
+
+import (
+        "fmt"
+        "time"
+)
+
+type Game struct {
+        GameCode     string    `json:"GameCode"`
+        LeagueId     League    `json:"LeagueId"`
+        CurrentState GameState `json:"CurrentState"`
+        IsFetching   bool      `json:"IsFetching"`
+        ExtTimestamp string    `json:"ExtTimestamp"`
+}
+
+func (g Game) GetGameKey() string <span class="cov8" title="1">{
+        return fmt.Sprintf("%d-%s", g.LeagueId, g.GameCode)
+}</span>
+
+type TeamState struct {
+        Team  Team `json:"Team"`
+        Score int  `json:"Score"`
+}
+
+// GameState is a reflection of a games state. It contains the score and status
+type GameState struct {
+        Home         TeamState  `json:"Home"`
+        Away         TeamState  `json:"Away"`
+        Status       GameStatus `json:"Status"`
+        FetchedAt    time.Time  `json:"FetchedAt"`
+        ExtTimestamp string     `json:"ExtTimestamp,omitempty"`
+}
+
+type GameUpdate struct {
+        OldState GameState
+        NewState GameState
+}
+
+const (
+        StatusUpcoming = iota
+        StatusActive
+        StatusEnded
+)
+
+type GameStatus int
+</pre>
+		
+		<pre class="file" id="file9" style="display: none">package models
+
+import (
+        "crypto/md5"
+        "encoding/hex"
+        "fmt"
+)
+
+type Team struct {
+        ID       int    `json:"TeamId"`
+        TeamCode string `json:"TeamCode"`
+        TeamName string `json:"TeamName"`
+        LeagueID int    `json:"LeagueID"`
+        ExtID    string `json:"ExtID"`
+}
+
+// GetTeamHash generates a unique has for the team based on the TeamCode and LeagueId
+// I don't know why I made this field illegible to humans when I originally did it, but
+// we need to continue to include it in case it is in use.
+func (t Team) GetTeamHash() string <span class="cov8" title="1">{
+        data := []byte(fmt.Sprintf("%s%d", t.TeamCode, t.LeagueID))
+        hash := md5.Sum(data)
+
+        return hex.EncodeToString(hash[:])
+}</span>
+</pre>
+		
+		<pre class="file" id="file10" style="display: none">package iihf
+
+import (
+        "goalfeed/clients/leagues/iihf"
+        "goalfeed/models"
+        "time"
+)
+
+type IIHFService struct {
+        Client iihf.IIIHFApiClient
+}
+
+const STATUS_UPCOMING = "UPCOMING"
+const STATUS_ACTIVE = "LIVE"
+const STATUS_FINAL = "FINAL"
+
+// const IIHF_LEAGUE_ID = 4
+
+func (s IIHFService) getSchedule() iihf.IIHFScheduleResponse <span class="cov8" title="1">{
+
+        //todo implement caching
+        //todo support multiple active events
+        //todo support some method of determining active events programmatically
+        return s.Client.GetIIHFSchedule("503")
+}</span>
+func (s IIHFService) GetLeagueName() string <span class="cov8" title="1">{
+        return "IIHF"
+}</span>
+
+// GetActiveGames Returns active IIHFGames
+func (s IIHFService) GetActiveGames(ret chan []models.Game) <span class="cov8" title="1">{
+        schedule := s.getSchedule()
+        var activeGames []models.Game
+        for _, game := range schedule </span><span class="cov8" title="1">{
+                gameFromSchedule(game)
+                if gameStatusFromScheduleGame(game) == models.StatusActive </span><span class="cov8" title="1">{
+                        activeGames = append(activeGames, gameFromSchedule(game))
+                }</span>
+        }
+        <span class="cov8" title="1">ret &lt;- activeGames</span>
+}
+
+// GetActiveGames Returns a GameUpdate
+func (s IIHFService) GetGameUpdate(game models.Game, ret chan models.GameUpdate) <span class="cov8" title="1">{
+        scoreboard := s.Client.GetIIHFScoreBoard(game.GameCode)
+        newState := models.GameState{
+                Home: models.TeamState{
+                        Team:  game.CurrentState.Home.Team,
+                        Score: scoreboard.CurrentScore.Home,
+                },
+                Away: models.TeamState{
+                        Team:  game.CurrentState.Away.Team,
+                        Score: scoreboard.CurrentScore.Away,
+                },
+                Status: game.CurrentState.Status, //TODO: Update using scoreboard status
+        }
+        ret &lt;- models.GameUpdate{
+                OldState: game.CurrentState,
+                NewState: newState,
+        }
+}</span>
+
+func teamFromScheduleTeam(scheduleTeam iihf.IIHFScheduleTeam) models.Team <span class="cov8" title="1">{
+
+        // todo store/retrieve from DB
+        // todo fill out model
+        team := models.Team{
+                TeamName: scheduleTeam.TeamCode,
+                TeamCode: scheduleTeam.TeamCode,
+                ExtID:    scheduleTeam.TeamCode,
+                LeagueID: models.LeagueIdIIHF,
+        }
+        return team
+
+}</span>
+func gameFromSchedule(scheduleGame iihf.IIHFScheduleResponseGame) models.Game <span class="cov8" title="1">{
+
+        return models.Game{
+                CurrentState: models.GameState{
+                        Home:      models.TeamState{Team: teamFromScheduleTeam(scheduleGame.HomeTeam), Score: scheduleGame.HomeTeam.Points},
+                        Away:      models.TeamState{Team: teamFromScheduleTeam(scheduleGame.GuestTeam), Score: scheduleGame.GuestTeam.Points},
+                        Status:    gameStatusFromScheduleGame(scheduleGame),
+                        FetchedAt: time.Now(),
+                },
+                GameCode: scheduleGame.GameID,
+                LeagueId: models.LeagueIdIIHF,
+        }
+}</span>
+func gameStatusFromScheduleGame(scheduleGame iihf.IIHFScheduleResponseGame) models.GameStatus <span class="cov8" title="1">{
+        switch scheduleGame.Status </span>{
+        case STATUS_ACTIVE:<span class="cov8" title="1">
+                return models.StatusActive</span>
+        case STATUS_FINAL:<span class="cov8" title="1">
+                return models.StatusEnded</span>
+        case STATUS_UPCOMING:<span class="cov8" title="1">
+                return models.StatusUpcoming</span>
+        default:<span class="cov8" title="1">
+                //todo log error
+                return models.StatusActive</span>
+        }
+}
+func (s IIHFService) GetEvents(update models.GameUpdate, ret chan []models.Event) <span class="cov8" title="1">{
+        events := append(
+                s.getGoalEvents(update.OldState.Home, update.NewState.Home, update.OldState.Away.Team),
+                s.getGoalEvents(update.OldState.Away, update.NewState.Away, update.OldState.Home.Team)...,
+        )
+        ret &lt;- events
+}</span>
+func (s IIHFService) getGoalEvents(oldState models.TeamState, newState models.TeamState, opponent models.Team) []models.Event <span class="cov8" title="1">{
+        events := []models.Event{}
+        diff := newState.Score - oldState.Score
+        if diff &lt;= 0 </span><span class="cov8" title="1">{
+                return events
+        }</span>
+        <span class="cov8" title="1">team := newState.Team
+
+        for i := 0; i &lt; diff; i++ </span><span class="cov8" title="1">{
+                events = append(events, models.Event{
+                        TeamCode:     team.TeamCode,
+                        TeamName:     team.TeamName,
+                        TeamHash:     team.GetTeamHash(),
+                        LeagueId:     models.LeagueIdIIHF,
+                        LeagueName:   s.GetLeagueName(),
+                        OpponentCode: opponent.TeamCode,
+                        OpponentName: opponent.TeamName,
+                        OpponentHash: opponent.GetTeamHash(),
+                })
+        }</span>
+        <span class="cov8" title="1">return events</span>
+}
+</pre>
+		
+		<pre class="file" id="file11" style="display: none">package mlb
+
+import (
+        "encoding/json"
+        "fmt"
+        "goalfeed/clients/leagues/mlb"
+        "goalfeed/models"
+        "goalfeed/utils"
+        "strconv"
+        "strings"
+        "time"
+)
+
+type MLBService struct {
+        Client mlb.IMLBApiClient
+}
+
+const STATUS_UPCOMING = "Preview"
+const STATUS_ACTIVE = "Live"
+const STATUS_FINAL = "Final"
+
+// const MLB_LEAGUE_ID = 4
+var logger = utils.GetLogger()
+
+func (s MLBService) getSchedule() mlb.MLBScheduleResponse <span class="cov8" title="1">{
+
+        //todo implement caching
+        //todo support multiple active events
+        //todo support some method of determining active events programmatically
+        return s.Client.GetMLBSchedule()
+}</span>
+func (s MLBService) GetLeagueName() string <span class="cov8" title="1">{
+        return "MLB"
+}</span>
+
+// GetActiveGames Returns active MLBGames
+func (s MLBService) GetActiveGames(ret chan []models.Game) <span class="cov8" title="1">{
+        schedule := s.getSchedule()
+        var activeGames []models.Game
+
+        for _, date := range schedule.Dates </span><span class="cov8" title="1">{
+                for _, game := range date.Games </span><span class="cov8" title="1">{
+                        tmpGame := s.gameFromSchedule(game)
+                        _ = tmpGame
+                        if gameStatusFromScheduleGame(game) == models.StatusActive </span><span class="cov8" title="1">{
+                                activeGames = append(activeGames, s.gameFromSchedule(game))
+                        }</span>
+                }
+        }
+        <span class="cov8" title="1">ret &lt;- activeGames</span>
+}
+
+// GetActiveGames Returns a GameUpdate
+func (s MLBService) GetGameUpdate(game models.Game, ret chan models.GameUpdate) <span class="cov8" title="1">{
+        if game.CurrentState.ExtTimestamp != "" </span><span class="cov8" title="1">{
+                s.getGameUpdateFromDiffPatch(game, ret)
+                // s.getGameUpdateFromScoreboard(game, ret)
+        }</span> else<span class="cov8" title="1"> {
+                s.getGameUpdateFromScoreboard(game, ret)
+        }</span>
+}
+func fudgeTimestamp(extTimestamp string) string <span class="cov8" title="1">{
+
+        pieces := strings.Split(extTimestamp, "_")
+        oldTimeInt, _ := strconv.Atoi(pieces[1])
+        newTimeInt := oldTimeInt - 10
+        _ = pieces
+        newTime := fmt.Sprintf("%s_%06d", pieces[0], newTimeInt)
+        return newTime
+
+}</span>
+
+func (s MLBService) getGameUpdateFromDiffPatch(game models.Game, ret chan models.GameUpdate) <span class="cov8" title="1">{
+
+        diff, err := s.Client.GetDiffPatch(game.GameCode, fudgeTimestamp(game.CurrentState.ExtTimestamp))
+        if err != nil </span><span class="cov0" title="0">{
+                s.getGameUpdateFromScoreboard(game, ret)
+                return
+        }</span>
+        <span class="cov8" title="1">timestampPath := "/metaData/timeStamp"
+        homeGoalPath := "/liveData/linescore/teams/home/runs"
+        awayGoalPath := "/liveData/linescore/teams/away/runs"
+        statusCodePath := "/gameData/status/statusCode"
+        var extTimestamp string
+        var homeScore int
+        var awayScore int
+        var statusCode string
+        var status models.GameStatus
+
+        for _, set := range diff </span><span class="cov8" title="1">{
+                for _, item := range set.Diff </span><span class="cov8" title="1">{
+                        logger.Debug(fmt.Sprintf("Path: %s", item.Path))
+                        if item.Path == timestampPath </span><span class="cov8" title="1">{
+                                json.Unmarshal(item.Value, &amp;extTimestamp)
+                        }</span> else<span class="cov8" title="1"> if item.Path == homeGoalPath </span><span class="cov0" title="0">{
+                                logger.Info(fmt.Sprintf("Home score change - %s", game.CurrentState.Home.Team.TeamName))
+                                json.Unmarshal(item.Value, &amp;homeScore)
+                        }</span> else<span class="cov8" title="1"> if item.Path == awayGoalPath </span><span class="cov0" title="0">{
+                                logger.Info(fmt.Sprintf("Away score change - %s", game.CurrentState.Away.Team.TeamName))
+                                json.Unmarshal(item.Value, &amp;awayScore)
+                        }</span> else<span class="cov8" title="1"> if item.Path == statusCodePath </span><span class="cov0" title="0">{
+                                logger.Info("Status Code")
+                                json.Unmarshal(item.Value, &amp;statusCode)
+                        }</span>
+                }
+        }
+
+        <span class="cov8" title="1">if homeScore == 0 </span><span class="cov8" title="1">{
+                homeScore = game.CurrentState.Home.Score
+        }</span>
+        <span class="cov8" title="1">if awayScore == 0 </span><span class="cov8" title="1">{
+                awayScore = game.CurrentState.Away.Score
+        }</span>
+        <span class="cov8" title="1">if extTimestamp == "" </span><span class="cov0" title="0">{
+                extTimestamp = game.CurrentState.ExtTimestamp
+        }</span>
+        <span class="cov8" title="1">if statusCode == "" </span><span class="cov8" title="1">{
+                status = game.CurrentState.Status
+        }</span> else<span class="cov0" title="0"> {
+                status = gameStatusFromStatusCode(statusCode)
+        }</span>
+
+        <span class="cov8" title="1">newState := models.GameState{
+                Home: models.TeamState{
+                        Team:  game.CurrentState.Home.Team,
+                        Score: homeScore,
+                },
+                Away: models.TeamState{
+                        Team:  game.CurrentState.Away.Team,
+                        Score: awayScore,
+                },
+                Status:       status,
+                ExtTimestamp: extTimestamp,
+        }
+
+        ret &lt;- models.GameUpdate{
+                OldState: game.CurrentState,
+                NewState: newState,
+        }</span>
+}
+
+func (s MLBService) getGameUpdateFromScoreboard(game models.Game, ret chan models.GameUpdate) <span class="cov8" title="1">{
+        scoreboard := s.Client.GetMLBScoreBoard(game.GameCode)
+        newState := models.GameState{
+                Home: models.TeamState{
+                        Team:  game.CurrentState.Home.Team,
+                        Score: scoreboard.LiveData.Linescore.Teams.Home.Runs,
+                },
+                Away: models.TeamState{
+                        Team:  game.CurrentState.Away.Team,
+                        Score: scoreboard.LiveData.Linescore.Teams.Away.Runs,
+                },
+                Status:       gameStatusFromStatusCode(scoreboard.GameData.Status.StatusCode),
+                ExtTimestamp: scoreboard.MetaData.TimeStamp,
+        }
+        ret &lt;- models.GameUpdate{
+                OldState: game.CurrentState,
+                NewState: newState,
+        }
+}</span>
+
+func (s MLBService) teamFromScheduleTeam(scheduleTeam mlb.MLBScheduleTeam) models.Team <span class="cov8" title="1">{
+
+        // todo store/retrieve from DB
+        // todo fill out model
+        teamResp := s.Client.GetTeam(scheduleTeam.Team.Link).Teams[0]
+        team := models.Team{
+                TeamName: teamResp.Name,
+                TeamCode: teamResp.Abbreviation,
+                ExtID:    teamResp.Abbreviation,
+                LeagueID: models.LeagueIdMLB,
+        }
+        return team
+
+}</span>
+func (s MLBService) gameFromSchedule(scheduleGame mlb.MLBScheduleResponseGame) models.Game <span class="cov8" title="1">{
+
+        return models.Game{
+                CurrentState: models.GameState{
+                        Home:      models.TeamState{Team: s.teamFromScheduleTeam(scheduleGame.Teams.Home), Score: scheduleGame.Teams.Home.Score},
+                        Away:      models.TeamState{Team: s.teamFromScheduleTeam(scheduleGame.Teams.Away), Score: scheduleGame.Teams.Away.Score},
+                        Status:    gameStatusFromScheduleGame(scheduleGame),
+                        FetchedAt: time.Now(),
+                },
+                GameCode: strconv.Itoa(scheduleGame.GamePk),
+                LeagueId: models.LeagueIdMLB,
+        }
+}</span>
+func gameStatusFromScheduleGame(scheduleGame mlb.MLBScheduleResponseGame) models.GameStatus <span class="cov8" title="1">{
+        switch scheduleGame.Status.AbstractGameState </span>{
+        case STATUS_FINAL:<span class="cov8" title="1">
+                return models.StatusEnded</span>
+        case STATUS_UPCOMING:<span class="cov8" title="1">
+                return models.StatusUpcoming</span>
+        case STATUS_ACTIVE:<span class="cov8" title="1">
+                return models.StatusActive</span>
+        default:<span class="cov8" title="1">
+                return models.StatusActive</span>
+        }
+}
+func gameStatusFromStatusCode(statusCode string) models.GameStatus <span class="cov8" title="1">{
+        switch statusCode </span>{
+        case "7":<span class="cov8" title="1">
+                return models.StatusEnded</span>
+        default:<span class="cov8" title="1">
+                return models.StatusActive</span>
+        }
+}
+func (s MLBService) GetEvents(update models.GameUpdate, ret chan []models.Event) <span class="cov8" title="1">{
+        events := append(
+                s.getGoalEvents(update.OldState.Home, update.NewState.Home, update.OldState.Away.Team),
+                s.getGoalEvents(update.OldState.Away, update.NewState.Away, update.OldState.Home.Team)...,
+        )
+        ret &lt;- events
+}</span>
+func (s MLBService) getGoalEvents(oldState models.TeamState, newState models.TeamState, opponent models.Team) []models.Event <span class="cov8" title="1">{
+        events := []models.Event{}
+        diff := newState.Score - oldState.Score
+        if diff &lt;= 0 </span><span class="cov8" title="1">{
+                return events
+        }</span>
+        <span class="cov8" title="1">team := newState.Team
+
+        for i := 0; i &lt; diff; i++ </span><span class="cov8" title="1">{
+                events = append(events, models.Event{
+                        TeamCode:     team.TeamCode,
+                        TeamName:     team.TeamName,
+                        TeamHash:     team.GetTeamHash(),
+                        LeagueId:     models.LeagueIdMLB,
+                        LeagueName:   s.GetLeagueName(),
+                        OpponentCode: opponent.TeamCode,
+                        OpponentName: opponent.TeamName,
+                        OpponentHash: opponent.GetTeamHash(),
+                })
+        }</span>
+        <span class="cov8" title="1">return events</span>
+}
+</pre>
+		
+		<pre class="file" id="file12" style="display: none">package nhl
+
+import (
+        "fmt"
+        "goalfeed/clients/leagues/nhl"
+        "goalfeed/models"
+        "goalfeed/utils"
+        "strconv"
+        "strings"
+        "time"
+)
+
+const (
+        STATUS_UPCOMING = "PRE"
+        STATUS_OFF      = "OFF"
+        STATUS_FUT      = "FUT"
+        STATUS_ACTIVE   = "LIVE"
+        STATUS_FINAL    = "FINAL"
+)
+
+type NHLService struct {
+        Client nhl.INHLApiClient
+}
+
+var logger = utils.GetLogger()
+
+func (s NHLService) GetLeagueName() string <span class="cov8" title="1">{
+        return "NHL"
+}</span>
+
+func (s NHLService) getSchedule() nhl.NHLScheduleResponse <span class="cov8" title="1">{
+        return s.Client.GetNHLSchedule()
+}</span>
+
+func (s NHLService) GetActiveGames(ret chan []models.Game) <span class="cov8" title="1">{
+        schedule := s.getSchedule()
+        var activeGames []models.Game
+
+        for _, date := range schedule.GameWeek </span><span class="cov8" title="1">{
+                for _, game := range date.Games </span><span class="cov8" title="1">{
+                        if gameStatusFromScheduleGame(game) == models.StatusActive </span><span class="cov8" title="1">{
+                                activeGames = append(activeGames, s.gameFromSchedule(game))
+                        }</span>
+                }
+        }
+        <span class="cov8" title="1">ret &lt;- activeGames</span>
+}
+
+func (s NHLService) GetGameUpdate(game models.Game, ret chan models.GameUpdate) <span class="cov8" title="1">{
+        s.getGameUpdateFromScoreboard(game, ret)
+}</span>
+func fudgeTimestamp(extTimestamp string) string <span class="cov8" title="1">{
+
+        pieces := strings.Split(extTimestamp, "_")
+        oldTimeInt, _ := strconv.Atoi(pieces[1])
+        newTimeInt := oldTimeInt - 10
+        _ = pieces
+        newTime := fmt.Sprintf("%s_%06d", pieces[0], newTimeInt)
+        return newTime
+
+}</span>
+
+func (s NHLService) getGameUpdateFromScoreboard(game models.Game, ret chan models.GameUpdate) <span class="cov8" title="1">{
+        scoreboard := s.Client.GetNHLScoreBoard(game.GameCode)
+        newState := models.GameState{
+                Home: models.TeamState{
+                        Team:  game.CurrentState.Home.Team,
+                        Score: scoreboard.HomeTeam.Score,
+                },
+                Away: models.TeamState{
+                        Team:  game.CurrentState.Away.Team,
+                        Score: scoreboard.AwayTeam.Score,
+                },
+                Status: gameStatusFromGameState(scoreboard.GameState),
+        }
+        ret &lt;- models.GameUpdate{
+                OldState: game.CurrentState,
+                NewState: newState,
+        }
+}</span>
+
+func (s NHLService) teamFromScheduleTeam(scheduleTeam nhl.NHLScheduleTeam) models.Team <span class="cov8" title="1">{
+        //teamResp := s.Client.GetTeam(scheduleTeam.Abbrev).Teams[0]
+        return models.Team{
+                TeamName: scheduleTeam.PlaceName.Default,
+                TeamCode: scheduleTeam.Abbrev,
+                ExtID:    scheduleTeam.Abbrev,
+                LeagueID: models.LeagueIdNHL,
+        }
+}</span>
+
+func (s NHLService) gameFromSchedule(scheduleGame nhl.NHLScheduleResponseGame) models.Game <span class="cov8" title="1">{
+        return models.Game{
+                CurrentState: models.GameState{
+                        Home:      models.TeamState{Team: s.teamFromScheduleTeam(scheduleGame.HomeTeam), Score: scheduleGame.HomeTeam.Score},
+                        Away:      models.TeamState{Team: s.teamFromScheduleTeam(scheduleGame.AwayTeam), Score: scheduleGame.AwayTeam.Score},
+                        Status:    gameStatusFromScheduleGame(scheduleGame),
+                        FetchedAt: time.Now(),
+                },
+                GameCode: strconv.Itoa(scheduleGame.ID),
+                LeagueId: models.LeagueIdNHL,
+        }
+}</span>
+
+func gameStatusFromScheduleGame(scheduleGame nhl.NHLScheduleResponseGame) models.GameStatus <span class="cov8" title="1">{
+        return gameStatusFromGameState(scheduleGame.GameState)
+}</span>
+
+func gameStatusFromGameState(gameState string) models.GameStatus <span class="cov8" title="1">{
+        switch gameState </span>{
+        case STATUS_FINAL:<span class="cov8" title="1">
+                return models.StatusEnded</span>
+        case STATUS_UPCOMING:<span class="cov8" title="1">
+                return models.StatusUpcoming</span>
+        case STATUS_FUT:<span class="cov8" title="1">
+                return models.StatusUpcoming</span>
+        case STATUS_OFF:<span class="cov8" title="1">
+                return models.StatusUpcoming</span>
+        case STATUS_ACTIVE:<span class="cov8" title="1">
+                return models.StatusActive</span>
+        default:<span class="cov8" title="1">
+                return models.StatusActive</span>
+        }
+}
+
+func gameStatusFromStatusCode(statusCode string) models.GameStatus <span class="cov8" title="1">{
+        if statusCode == "6" || statusCode == "7" </span><span class="cov8" title="1">{
+                return models.StatusEnded
+        }</span>
+        <span class="cov8" title="1">return models.StatusActive</span>
+}
+
+func (s NHLService) GetEvents(update models.GameUpdate, ret chan []models.Event) <span class="cov8" title="1">{
+        events := append(
+                s.getGoalEvents(update.OldState.Home, update.NewState.Home, update.OldState.Away.Team),
+                s.getGoalEvents(update.OldState.Away, update.NewState.Away, update.OldState.Home.Team)...,
+        )
+        ret &lt;- events
+}</span>
+
+func (s NHLService) getGoalEvents(oldState models.TeamState, newState models.TeamState, opponent models.Team) []models.Event <span class="cov8" title="1">{
+        events := []models.Event{}
+        diff := newState.Score - oldState.Score
+        team := newState.Team
+
+        for i := 0; i &lt; diff; i++ </span><span class="cov8" title="1">{
+                events = append(events, models.Event{
+                        TeamCode:     team.TeamCode,
+                        TeamName:     team.TeamName,
+                        TeamHash:     team.GetTeamHash(),
+                        LeagueId:     models.LeagueIdNHL,
+                        LeagueName:   s.GetLeagueName(),
+                        OpponentCode: opponent.TeamCode,
+                        OpponentName: opponent.TeamName,
+                        OpponentHash: opponent.GetTeamHash(),
+                })
+        }</span>
+        <span class="cov8" title="1">return events</span>
+}
+</pre>
+		
+		<pre class="file" id="file13" style="display: none">package homeassistant
+
+import (
+        "bytes"
+        "encoding/json"
+        "goalfeed/config"
+        "goalfeed/models"
+        "goalfeed/utils"
+        "net/http"
+        "os"
+)
+
+var logger = utils.GetLogger()
+
+func SendEvent(event models.Event) <span class="cov8" title="1">{
+        // Detect if running inside Home Assistant add-on environment
+        homeAssistantURL := os.Getenv("SUPERVISOR_API")
+        accessToken := os.Getenv("SUPERVISOR_TOKEN")
+
+        // If not running inside Home Assistant, use the existing configuration
+        if homeAssistantURL == "" </span><span class="cov8" title="1">{
+                homeAssistantURL = config.GetString("home_assistant.url")
+        }</span> else<span class="cov8" title="1"> {
+                homeAssistantURL = homeAssistantURL + "/core"
+        }</span>
+        <span class="cov8" title="1">if accessToken == "" </span><span class="cov8" title="1">{
+                accessToken = config.GetString("home_assistant.access_token")
+        }</span>
+
+        // Construct the URL for the Home Assistant event endpoint
+        <span class="cov8" title="1">url := homeAssistantURL + "/api/events/goal"
+
+        // Convert the event to JSON
+        jsonData, err := json.Marshal(event)
+        if err != nil </span><span class="cov0" title="0">{
+                panic(err)</span>
+        }
+
+        // Create a new request
+        <span class="cov8" title="1">req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
+        if err != nil </span><span class="cov0" title="0">{
+                panic("Failed to create request")</span>
+        }
+
+        // Set headers
+        <span class="cov8" title="1">req.Header.Set("Authorization", "Bearer "+accessToken)
+        req.Header.Set("Content-Type", "application/json")
+
+        // Send the request
+        client := &amp;http.Client{}
+        resp, err := client.Do(req)
+        if err != nil </span><span class="cov0" title="0">{
+                logger.Warn(err)
+                logger.Warn("Failed to send event to Home Assistant")
+        }</span>
+        <span class="cov8" title="1">defer resp.Body.Close()
+
+        // Handle non-2xx status codes (you can expand on this as needed)
+        if resp.StatusCode &lt; 200 || resp.StatusCode &gt;= 300 </span><span class="cov8" title="1">{
+                logger.Warn(resp.Status)
+                logger.Warn("Failed to send event to Home Assistant")
+        }</span>
+}
+</pre>
+		
+		<pre class="file" id="file14" style="display: none">package memoryStore
+
+import (
+        "encoding/json"
+        "fmt"
+        "goalfeed/models"
+        "goalfeed/utils"
+        "sync"
+)
+
+var logger = utils.GetLogger()
+
+// In-memory storage
+var storage = make(map[string]string)
+var storageMutex = &amp;sync.RWMutex{}
+
+const ACTIVE_GAME_CODES_KEY = "GoalfeedActiveGamesv1"
+
+func GetActiveGameKeys() []string <span class="cov8" title="1">{
+        storageMutex.RLock()
+        gamesJSON, exists := storage[ACTIVE_GAME_CODES_KEY]
+        storageMutex.RUnlock()
+
+        if !exists </span><span class="cov8" title="1">{
+                return []string{}
+        }</span>
+
+        <span class="cov8" title="1">var activeGameKeys []string
+        json.Unmarshal([]byte(gamesJSON), &amp;activeGameKeys)
+        logger.Debug(gamesJSON)
+        return activeGameKeys</span>
+}
+
+func SetActiveGameKeys(gameCodes []string) <span class="cov8" title="1">{
+        gamesByte, _ := json.Marshal(gameCodes)
+        storageMutex.Lock()
+        storage[ACTIVE_GAME_CODES_KEY] = string(gamesByte)
+        storageMutex.Unlock()
+}</span>
+
+func AppendActiveGame(game models.Game) <span class="cov8" title="1">{
+        activeGameKeys := GetActiveGameKeys()
+        SetGame(game)
+        SetActiveGameKeys(append(activeGameKeys, game.GetGameKey()))
+}</span>
+
+func DeleteActiveGame(game models.Game) <span class="cov8" title="1">{
+        DeleteActiveGameKey(game.GetGameKey())
+}</span>
+
+func DeleteActiveGameKey(gameKey string) <span class="cov8" title="1">{
+        activeGameKeys := GetActiveGameKeys()
+        for i, gameCode := range activeGameKeys </span><span class="cov8" title="1">{
+                if gameCode == gameKey </span><span class="cov8" title="1">{
+                        activeGameKeys = append(activeGameKeys[:i], activeGameKeys[i+1:]...)
+                        break</span>
+                }
+        }
+        <span class="cov8" title="1">SetActiveGameKeys(activeGameKeys)</span>
+}
+
+func GetGameByGameKey(gameCode string) (models.Game, error) <span class="cov8" title="1">{
+        storageMutex.RLock()
+        gameJSON, exists := storage[gameCode]
+        storageMutex.RUnlock()
+
+        if !exists </span><span class="cov8" title="1">{
+                return models.Game{}, fmt.Errorf("Game not found")
+        }</span>
+
+        <span class="cov8" title="1">var game models.Game
+        json.Unmarshal([]byte(gameJSON), &amp;game)
+        logger.Debug(gameJSON)
+        return game, nil</span>
+}
+
+func SetGame(game models.Game) <span class="cov8" title="1">{
+        logger.Debug(fmt.Sprintf("writing to key %s", game.GetGameKey()))
+        gameByte, err := json.Marshal(game)
+        if err != nil </span><span class="cov0" title="0">{
+                panic(err)</span>
+        }
+        <span class="cov8" title="1">logger.Debug(fmt.Sprintf("writing %s to key %s", string(gameByte), game.GetGameKey()))
+
+        storageMutex.Lock()
+        storage[game.GetGameKey()] = string(gameByte)
+        storageMutex.Unlock()</span>
+}
+</pre>
+		
+		<pre class="file" id="file15" style="display: none">package utils
+
+import "go.uber.org/zap"
+
+func GetLogger() *zap.SugaredLogger <span class="cov8" title="1">{
+        logger, _ := zap.NewProduction()
+        defer logger.Sync() // flushes buffer, if any
+        sugar := logger.Sugar()
+        return sugar
+}</span>
+</pre>
+		
+		<pre class="file" id="file16" style="display: none">package utils
+
+import (
+        "fmt"
+        "io/ioutil"
+        "log"
+        "net/http"
+        "os"
+        "time"
+)
+
+var httpClient = &amp;http.Client{Timeout: 10 * time.Second}
+
+func GetString(url string, ret chan string) <span class="cov8" title="1">{
+        var bodyChan chan []byte = make(chan []byte)
+        go GetByte(url, bodyChan)
+        bodyBytes := &lt;-bodyChan
+        ret &lt;- string(bodyBytes)
+}</span>
+
+func GetByte(url string, ret chan []byte) <span class="cov8" title="1">{
+        req, err := http.NewRequest("GET", url, nil)
+        if err != nil </span><span class="cov0" title="0">{
+                log.Print(err)
+                os.Exit(1)
+        }</span>
+        <span class="cov8" title="1">client := &amp;http.Client{}
+        resp, err := client.Do(req)
+        if err != nil </span><span class="cov8" title="1">{
+                fmt.Printf("%+v\n", err)
+                ret &lt;- []byte{}
+                return
+        }</span>
+        <span class="cov8" title="1">defer resp.Body.Close()
+        bodyBytes, err := ioutil.ReadAll(resp.Body)
+        if err != nil </span><span class="cov0" title="0">{
+                log.Fatal(err)
+        }</span>
+        <span class="cov8" title="1">ret &lt;- bodyBytes</span>
+}
+</pre>
+		
+		</div>
+	</body>
+	<script>
+	(function() {
+		var files = document.getElementById('files');
+		var visible;
+		files.addEventListener('change', onChange, false);
+		function select(part) {
+			if (visible)
+				visible.style.display = 'none';
+			visible = document.getElementById(part);
+			if (!visible)
+				return;
+			files.value = part;
+			visible.style.display = 'block';
+			location.hash = part;
+		}
+		function onChange() {
+			select(files.value);
+			window.scrollTo(0, 0);
+		}
+		if (location.hash != "") {
+			select(location.hash.substr(1));
+		}
+		if (!visible) {
+			select("file0");
+		}
+	})();
+	</script>
+</html>
