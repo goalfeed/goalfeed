@@ -1,6 +1,6 @@
 package models
 
-type League int 
+type League int
 
 const (
 	LeagueIdNHL  = 1
