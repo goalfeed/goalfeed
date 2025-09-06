@@ -1,7 +1,7 @@
 package iihf
 
 import (
-	iihfClients "goalfeed/clients/leagues/iihf"
+	iihf "goalfeed/clients/leagues/iihf"
 	"goalfeed/models"
 	"goalfeed/services/leagues"
 	"testing"
@@ -10,7 +10,7 @@ import (
 )
 
 func TestGetEvents(t *testing.T) {
-	var mockClient = iihfClients.MockIIHFApiClient{}
+	var mockClient = iihf.MockIIHFApiClient{}
 	service := getMockService(mockClient)
 	var updateChan chan models.GameUpdate = make(chan models.GameUpdate)
 	activeGame := getActiveGame(service)
@@ -48,7 +48,7 @@ func TestGetEvents(t *testing.T) {
 	assert.Equal(t, activeGame.CurrentState.Away.Team.TeamName, events[0].OpponentName)
 }
 
-func getMockService(mockClient iihfClients.MockIIHFApiClient) leagues.ILeagueService {
+func getMockService(mockClient iihf.MockIIHFApiClient) leagues.ILeagueService {
 	return IIHFService{
 		Client: mockClient,
 	}
@@ -56,7 +56,7 @@ func getMockService(mockClient iihfClients.MockIIHFApiClient) leagues.ILeagueSer
 
 func TestGetActiveGames(t *testing.T) {
 	var gamesChan chan []models.Game = make(chan []models.Game)
-	var mockClient = iihfClients.MockIIHFApiClient{}
+	var mockClient = iihf.MockIIHFApiClient{}
 	service := getMockService(mockClient)
 	go service.GetActiveGames(gamesChan)
 	activeGames := <-gamesChan
@@ -71,7 +71,7 @@ func getActiveGame(service leagues.ILeagueService) models.Game {
 }
 func TestGetGameUpdate(t *testing.T) {
 	var updateChan chan models.GameUpdate = make(chan models.GameUpdate)
-	var mockClient = iihfClients.MockIIHFApiClient{}
+	var mockClient = iihf.MockIIHFApiClient{}
 	service := getMockService(mockClient)
 	activeGame := getActiveGame(service)
 	go service.GetGameUpdate(activeGame, updateChan)
@@ -89,4 +89,27 @@ func TestGetGameUpdate(t *testing.T) {
 	assert.Equal(t, update.NewState.Away.Score, newAway)
 	assert.Equal(t, update.NewState.Home.Score, newHome)
 
+}
+
+func TestGameStatusFromScheduleGame(t *testing.T) {
+	// Test all status cases for IIHF
+	liveGame := iihf.IIHFScheduleResponseGame{
+		Status: "LIVE",
+	}
+	assert.Equal(t, models.GameStatus(models.StatusActive), gameStatusFromScheduleGame(liveGame))
+	
+	finalGame := iihf.IIHFScheduleResponseGame{
+		Status: "FINAL",
+	}
+	assert.Equal(t, models.GameStatus(models.StatusEnded), gameStatusFromScheduleGame(finalGame))
+	
+	upcomingGame := iihf.IIHFScheduleResponseGame{
+		Status: "UPCOMING",
+	}
+	assert.Equal(t, models.GameStatus(models.StatusUpcoming), gameStatusFromScheduleGame(upcomingGame))
+	
+	unknownGame := iihf.IIHFScheduleResponseGame{
+		Status: "UNKNOWN",
+	}
+	assert.Equal(t, models.GameStatus(models.StatusActive), gameStatusFromScheduleGame(unknownGame))
 }

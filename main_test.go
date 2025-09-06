@@ -27,22 +27,28 @@ func (m *MockLeagueService) GetLeagueName() string {
 
 func (m *MockLeagueService) GetActiveGames(gamesChan chan []models.Game) {
 	args := m.Called(gamesChan)
-	if games, ok := args.Get(0).([]models.Game); ok {
-		gamesChan <- games
+	if len(args) > 0 {
+		if games, ok := args.Get(0).([]models.Game); ok {
+			gamesChan <- games
+		}
 	}
 }
 
 func (m *MockLeagueService) GetGameUpdate(game models.Game, updateChan chan models.GameUpdate) {
 	args := m.Called(game, updateChan)
-	if update, ok := args.Get(0).(models.GameUpdate); ok {
-		updateChan <- update
+	if len(args) > 0 {
+		if update, ok := args.Get(0).(models.GameUpdate); ok {
+			updateChan <- update
+		}
 	}
 }
 
 func (m *MockLeagueService) GetEvents(update models.GameUpdate, eventsChan chan []models.Event) {
 	args := m.Called(update, eventsChan)
-	if events, ok := args.Get(0).([]models.Event); ok {
-		eventsChan <- events
+	if len(args) > 0 {
+		if events, ok := args.Get(0).([]models.Event); ok {
+			eventsChan <- events
+		}
 	}
 }
 
@@ -60,6 +66,10 @@ func (m *MockHomeAssistant) SendEvent(event models.Event) error {
 func setupTest(t *testing.T) {
 	viper.Reset()
 	memoryStore.SetActiveGameKeys([]string{})
+	// Reset the league services map
+	leagueServices = map[int]leagues.ILeagueService{}
+	// Reset needRefresh
+	needRefresh = false
 	// Reset eventSender to default
 	eventSender = func(event models.Event) {
 		// Do nothing in tests by default
@@ -116,6 +126,13 @@ func TestTeamIsMonitoredByLeague(t *testing.T) {
 	assert.True(t, teamIsMonitoredByLeague("TOR", "mlb"), "Expected TOR to be monitored for NHL based on environment variable")
 	assert.True(t, teamIsMonitoredByLeague("WPG", "nhl"), "Expected WPG to be monitored for NHL based on environment variable")
 	assert.False(t, teamIsMonitoredByLeague("TOR", "nhl"), "Expected TOR to be monitored for NHL based on environment variable")
+
+	// Test with wildcard "*" 
+	viper.Reset()
+	viper.Set("watch.nhl", []string{"*"})
+	assert.True(t, teamIsMonitoredByLeague("ANY", "nhl"), "Expected any team to be monitored when wildcard is used")
+	assert.True(t, teamIsMonitoredByLeague("TOR", "nhl"), "Expected TOR to be monitored when wildcard is used")
+	assert.True(t, teamIsMonitoredByLeague("WPG", "nhl"), "Expected WPG to be monitored when wildcard is used")
 }
 
 func TestInitialize(t *testing.T) {
@@ -164,6 +181,32 @@ func TestCheckForNewActiveGames(t *testing.T) {
 
 	// Verify the game was added to active games
 	assert.True(t, gameIsMonitored(game))
+	mockService.AssertExpectations(t)
+}
+
+func TestCheckForNewActiveGamesSkipped(t *testing.T) {
+	setupTest(t)
+	mockService := new(MockLeagueService)
+
+	// Setup test data with teams that are NOT monitored
+	game := createTestGame(models.LeagueIdNHL, "NYR", "BOS") // Neither team monitored
+	games := []models.Game{game}
+
+	// Configure mock
+	mockService.On("GetLeagueName").Return("nhl")
+	mockService.On("GetActiveGames", mock.Anything).Run(func(args mock.Arguments) {
+		ch := args.Get(0).(chan []models.Game)
+		ch <- games
+	}).Return(games)
+
+	// Configure viper for team monitoring - only monitor WPG, not NYR or BOS
+	viper.Set("watch.nhl", []string{"WPG"})
+
+	// Test the function
+	checkForNewActiveGames(mockService)
+
+	// Verify the game was NOT added to active games
+	assert.False(t, gameIsMonitored(game))
 	mockService.AssertExpectations(t)
 }
 
@@ -218,6 +261,69 @@ func TestCheckGame(t *testing.T) {
 	// Verify game was removed from active games when ended
 	assert.False(t, gameIsMonitored(game))
 	mockService.AssertExpectations(t)
+}
+
+func TestCheckGameNotEnded(t *testing.T) {
+	setupTest(t)
+	mockService := new(MockLeagueService)
+
+	// Setup test data
+	game := createTestGame(models.LeagueIdNHL, "WPG", "TOR")
+	memoryStore.SetGame(game)
+	memoryStore.AppendActiveGame(game)
+
+	update := models.GameUpdate{
+		NewState: models.GameState{
+			Status: models.GameStatus(models.StatusActive), // Game is still active
+		},
+	}
+
+	events := []models.Event{
+		{
+			TeamCode:     "WPG",
+			TeamName:     "Winnipeg",
+			TeamHash:     "testhash",
+			LeagueId:     int(models.LeagueIdNHL),
+			LeagueName:   "NHL",
+			OpponentCode: "TOR",
+			OpponentName: "Toronto",
+			OpponentHash: "opponenthash",
+		},
+	}
+
+	// Configure mock
+	mockService.On("GetLeagueName").Return("nhl")
+	mockService.On("GetGameUpdate", mock.AnythingOfType("models.Game"), mock.Anything).Run(func(args mock.Arguments) {
+		ch := args.Get(1).(chan models.GameUpdate)
+		ch <- update
+	}).Return(update)
+	mockService.On("GetEvents", mock.AnythingOfType("models.GameUpdate"), mock.Anything).Run(func(args mock.Arguments) {
+		ch := args.Get(1).(chan []models.Event)
+		ch <- events
+	}).Return(events)
+
+	// Set up the league service
+	leagueServices[int(models.LeagueIdNHL)] = mockService
+
+	// Test the function
+	checkGame(game.GetGameKey())
+
+	// Give the goroutine time to execute
+	time.Sleep(100 * time.Millisecond)
+
+	// Verify game is still monitored since it's not ended
+	assert.True(t, gameIsMonitored(game))
+	mockService.AssertExpectations(t)
+}
+
+func TestCheckGameError(t *testing.T) {
+	setupTest(t)
+
+	// Test with a non-existent game key
+	checkGame("non-existent-key")
+
+	// Should not panic and needRefresh should be set to true
+	assert.True(t, needRefresh)
 }
 
 func TestFireGoalEvents(t *testing.T) {
@@ -318,4 +424,42 @@ func TestRunTickers(t *testing.T) {
 	case <-time.After(3 * time.Second):
 		t.Fatal("Test timed out")
 	}
+}
+
+func TestWatchActiveGames(t *testing.T) {
+	setupTest(t)
+
+	// Set up a mock service for the league
+	mockService := new(MockLeagueService)
+	leagueServices[int(models.LeagueIdNHL)] = mockService
+
+	// Set up a game in the active games list
+	game := createTestGame(models.LeagueIdNHL, "WPG", "TOR")
+	memoryStore.SetGame(game)
+	memoryStore.AppendActiveGame(game)
+
+	// Configure mock to avoid the test failing
+	mockService.On("GetLeagueName").Return("nhl")
+	mockService.On("GetGameUpdate", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+		ch := args.Get(1).(chan models.GameUpdate)
+		go func() {
+			ch <- models.GameUpdate{
+				NewState: models.GameState{
+					Status: models.GameStatus(models.StatusActive),
+				},
+			}
+		}()
+	})
+	mockService.On("GetEvents", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+		ch := args.Get(1).(chan []models.Event)
+		go func() {
+			ch <- []models.Event{}
+		}()
+	})
+
+	// Test that watchActiveGames doesn't panic
+	assert.NotPanics(t, func() {
+		watchActiveGames()
+		time.Sleep(50 * time.Millisecond) // Give goroutines time to run
+	})
 }
