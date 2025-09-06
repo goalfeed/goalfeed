@@ -61,7 +61,7 @@ type MLBGameResponseTeam struct {
 	ID              int      `json:"id"`
 	Name            string   `json:"name"`
 	Link            string   `json:"link"`
-	Runs            int   `json:"runs"`
+	Runs            int      `json:"runs"`
 	Season          int      `json:"season"`
 	Venue           Venue    `json:"venue"`
 	Teamcode        string   `json:"teamCode"`
@@ -76,7 +76,7 @@ type MLBGameResponseTeam struct {
 	Shortname       string   `json:"shortName"`
 	Allstarstatus   string   `json:"allStarStatus"`
 	Active          bool     `json:"active"`
-	Team        Team   `json:"team"`
+	Team            Team     `json:"team"`
 }
 type MLBScoreboardResponseTeams struct {
 	Away MLBGameResponseTeam `json:"away"`
@@ -84,22 +84,23 @@ type MLBScoreboardResponseTeams struct {
 }
 
 type GameData struct {
-	Game     Game          `json:"game"`
-	Datetime Datetime      `json:"datetime"`
-	Status   Status        `json:"status"`
-	Teams    MLBScoreboardResponseTeams         `json:"teams"`
-	Venue    Venue         `json:"venue"`
-	Alerts   []interface{} `json:"alerts"`
+	Game     Game                       `json:"game"`
+	Datetime Datetime                   `json:"datetime"`
+	Status   Status                     `json:"status"`
+	Teams    MLBScoreboardResponseTeams `json:"teams"`
+	Venue    Venue                      `json:"venue"`
+	Alerts   []interface{}              `json:"alerts"`
 }
-// type Result struct {
-// 	Type        string `json:"type"`
-// 	Event       string `json:"event"`
-// 	Eventtype   string `json:"eventType"`
-// 	Description string `json:"description"`
-// 	Rbi         int    `json:"rbi"`
-// 	Awayscore   int    `json:"awayScore"`
-// 	Homescore   int    `json:"homeScore"`
-// }
+
+//	type Result struct {
+//		Type        string `json:"type"`
+//		Event       string `json:"event"`
+//		Eventtype   string `json:"eventType"`
+//		Description string `json:"description"`
+//		Rbi         int    `json:"rbi"`
+//		Awayscore   int    `json:"awayScore"`
+//		Homescore   int    `json:"homeScore"`
+//	}
 type Details struct {
 	Description   string `json:"description"`
 	Event         string `json:"event"`
@@ -140,26 +141,26 @@ type Innings struct {
 	Away       MLBGameResponseTeam `json:"away,omitempty"`
 }
 type Linescore struct {
-	Currentinning        int       `json:"currentInning"`
-	Currentinningordinal string    `json:"currentInningOrdinal"`
-	Inningstate          string    `json:"inningState"`
-	Inninghalf           string    `json:"inningHalf"`
-	Istopinning          bool      `json:"isTopInning"`
-	Scheduledinnings     int       `json:"scheduledInnings"`
-	Innings              []Innings `json:"innings"`
-	Teams                MLBScoreboardResponseTeams     `json:"teams"`
-	Balls                int       `json:"balls"`
-	Strikes              int       `json:"strikes"`
-	Outs                 int       `json:"outs"`
+	Currentinning        int                        `json:"currentInning"`
+	Currentinningordinal string                     `json:"currentInningOrdinal"`
+	Inningstate          string                     `json:"inningState"`
+	Inninghalf           string                     `json:"inningHalf"`
+	Istopinning          bool                       `json:"isTopInning"`
+	Scheduledinnings     int                        `json:"scheduledInnings"`
+	Innings              []Innings                  `json:"innings"`
+	Teams                MLBScoreboardResponseTeams `json:"teams"`
+	Balls                int                        `json:"balls"`
+	Strikes              int                        `json:"strikes"`
+	Outs                 int                        `json:"outs"`
 }
 type Info struct {
 	Label string `json:"label"`
 	Value string `json:"value,omitempty"`
 }
 type Boxscore struct {
-	Teams         MLBScoreboardResponseTeams         `json:"teams"`
-	Info          []Info        `json:"info"`
-	Pitchingnotes []interface{} `json:"pitchingNotes"`
+	Teams         MLBScoreboardResponseTeams `json:"teams"`
+	Info          []Info                     `json:"info"`
+	Pitchingnotes []interface{}              `json:"pitchingNotes"`
 }
 type LiveData struct {
 	Linescore Linescore `json:"linescore"`

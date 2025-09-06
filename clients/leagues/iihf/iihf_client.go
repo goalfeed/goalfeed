@@ -32,4 +32,3 @@ func (c IIHFApiClient) GetIIHFSchedule(sEventId string) IIHFScheduleResponse {
 	json.Unmarshal(bodyByte, &response)
 	return response
 }
-
