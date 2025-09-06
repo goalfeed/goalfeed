@@ -17,6 +17,28 @@ jobs:
         with:
           go-version: '^1.21'
 
-      - name: Run tests
-        run: go test ./...
+      - name: Run tests with coverage
+        run: |
+          # Run tests that work without network access and generate coverage
+          go test -coverprofile=coverage.out ./models ./targets/homeassistant ./targets/memoryStore ./services/leagues/nhl ./services/leagues/mlb ./services/leagues/iihf ./utils ./config ./clients/...
+          
+          # Run main package tests that work without network
+          go test -coverprofile=main_coverage.out -v -run="TestTeamIsMonitored|TestGameIsMonitored|TestSendTestGoal|TestFireGoalEvents" .
+          
+          # Combine coverage files
+          echo "mode: set" > combined_coverage.out
+          grep -h -v "^mode:" coverage.out main_coverage.out >> combined_coverage.out || true
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./combined_coverage.out
+          flags: unittests
+          name: codecov-umbrella
+          fail_ci_if_error: false
+
+      - name: Coverage Report
+        run: |
+          go tool cover -func=combined_coverage.out | tail -1
+          echo "Coverage report uploaded to Codecov"
 

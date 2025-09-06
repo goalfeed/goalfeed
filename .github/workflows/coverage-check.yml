@@ -1,0 +1,91 @@
+name: Coverage Check
+
+on:
+  pull_request:
+    branches:
+      - 'main'
+
+jobs:
+  coverage-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: '^1.21'
+
+      - name: Get baseline coverage from main
+        run: |
+          # Switch to main branch to get baseline coverage
+          git fetch origin main
+          git checkout origin/main
+          
+          # Run tests and get coverage for main branch
+          go test -coverprofile=baseline_coverage.out ./models ./targets/homeassistant ./targets/memoryStore ./services/leagues/nhl ./services/leagues/mlb ./services/leagues/iihf ./utils ./config ./clients/... || true
+          go test -coverprofile=baseline_main_coverage.out -v -run="TestTeamIsMonitored|TestGameIsMonitored|TestSendTestGoal|TestFireGoalEvents" . || true
+          
+          # Combine baseline coverage files
+          echo "mode: set" > baseline_combined_coverage.out
+          grep -h -v "^mode:" baseline_coverage.out baseline_main_coverage.out >> baseline_combined_coverage.out 2>/dev/null || true
+          
+          # Get baseline coverage percentage
+          BASELINE_COVERAGE=$(go tool cover -func=baseline_combined_coverage.out 2>/dev/null | tail -1 | awk '{print $3}' | sed 's/%//' || echo "0")
+          echo "BASELINE_COVERAGE=$BASELINE_COVERAGE" >> $GITHUB_ENV
+          echo "Baseline coverage: $BASELINE_COVERAGE%"
+
+      - name: Check out PR code
+        run: |
+          git checkout ${{ github.sha }}
+
+      - name: Get current coverage
+        run: |
+          # Run tests and get coverage for current PR
+          go test -coverprofile=current_coverage.out ./models ./targets/homeassistant ./targets/memoryStore ./services/leagues/nhl ./services/leagues/mlb ./services/leagues/iihf ./utils ./config ./clients/... || true
+          go test -coverprofile=current_main_coverage.out -v -run="TestTeamIsMonitored|TestGameIsMonitored|TestSendTestGoal|TestFireGoalEvents" . || true
+          
+          # Combine current coverage files
+          echo "mode: set" > current_combined_coverage.out
+          grep -h -v "^mode:" current_coverage.out current_main_coverage.out >> current_combined_coverage.out 2>/dev/null || true
+          
+          # Get current coverage percentage
+          CURRENT_COVERAGE=$(go tool cover -func=current_combined_coverage.out 2>/dev/null | tail -1 | awk '{print $3}' | sed 's/%//' || echo "0")
+          echo "CURRENT_COVERAGE=$CURRENT_COVERAGE" >> $GITHUB_ENV
+          echo "Current coverage: $CURRENT_COVERAGE%"
+
+      - name: Check coverage regression
+        run: |
+          echo "Baseline coverage: $BASELINE_COVERAGE%"
+          echo "Current coverage: $CURRENT_COVERAGE%"
+          
+          # Allow for 1% tolerance to account for rounding and minor changes
+          TOLERANCE=1
+          
+          # Use awk for all floating point operations since bash doesn't support them natively
+          COVERAGE_OK=$(awk -v current="$CURRENT_COVERAGE" -v baseline="$BASELINE_COVERAGE" -v tolerance="$TOLERANCE" '
+            BEGIN { 
+              minimum = baseline - tolerance
+              result = (current >= minimum) ? "1" : "0"
+              printf "Minimum required coverage: %.1f%%\n", minimum > "/dev/stderr"
+              print result
+            }')
+          
+          if [ "$COVERAGE_OK" = "1" ]; then
+            echo "✅ Coverage check passed!"
+            echo "Current coverage ($CURRENT_COVERAGE%) is within acceptable range"
+          else
+            echo "❌ Coverage check failed!"
+            echo "Current coverage ($CURRENT_COVERAGE%) is below acceptable threshold"
+            echo "Coverage has decreased by more than $TOLERANCE% from baseline ($BASELINE_COVERAGE%)"
+            exit 1
+          fi
+
+      - name: Generate coverage badge data
+        run: |
+          # Create a coverage badge data file for potential future use
+          echo "{\"coverage\": \"$CURRENT_COVERAGE%\"}" > coverage-badge.json
+          echo "Coverage badge data created: $CURRENT_COVERAGE%"
