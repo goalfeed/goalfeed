@@ -40,6 +40,18 @@ func (s IIHFService) GetActiveGames(ret chan []models.Game) {
 	ret <- activeGames
 }
 
+// GetUpcomingGames Returns upcoming IIHFGames
+func (s IIHFService) GetUpcomingGames(ret chan []models.Game) {
+	schedule := s.getSchedule()
+	var upcomingGames []models.Game
+	for _, game := range schedule {
+		if gameStatusFromScheduleGame(game) == models.StatusUpcoming {
+			upcomingGames = append(upcomingGames, gameFromSchedule(game))
+		}
+	}
+	ret <- upcomingGames
+}
+
 // GetActiveGames Returns a GameUpdate
 func (s IIHFService) GetGameUpdate(game models.Game, ret chan models.GameUpdate) {
 	scoreboard := s.Client.GetIIHFScoreBoard(game.GameCode)
@@ -64,11 +76,16 @@ func teamFromScheduleTeam(scheduleTeam iihf.IIHFScheduleTeam) models.Team {
 
 	// todo store/retrieve from DB
 	// todo fill out model
+	
+	// IIHF teams don't have logo URLs in the API, so we'll leave it empty
+	// In the future, we could construct URLs based on team codes or use a logo service
+	
 	team := models.Team{
 		TeamName: scheduleTeam.TeamCode,
 		TeamCode: scheduleTeam.TeamCode,
 		ExtID:    scheduleTeam.TeamCode,
 		LeagueID: models.LeagueIdIIHF,
+		LogoURL:  "", // IIHF doesn't provide logo URLs
 	}
 	return team
 

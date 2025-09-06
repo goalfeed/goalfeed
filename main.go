@@ -4,16 +4,19 @@ import (
 	"fmt"
 	cflClients "goalfeed/clients/leagues/cfl"
 	mlbClients "goalfeed/clients/leagues/mlb"
+	nflClients "goalfeed/clients/leagues/nfl"
 	nhlClients "goalfeed/clients/leagues/nhl"
 	"goalfeed/config"
 	"goalfeed/models"
 	"goalfeed/services/leagues"
 	"goalfeed/services/leagues/cfl"
 	"goalfeed/services/leagues/mlb"
+	"goalfeed/services/leagues/nfl"
 	"goalfeed/services/leagues/nhl"
 	"goalfeed/targets/homeassistant"
 	"goalfeed/targets/memoryStore"
 	"goalfeed/utils"
+	webApi "goalfeed/web/api"
 	"os"
 	"strings"
 	"sync"
@@ -33,7 +36,11 @@ var rootCmd = &cobra.Command{
 	Long:  `Starts the Goalfeed application.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		initialize()
-		runTickers()
+		if viper.GetBool("web") {
+			runWebMode()
+		} else {
+			runTickers()
+		}
 	},
 }
 var (
@@ -49,17 +56,20 @@ func init() {
 	rootCmd.PersistentFlags().StringSlice("mlb", []string{}, "MLB teams to watch")
 	rootCmd.PersistentFlags().StringSlice("cfl", []string{}, "CFL teams to watch")
 	rootCmd.PersistentFlags().Bool("test-goals", false, "Enable or disable sending test goals every minute")
+	rootCmd.PersistentFlags().Bool("web", false, "Start web interface mode")
+	rootCmd.PersistentFlags().String("web-port", "8080", "Port for web interface")
 
 	// Bind these flags to viper
 	viper.BindPFlag("watch.nhl", rootCmd.PersistentFlags().Lookup("nhl"))
 	viper.BindPFlag("watch.mlb", rootCmd.PersistentFlags().Lookup("mlb"))
 	viper.BindPFlag("watch.cfl", rootCmd.PersistentFlags().Lookup("cfl"))
 	viper.BindPFlag("test-goals", rootCmd.PersistentFlags().Lookup("test-goals"))
+	viper.BindPFlag("web", rootCmd.PersistentFlags().Lookup("web"))
+	viper.BindPFlag("web-port", rootCmd.PersistentFlags().Lookup("web-port"))
 
 }
 
 func main() {
-
 	homeAssistantURL := os.Getenv("SUPERVISOR_API")
 	fmt.Println(homeAssistantURL)
 	rootCmd.Version = version
@@ -100,12 +110,23 @@ func runTickers() {
 	wg.Wait()
 }
 
+func runWebMode() {
+	logger.Info("Starting Goalfeed in web mode")
+
+	// Start the web server in a goroutine
+	go webApi.StartWebServer(viper.GetString("web-port"))
+
+	// Run the normal tickers
+	runTickers()
+}
+
 func initialize() {
 	logger.Info("Puck Drop! Initializing Goalfeed Process")
 
 	leagueServices[models.LeagueIdNHL] = nhl.NHLService{Client: nhlClients.NHLApiClient{}}
 	leagueServices[models.LeagueIdMLB] = mlb.MLBService{Client: mlbClients.MLBApiClient{}}
 	leagueServices[models.LeagueIdCFL] = cfl.CFLService{Client: cflClients.CFLApiClient{}}
+	leagueServices[models.LeagueIdNFL] = nfl.NFLService{Client: nflClients.NFLAPIClient{}}
 
 	logger.Info("Initializing Active Games")
 	checkLeaguesForActiveGames()
@@ -173,23 +194,56 @@ func checkGame(gameKey string) {
 	update := <-updateChan
 	go service.GetEvents(update, eventChan)
 	go fireGoalEvents(eventChan, game)
+	// Check for period changes and game state changes
+	oldPeriod := game.CurrentState.Period
+	oldStatus := game.CurrentState.Status
+
 	game.CurrentState = update.NewState
 
+	// Send period updates if period changed
+	if oldPeriod != game.CurrentState.Period {
+		if game.CurrentState.Period > oldPeriod {
+			// Period started
+			go homeassistant.SendPeriodUpdate(game, models.EventTypePeriodStart)
+			logger.Info(fmt.Sprintf("[%s - %s @ %s] Period %d started", service.GetLeagueName(), game.CurrentState.Away.Team.TeamCode, game.CurrentState.Home.Team.TeamCode, game.CurrentState.Period))
+		}
+	}
+
+	// Send game state updates
+	if oldStatus != game.CurrentState.Status {
+		switch game.CurrentState.Status {
+		case models.StatusActive:
+			if oldStatus == models.StatusUpcoming {
+				go homeassistant.SendPeriodUpdate(game, models.EventTypeGameStart)
+				logger.Info(fmt.Sprintf("[%s - %s @ %s] Game started", service.GetLeagueName(), game.CurrentState.Away.Team.TeamCode, game.CurrentState.Home.Team.TeamCode))
+			}
+		case models.StatusEnded:
+			go homeassistant.SendPeriodUpdate(game, models.EventTypeGameEnd)
+			logger.Info(fmt.Sprintf("[%s - %s @ %s] Game ended", service.GetLeagueName(), game.CurrentState.Away.Team.TeamCode, game.CurrentState.Home.Team.TeamCode))
+		}
+	}
+
 	if game.CurrentState.Status == models.StatusEnded {
-		logger.Info(fmt.Sprintf("[%s - %s @ %s] Game has ended", service.GetLeagueName(), game.CurrentState.Away.Team.TeamCode, game.CurrentState.Home.Team.TeamCode))
 		memoryStore.DeleteActiveGame(game)
 		memoryStore.DeleteActiveGameKey(game.GetGameKey()) // Ensure the game key is removed from active game keys
 	} else {
 		game.IsFetching = false
 		memoryStore.SetGame(game)
+		// Send enhanced game update to Home Assistant
+		go homeassistant.SendGameUpdate(game)
+		// Broadcast game update to web clients
+		webApi.BroadcastGameUpdate(game)
 	}
 }
 
 func fireGoalEvents(events chan []models.Event, game models.Game) {
 	for _, event := range <-events {
-		logger.Info(fmt.Sprintf("Goal %s", event.TeamCode))
+		logger.Info(fmt.Sprintf("Event %s: %s", event.Type, event.Description))
 		if teamIsMonitoredByLeague(event.TeamCode, leagueServices[int(game.LeagueId)].GetLeagueName()) {
+			// Send enhanced event to Home Assistant
 			go eventSender(event)
+			// Broadcast event to web clients
+			webApi.BroadcastEvent(event)
 		}
 	}
 }

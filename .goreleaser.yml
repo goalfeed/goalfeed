@@ -2,6 +2,7 @@ before:
   hooks:
     - go mod tidy
     - go generate ./...
+    - cd web/frontend && npm ci && npm run build
 
 builds:
   - id: goalfeed
@@ -31,6 +32,7 @@ archives:
     format: tar.gz
     files:
       - README.md
+      - web/frontend/build/**
 
 release:
   github:

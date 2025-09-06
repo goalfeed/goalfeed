@@ -33,6 +33,112 @@
 /Godeps/
 
 # End of https://www.toptal.com/developers/gitignore/api/code,go
+
+### Web Frontend ###
+# Node.js - General patterns
+node_modules/
+**/node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.npm
+.yarn-integrity
+
+# Web frontend specific
+web/frontend/node_modules/
+web/frontend/npm-debug.log*
+web/frontend/yarn-debug.log*
+web/frontend/yarn-error.log*
+web/frontend/.npm
+web/frontend/.yarn-integrity
+
+# React build output
+web/frontend/build/
+web/frontend/dist/
+
+# Environment variables
+web/frontend/.env
+web/frontend/.env.local
+web/frontend/.env.development.local
+web/frontend/.env.test.local
+web/frontend/.env.production.local
+
+# IDE files
+web/frontend/.vscode/
+web/frontend/.idea/
+
+# OS generated files
+web/frontend/.DS_Store
+web/frontend/.DS_Store?
+web/frontend/._*
+web/frontend/.Spotlight-V100
+web/frontend/.Trashes
+web/frontend/ehthumbs.db
+web/frontend/Thumbs.db
+
+# Logs
+web/frontend/logs
+web/frontend/*.log
+
+# Runtime data
+web/frontend/pids
+web/frontend/*.pid
+web/frontend/*.seed
+web/frontend/*.pid.lock
+
+# Coverage directory used by tools like istanbul
+web/frontend/coverage/
+
+# nyc test coverage
+web/frontend/.nyc_output
+
+# Dependency directories
+web/frontend/jspm_packages/
+
+# Optional npm cache directory
+web/frontend/.npm
+
+# Optional eslint cache
+web/frontend/.eslintcache
+
+# Microbundle cache
+web/frontend/.rpt2_cache/
+web/frontend/.rts2_cache_cjs/
+web/frontend/.rts2_cache_es/
+web/frontend/.rts2_cache_umd/
+
+# Optional REPL history
+web/frontend/.node_repl_history
+
+# Output of 'npm pack'
+web/frontend/*.tgz
+
+# Yarn Integrity file
+web/frontend/.yarn-integrity
+
+# parcel-bundler cache (https://parceljs.org/)
+web/frontend/.cache
+web/frontend/.parcel-cache
+
+# next.js build output
+web/frontend/.next
+
+# nuxt.js build output
+web/frontend/.nuxt
+
+# vuepress build output
+web/frontend/.vuepress/dist
+
+# Serverless directories
+web/frontend/.serverless
+
+# FuseBox cache
+web/frontend/.fusebox/
+
+# DynamoDB Local files
+web/frontend/.dynamodb/
+
+### Goalfeed Specific ###
 /storage
 goalfeed
 config.yaml

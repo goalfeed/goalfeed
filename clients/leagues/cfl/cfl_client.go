@@ -12,7 +12,10 @@ type CFLApiClient struct {
 func (c CFLApiClient) GetCFLSchedule() CFLScheduleResponse {
 	var body chan []byte = make(chan []byte)
 	url := "https://cflscoreboard.cfl.ca/json/scoreboard/rounds.json"
-	go utils.GetByte(url, body)
+	go utils.GetByteWithHeaders(url, body, map[string]string{
+		"Accept-Encoding": "identity",
+		"User-Agent":      "Goalfeed/1.0",
+	})
 
 	bodyByte := <-body
 	var response CFLScheduleResponse

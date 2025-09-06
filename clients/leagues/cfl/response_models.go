@@ -1,19 +1,17 @@
 package cfl
 
 // CFL Schedule Response Models
-type CFLScheduleResponse struct {
-	Rounds []CFLRound `json:"rounds"`
-}
+type CFLScheduleResponse []CFLRound
 
 type CFLRound struct {
-	ID          int           `json:"id"`
-	Status      string        `json:"status"`
-	Name        string        `json:"name"`
-	Type        string        `json:"type"`
-	Number      int           `json:"number"`
-	StartDate   string        `json:"startDate"`
-	EndDate     string        `json:"endDate"`
-	Tournaments []CFLGame     `json:"tournaments"`
+	ID          int       `json:"id"`
+	Status      string    `json:"status"`
+	Name        string    `json:"name"`
+	Type        string    `json:"type"`
+	Number      int       `json:"number"`
+	StartDate   string    `json:"startDate"`
+	EndDate     string    `json:"endDate"`
+	Tournaments []CFLGame `json:"tournaments"`
 }
 
 type CFLGame struct {
@@ -34,10 +32,10 @@ type CFLGame struct {
 }
 
 type CFLTeam struct {
-	ID       int    `json:"id"`
-	Name     string `json:"name"`
+	ID        int    `json:"id"`
+	Name      string `json:"name"`
 	ShortName string `json:"shortName"`
-	Score    int    `json:"score"`
+	Score     int    `json:"score"`
 }
 
 type CFLTimeouts struct {
@@ -47,44 +45,44 @@ type CFLTimeouts struct {
 
 // CFL Live Game Response Models (from BetGenius API)
 type CFLLiveGameResponse struct {
-	Data CFLLiveGameData `json:"data"`
-	Sport string `json:"sport"`
-	SportID int `json:"sportId"`
-	CompetitionID int `json:"competitionId"`
+	Data          CFLLiveGameData  `json:"data"`
+	Sport         string           `json:"sport"`
+	SportID       int              `json:"sportId"`
+	CompetitionID int              `json:"competitionId"`
 	AvailableTabs CFLAvailableTabs `json:"availableTabs"`
 }
 
 type CFLLiveGameData struct {
-	BetGeniusFixtureID string `json:"betGeniusFixtureId"`
+	BetGeniusFixtureID string                `json:"betGeniusFixtureId"`
 	PreferredSourceIDs CFLPreferredSourceIDs `json:"preferredSourceIds"`
-	ScoreboardInfo CFLScoreboardInfo `json:"scoreboardInfo"`
-	MatchInfo CFLMatchInfo `json:"matchInfo"`
-	Court CFLCourt `json:"court"`
-	Scheduler bool `json:"scheduler"`
+	ScoreboardInfo     CFLScoreboardInfo     `json:"scoreboardInfo"`
+	MatchInfo          CFLMatchInfo          `json:"matchInfo"`
+	Court              CFLCourt              `json:"court"`
+	Scheduler          bool                  `json:"scheduler"`
 }
 
 type CFLPreferredSourceIDs struct {
 	MatchActionsSourceID string `json:"matchActionsSourceId"`
-	PlayerStatsSourceID string `json:"playerStatsSourceId"`
-	TeamStatsSourceID string `json:"teamStatsSourceId"`
+	PlayerStatsSourceID  string `json:"playerStatsSourceId"`
+	TeamStatsSourceID    string `json:"teamStatsSourceId"`
 }
 
 type CFLScoreboardInfo struct {
-	MatchStatus string `json:"matchStatus"`
-	CurrentPhase string `json:"currentPhase"`
-	AwayScore int `json:"awayScore"`
-	HomeScore int `json:"homeScore"`
-	AwayTimeoutsLeft int `json:"awayTimeoutsLeft"`
-	HomeTimeoutsLeft int `json:"homeTimeoutsLeft"`
-	TotalTimeouts int `json:"totalTimeouts"`
-	ScoreByPhases CFLScoreByPhases `json:"scoreByPhases"`
-	TimeRemainingInPhase string `json:"timeRemainingInPhase"`
-	Possession string `json:"possession"`
-	Down interface{} `json:"down"`
-	YardsToGo interface{} `json:"yardsToGo"`
-	TotalPhases int `json:"totalPhases"`
-	PhaseQualifier string `json:"phaseQualifier"`
-	ClockUnreliable bool `json:"clockUnreliable"`
+	MatchStatus          string           `json:"matchStatus"`
+	CurrentPhase         string           `json:"currentPhase"`
+	AwayScore            int              `json:"awayScore"`
+	HomeScore            int              `json:"homeScore"`
+	AwayTimeoutsLeft     int              `json:"awayTimeoutsLeft"`
+	HomeTimeoutsLeft     int              `json:"homeTimeoutsLeft"`
+	TotalTimeouts        int              `json:"totalTimeouts"`
+	ScoreByPhases        CFLScoreByPhases `json:"scoreByPhases"`
+	TimeRemainingInPhase string           `json:"timeRemainingInPhase"`
+	Possession           string           `json:"possession"`
+	Down                 interface{}      `json:"down"`
+	YardsToGo            interface{}      `json:"yardsToGo"`
+	TotalPhases          int              `json:"totalPhases"`
+	PhaseQualifier       string           `json:"phaseQualifier"`
+	ClockUnreliable      bool             `json:"clockUnreliable"`
 }
 
 type CFLScoreByPhases struct {
@@ -97,49 +95,49 @@ type CFLPhaseScore struct {
 }
 
 type CFLMatchInfo struct {
-	RoundID string `json:"roundId"`
-	RoundName string `json:"roundName"`
-	ScheduledStartTime string `json:"scheduledStartTime"`
-	VenueName string `json:"venueName"`
-	SeasonID string `json:"seasonId"`
-	SeasonName string `json:"seasonName"`
-	HomeTeam CFLDetailedTeam `json:"homeTeam"`
-	AwayTeam CFLDetailedTeam `json:"awayTeam"`
-	PlayedPhases []string `json:"playedPhases"`
+	RoundID            string          `json:"roundId"`
+	RoundName          string          `json:"roundName"`
+	ScheduledStartTime string          `json:"scheduledStartTime"`
+	VenueName          string          `json:"venueName"`
+	SeasonID           string          `json:"seasonId"`
+	SeasonName         string          `json:"seasonName"`
+	HomeTeam           CFLDetailedTeam `json:"homeTeam"`
+	AwayTeam           CFLDetailedTeam `json:"awayTeam"`
+	PlayedPhases       []string        `json:"playedPhases"`
 }
 
 type CFLDetailedTeam struct {
-	FullName string `json:"fullName"`
-	CompetitorID string `json:"competitorId"`
-	Details CFLTeamDetails `json:"details"`
+	FullName     string         `json:"fullName"`
+	CompetitorID string         `json:"competitorId"`
+	Details      CFLTeamDetails `json:"details"`
 }
 
 type CFLTeamDetails struct {
-	Key string `json:"key"`
-	Brand CFLBrand `json:"brand"`
-	PrimaryColor string `json:"primaryColor"`
-	SecondaryColor string `json:"secondaryColor"`
-	FirstName string `json:"firstName"`
-	ShortName string `json:"shortName"`
-	SecondName string `json:"secondName"`
-	Abbreviation string `json:"abbreviation"`
-	OfficialName string `json:"officialName"`
+	Key            string   `json:"key"`
+	Brand          CFLBrand `json:"brand"`
+	PrimaryColor   string   `json:"primaryColor"`
+	SecondaryColor string   `json:"secondaryColor"`
+	FirstName      string   `json:"firstName"`
+	ShortName      string   `json:"shortName"`
+	SecondName     string   `json:"secondName"`
+	Abbreviation   string   `json:"abbreviation"`
+	OfficialName   string   `json:"officialName"`
 }
 
 type CFLBrand struct {
-	Logo string `json:"logo"`
+	Logo  string   `json:"logo"`
 	Theme CFLTheme `json:"theme"`
 }
 
 type CFLTheme struct {
-	Dark CFLThemeColors `json:"dark"`
+	Dark  CFLThemeColors `json:"dark"`
 	Light CFLThemeColors `json:"light"`
 }
 
 type CFLThemeColors struct {
-	Logo CFLThemeLogo `json:"logo"`
-	PrimaryColor string `json:"primaryColor"`
-	SecondaryColor string `json:"secondaryColor"`
+	Logo           CFLThemeLogo `json:"logo"`
+	PrimaryColor   string       `json:"primaryColor"`
+	SecondaryColor string       `json:"secondaryColor"`
 }
 
 type CFLThemeLogo struct {
@@ -151,9 +149,9 @@ type CFLCourt struct {
 }
 
 type CFLAvailableTabs struct {
-	Court bool `json:"court"`
-	TeamStats bool `json:"teamStats"`
+	Court       bool `json:"court"`
+	TeamStats   bool `json:"teamStats"`
 	PlayerStats bool `json:"playerStats"`
-	Lineups bool `json:"lineups"`
-	PlayByPlay bool `json:"playByPlay"`
+	Lineups     bool `json:"lineups"`
+	PlayByPlay  bool `json:"playByPlay"`
 }
