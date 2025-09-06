@@ -12,13 +12,13 @@ import (
 func TestGetString(t *testing.T) {
 	// Reset viper before test
 	viper.Reset()
-	
+
 	// Set a test value
 	viper.Set("test.key", "test value")
-	
+
 	result := GetString("test.key")
 	assert.Equal(t, "test value", result)
-	
+
 	// Test non-existent key
 	result = GetString("non.existent.key")
 	assert.Equal(t, "", result)
@@ -27,14 +27,14 @@ func TestGetString(t *testing.T) {
 func TestGetStringSlice(t *testing.T) {
 	// Reset viper before test
 	viper.Reset()
-	
+
 	// Set a test slice value
 	testSlice := []string{"value1", "value2", "value3"}
 	viper.Set("test.slice", testSlice)
-	
+
 	result := GetStringSlice("test.slice")
 	assert.Equal(t, testSlice, result)
-	
+
 	// Test non-existent key
 	result = GetStringSlice("non.existent.slice")
 	assert.Empty(t, result)
@@ -43,16 +43,16 @@ func TestGetStringSlice(t *testing.T) {
 func TestEnvironmentVariableOverride(t *testing.T) {
 	// Reset viper before test
 	viper.Reset()
-	
+
 	// Set an environment variable
 	os.Setenv("GOALFEED_TEST_ENV", "env_value")
 	defer os.Unsetenv("GOALFEED_TEST_ENV")
-	
+
 	// Reinitialize viper to pick up env vars
 	viper.SetEnvPrefix("GOALFEED")
 	viper.AutomaticEnv()
 	viper.SetEnvKeyReplacer(testReplacer())
-	
+
 	result := GetString("test.env")
 	assert.Equal(t, "env_value", result)
 }

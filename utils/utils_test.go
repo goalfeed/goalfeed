@@ -20,7 +20,7 @@ func TestGetString(t *testing.T) {
 	// Test successful response
 	ret := make(chan string)
 	go GetString(server.URL, ret)
-	
+
 	select {
 	case result := <-ret:
 		assert.Equal(t, "test response", result)
@@ -40,7 +40,7 @@ func TestGetByte(t *testing.T) {
 
 		ret := make(chan []byte)
 		go GetByte(server.URL, ret)
-		
+
 		select {
 		case result := <-ret:
 			assert.Equal(t, []byte("test response"), result)
@@ -53,7 +53,7 @@ func TestGetByte(t *testing.T) {
 	t.Run("NetworkError", func(t *testing.T) {
 		ret := make(chan []byte)
 		go GetByte("http://nonexistent.example.com", ret)
-		
+
 		select {
 		case result := <-ret:
 			assert.Equal(t, []byte{}, result)
@@ -72,7 +72,7 @@ func TestGetByte(t *testing.T) {
 
 		ret := make(chan []byte)
 		go GetByte(server.URL, ret)
-		
+
 		select {
 		case result := <-ret:
 			assert.Equal(t, []byte("server error"), result)
@@ -90,7 +90,7 @@ func TestGetByte(t *testing.T) {
 
 		ret := make(chan []byte)
 		go GetByte(server.URL, ret)
-		
+
 		select {
 		case result := <-ret:
 			assert.Equal(t, []byte{}, result)

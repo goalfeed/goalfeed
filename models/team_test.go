@@ -18,10 +18,10 @@ func TestGetGameKey(t *testing.T) {
 		GameCode: "2023020001",
 		LeagueId: LeagueIdNHL,
 	}
-	
+
 	expectedKey := "1-2023020001"
 	assert.Equal(t, expectedKey, game.GetGameKey())
-	
+
 	// Test with MLB league
 	game.LeagueId = LeagueIdMLB
 	expectedKey = "2-2023020001"

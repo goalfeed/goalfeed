@@ -50,7 +50,7 @@ func TestSendEvent(t *testing.T) {
 func TestSendEventWithConfig(t *testing.T) {
 	// Reset viper
 	viper.Reset()
-	
+
 	// Mock Home Assistant server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != "POST" {
@@ -109,5 +109,28 @@ func TestSendEventServerError(t *testing.T) {
 	}
 
 	// Call SendEvent - should not panic
+	SendEvent(event)
+}
+
+func TestSendEventNetworkError(t *testing.T) {
+	// Set environment variables to point to a non-existent server
+	os.Setenv("SUPERVISOR_API", "http://nonexistent.localhost:99999")
+	os.Setenv("SUPERVISOR_TOKEN", "test-token")
+	defer os.Unsetenv("SUPERVISOR_API")
+	defer os.Unsetenv("SUPERVISOR_TOKEN")
+
+	// Create a test event
+	event := models.Event{
+		TeamCode:     "TEST",
+		TeamName:     "Test Team",
+		TeamHash:     "testhash",
+		LeagueId:     1,
+		LeagueName:   "NHL",
+		OpponentCode: "OPP",
+		OpponentName: "Opponent",
+		OpponentHash: "opphash",
+	}
+
+	// Call SendEvent - should handle network error gracefully
 	SendEvent(event)
 }

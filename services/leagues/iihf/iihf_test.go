@@ -97,17 +97,17 @@ func TestGameStatusFromScheduleGame(t *testing.T) {
 		Status: "LIVE",
 	}
 	assert.Equal(t, models.GameStatus(models.StatusActive), gameStatusFromScheduleGame(liveGame))
-	
+
 	finalGame := iihf.IIHFScheduleResponseGame{
 		Status: "FINAL",
 	}
 	assert.Equal(t, models.GameStatus(models.StatusEnded), gameStatusFromScheduleGame(finalGame))
-	
+
 	upcomingGame := iihf.IIHFScheduleResponseGame{
 		Status: "UPCOMING",
 	}
 	assert.Equal(t, models.GameStatus(models.StatusUpcoming), gameStatusFromScheduleGame(upcomingGame))
-	
+
 	unknownGame := iihf.IIHFScheduleResponseGame{
 		Status: "UNKNOWN",
 	}

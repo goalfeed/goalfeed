@@ -1,6 +1,7 @@
 package mlb
 
 import (
+	"errors"
 	mlb "goalfeed/clients/leagues/mlb"
 	"goalfeed/models"
 	"goalfeed/services/leagues"
@@ -8,6 +9,28 @@ import (
 
 	"github.com/stretchr/testify/assert"
 )
+
+// MockMLBApiClientWithError for testing error scenarios
+type MockMLBApiClientWithError struct{}
+
+func (c MockMLBApiClientWithError) GetMLBSchedule() mlb.MLBScheduleResponse {
+	var mockClient = mlb.MockMLBApiClient{}
+	return mockClient.GetMLBSchedule()
+}
+
+func (c MockMLBApiClientWithError) GetMLBScoreBoard(sGameId string) mlb.MLBScoreboardResponse {
+	var mockClient = mlb.MockMLBApiClient{}
+	return mockClient.GetMLBScoreBoard(sGameId)
+}
+
+func (c MockMLBApiClientWithError) GetTeam(sLink string) mlb.MLBTeamResponse {
+	var mockClient = mlb.MockMLBApiClient{}
+	return mockClient.GetTeam(sLink)
+}
+
+func (c MockMLBApiClientWithError) GetDiffPatch(gameId string, timestamp string) (mlb.MLBDiffPatch, error) {
+	return mlb.MLBDiffPatch{}, errors.New("mock error for testing")
+}
 
 func TestGetEvents(t *testing.T) {
 	var mockClient = mlb.MockMLBApiClient{}
@@ -97,7 +120,7 @@ func TestFudgeTimestamp(t *testing.T) {
 	expected := "20230101_123446" // 123456 - 10 = 123446
 	result := fudgeTimestamp(input)
 	assert.Equal(t, expected, result)
-	
+
 	// Test with different input
 	input2 := "20230201_000100"
 	expected2 := "20230201_000090" // 000100 - 10 = 000090
@@ -108,7 +131,7 @@ func TestFudgeTimestamp(t *testing.T) {
 func TestGameStatusFromStatusCode(t *testing.T) {
 	// Test ended status code
 	assert.Equal(t, models.GameStatus(models.StatusEnded), gameStatusFromStatusCode("7"))
-	
+
 	// Test active status codes
 	assert.Equal(t, models.GameStatus(models.StatusActive), gameStatusFromStatusCode("1"))
 	assert.Equal(t, models.GameStatus(models.StatusActive), gameStatusFromStatusCode("2"))
@@ -119,14 +142,54 @@ func TestGetGameUpdateFromDiffPatch(t *testing.T) {
 	var mockClient = mlb.MockMLBApiClient{}
 	service := getMockService(mockClient)
 	activeGame := getActiveGame(service)
-	
+
 	// Test the getGameUpdateFromDiffPatch function by calling it indirectly
 	// Since it's only called from GetGameUpdate when there's an ExtTimestamp
 	activeGame.CurrentState.ExtTimestamp = "20230101_123456"
 	var updateChan chan models.GameUpdate = make(chan models.GameUpdate)
-	
+
 	go service.GetGameUpdate(activeGame, updateChan)
 	update := <-updateChan
+	assert.NotNil(t, update)
+}
+
+func TestGetGameUpdateFromDiffPatchWithEmptyValues(t *testing.T) {
+	var mockClient = mlb.MockMLBApiClient{}
+	service := getMockService(mockClient)
+	activeGame := getActiveGame(service)
+
+	// Set initial scores for comparison
+	activeGame.CurrentState.Home.Score = 3
+	activeGame.CurrentState.Away.Score = 2
+	activeGame.CurrentState.ExtTimestamp = "20230101_123456"
+
+	// Create a specific diff patch response that covers empty values branch
+	mockClient.SetHomeScore(0) // This will trigger the empty homeScore branch
+	mockClient.SetAwayScore(0) // This will trigger the empty awayScore branch
+
+	var updateChan chan models.GameUpdate = make(chan models.GameUpdate)
+	go service.GetGameUpdate(activeGame, updateChan)
+	update := <-updateChan
+
+	// Should use the original scores when diff patch returns 0
+	assert.Equal(t, activeGame.CurrentState.Home.Score, update.NewState.Home.Score)
+	assert.Equal(t, activeGame.CurrentState.Away.Score, update.NewState.Away.Score)
+}
+
+func TestGetGameUpdateErrorFallback(t *testing.T) {
+	// Create a custom mock client that will return an error for GetDiffPatch
+	var errorClient MockMLBApiClientWithError
+	service := MLBService{Client: errorClient}
+	activeGame := getActiveGame(getMockService(mlb.MockMLBApiClient{}))
+
+	// Set ExtTimestamp to trigger diff patch call which will error
+	activeGame.CurrentState.ExtTimestamp = "20230101_123456"
+
+	var updateChan chan models.GameUpdate = make(chan models.GameUpdate)
+	go service.GetGameUpdate(activeGame, updateChan)
+	update := <-updateChan
+
+	// Should fallback to scoreboard method
 	assert.NotNil(t, update)
 }
 
@@ -138,21 +201,21 @@ func TestGameStatusFromScheduleGame(t *testing.T) {
 		},
 	}
 	assert.Equal(t, models.GameStatus(models.StatusEnded), gameStatusFromScheduleGame(finalGame))
-	
+
 	upcomingGame := mlb.MLBScheduleResponseGame{
 		Status: mlb.Status{
 			AbstractGameState: "Preview",
 		},
 	}
 	assert.Equal(t, models.GameStatus(models.StatusUpcoming), gameStatusFromScheduleGame(upcomingGame))
-	
+
 	activeGame := mlb.MLBScheduleResponseGame{
 		Status: mlb.Status{
 			AbstractGameState: "Live",
 		},
 	}
 	assert.Equal(t, models.GameStatus(models.StatusActive), gameStatusFromScheduleGame(activeGame))
-	
+
 	unknownGame := mlb.MLBScheduleResponseGame{
 		Status: mlb.Status{
 			AbstractGameState: "Unknown",

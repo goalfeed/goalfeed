@@ -105,7 +105,7 @@ func TestFudgeTimestamp(t *testing.T) {
 	expected := "20230101_123446" // 123456 - 10 = 123446
 	result := fudgeTimestamp(input)
 	assert.Equal(t, expected, result)
-	
+
 	// Test with different input
 	input2 := "20230201_000100"
 	expected2 := "20230201_000090" // 000100 - 10 = 000090
@@ -117,7 +117,7 @@ func TestGameStatusFromStatusCode(t *testing.T) {
 	// Test ended status codes
 	assert.Equal(t, models.GameStatus(models.StatusEnded), gameStatusFromStatusCode("6"))
 	assert.Equal(t, models.GameStatus(models.StatusEnded), gameStatusFromStatusCode("7"))
-	
+
 	// Test active status codes
 	assert.Equal(t, models.GameStatus(models.StatusActive), gameStatusFromStatusCode("1"))
 	assert.Equal(t, models.GameStatus(models.StatusActive), gameStatusFromStatusCode("2"))
