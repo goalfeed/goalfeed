@@ -143,3 +143,7 @@ web/frontend/.dynamodb/
 goalfeed
 config.yaml
 goalfeed.db
+
+# Log files
+*.log
+logs/
