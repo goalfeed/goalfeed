@@ -232,6 +232,13 @@ func (s MLBService) getGameUpdateFromScoreboard(game models.Game, ret chan model
 			Batter:  s.extractCurrentBatter(scoreboard.LiveData.Boxscore.Teams),
 		},
 	}
+
+	// Override to active when inning/count indicate gameplay but status mapping did not
+	if newState.Status == models.StatusUpcoming {
+		if inning > 0 || periodDisplay != "" || outs > 0 {
+			newState.Status = models.StatusActive
+		}
+	}
 	ret <- models.GameUpdate{
 		OldState: game.CurrentState,
 		NewState: newState,

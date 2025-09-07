@@ -69,6 +69,14 @@ type NFLScoreboardCompetition struct {
 		Grass  bool `json:"grass"`
 		Indoor bool `json:"indoor"`
 	} `json:"venue"`
+	Situation struct {
+		Possession       string `json:"possession"`
+		YardLine         int    `json:"yardLine"`
+		Down             int    `json:"down"`
+		Distance         int    `json:"distance"`
+		DownDistanceText string `json:"downDistanceText"`
+		IsRedZone        bool   `json:"isRedZone"`
+	} `json:"situation"`
 	Competitors []NFLScoreboardCompetitor `json:"competitors"`
 	Notes       []struct {
 		Headline string `json:"headline"`
@@ -121,4 +129,3 @@ type NFLScoreboardCompetitor struct {
 		Summary      string `json:"summary"`
 	} `json:"records"`
 }
-

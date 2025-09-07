@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Game } from '../types';
 import FootballGameDetails from './game-details/FootballGameDetails';
 import HockeyGameDetails from './game-details/HockeyGameDetails';
@@ -10,6 +10,38 @@ interface GameCardProps {
 }
 
 const GameCard: React.FC<GameCardProps> = ({ game }) => {
+  const [homeFlash, setHomeFlash] = useState(false);
+  const [awayFlash, setAwayFlash] = useState(false);
+  const [homeFlashColor, setHomeFlashColor] = useState<'green' | 'red'>('green');
+  const [awayFlashColor, setAwayFlashColor] = useState<'green' | 'red'>('green');
+  const prevHomeScore = useRef<number>(game.currentState.home.score);
+  const prevAwayScore = useRef<number>(game.currentState.away.score);
+
+  // Detect home score change
+  useEffect(() => {
+    const current = game.currentState.home.score;
+    const prev = prevHomeScore.current;
+    if (current !== prev) {
+      setHomeFlashColor(current > prev ? 'green' : 'red');
+      setHomeFlash(true);
+      prevHomeScore.current = current;
+      const t = setTimeout(() => setHomeFlash(false), 1200);
+      return () => clearTimeout(t);
+    }
+  }, [game.currentState.home.score]);
+
+  // Detect away score change
+  useEffect(() => {
+    const current = game.currentState.away.score;
+    const prev = prevAwayScore.current;
+    if (current !== prev) {
+      setAwayFlashColor(current > prev ? 'green' : 'red');
+      setAwayFlash(true);
+      prevAwayScore.current = current;
+      const t = setTimeout(() => setAwayFlash(false), 1200);
+      return () => clearTimeout(t);
+    }
+  }, [game.currentState.away.score]);
   const getLeagueIcon = (leagueId: number) => {
     switch (leagueId) {
       case 1: return '🏒'; // NHL
@@ -140,8 +172,10 @@ const GameCard: React.FC<GameCardProps> = ({ game }) => {
               </div>
             </div>
           </div>
-          <div className="text-4xl font-bold text-white">
-            {game.currentState.away.score}
+          <div className={`text-4xl font-bold transition-colors ${awayFlash ? 'text-white' : 'text-white'}`}>
+            <span className={`${awayFlash ? (awayFlashColor === 'green' ? 'bg-green-500/30 ring-2 ring-green-400/40' : 'bg-red-500/30 ring-2 ring-red-400/40') : ''} px-2 rounded transition-all ${awayFlash ? 'animate-pulse' : ''}`}>
+              {game.currentState.away.score}
+            </span>
           </div>
         </div>
 
@@ -163,8 +197,10 @@ const GameCard: React.FC<GameCardProps> = ({ game }) => {
             </div>
             {renderTeamLogo(game.currentState.home.team)}
           </div>
-          <div className="text-4xl font-bold text-white">
-            {game.currentState.home.score}
+          <div className={`text-4xl font-bold transition-colors ${homeFlash ? 'text-white' : 'text-white'}`}>
+            <span className={`${homeFlash ? (homeFlashColor === 'green' ? 'bg-green-500/30 ring-2 ring-green-400/40' : 'bg-red-500/30 ring-2 ring-red-400/40') : ''} px-2 rounded transition-all ${homeFlash ? 'animate-pulse' : ''}`}>
+              {game.currentState.home.score}
+            </span>
           </div>
         </div>
       </div>

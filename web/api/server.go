@@ -58,9 +58,9 @@ func (h *WebSocketHub) run() {
 		case conn := <-h.register:
 			h.clients[conn] = true
 			// Send initial games list
-			games := memoryStore.GetAllGames()
+			games := normalizeGamesData(memoryStore.GetAllGames())
 			message := WebSocketMessage{
-				Type: "games",
+				Type: "games_list",
 				Data: games,
 			}
 			if data, err := json.Marshal(message); err == nil {
@@ -94,7 +94,29 @@ type ApiResponse struct {
 	Message string      `json:"message,omitempty"`
 }
 
+// normalizeGamesData ensures active games aren't marked as upcoming and persists changes
+func normalizeGamesData(games []models.Game) []models.Game {
+	for i := range games {
+		if games[i].CurrentState.Status != models.StatusEnded {
+			if games[i].CurrentState.Period > 0 || (games[i].CurrentState.Clock != "" && games[i].CurrentState.Clock != "TBD") {
+				if games[i].CurrentState.Status != models.StatusActive {
+					games[i].CurrentState.Status = models.StatusActive
+					memoryStore.SetGame(games[i])
+				}
+			}
+		}
+	}
+	return games
+}
+
 func BroadcastGameUpdate(game models.Game) {
+	// Normalize single game before broadcasting
+	if game.CurrentState.Status != models.StatusEnded {
+		if game.CurrentState.Period > 0 || (game.CurrentState.Clock != "" && game.CurrentState.Clock != "TBD") {
+			game.CurrentState.Status = models.StatusActive
+			memoryStore.SetGame(game)
+		}
+	}
 	message := WebSocketMessage{
 		Type: "game_update",
 		Data: game,
@@ -115,14 +137,97 @@ func BroadcastEvent(event models.Event) {
 }
 
 func BroadcastGamesList() {
-	games := memoryStore.GetAllGames()
+	games := normalizeGamesData(memoryStore.GetAllGames())
 	message := WebSocketMessage{
-		Type: "games",
+		Type: "games_list",
 		Data: games,
 	}
 	if data, err := json.Marshal(message); err == nil {
 		hub.broadcast <- data
 	}
+}
+
+// Helper to check if a team is monitored given list (supports "*")
+func isTeamMonitored(monitored []string, teamCode string) bool {
+	for _, t := range monitored {
+		if t == "*" || strings.EqualFold(t, teamCode) {
+			return true
+		}
+	}
+	return false
+}
+
+// Refresh active games based on current configuration
+func refreshActiveGamesInternal() {
+	type leagueCfg struct {
+		id   models.League
+		name string
+	}
+	leaguesToScan := []leagueCfg{
+		{models.LeagueIdNHL, "nhl"},
+		{models.LeagueIdMLB, "mlb"},
+		{models.LeagueIdCFL, "cfl"},
+		{models.LeagueIdIIHF, "iihf"},
+		{models.LeagueIdNFL, "nfl"},
+	}
+
+	for _, lc := range leaguesToScan {
+		monitored := config.GetStringSlice("watch." + lc.name)
+		if len(monitored) == 0 {
+			continue
+		}
+
+		var svc leagues.ILeagueService
+		switch lc.id {
+		case models.LeagueIdNHL:
+			svc = nhlServices.NHLService{Client: nhlClients.NHLApiClient{}}
+		case models.LeagueIdMLB:
+			svc = mlbServices.MLBService{Client: mlbClients.MLBApiClient{}}
+		case models.LeagueIdCFL:
+			svc = cflServices.CFLService{Client: cflClients.CFLApiClient{}}
+		case models.LeagueIdIIHF:
+			svc = iihfServices.IIHFService{}
+		case models.LeagueIdNFL:
+			svc = nflServices.NFLService{Client: nflClients.NFLAPIClient{}}
+		default:
+			continue
+		}
+
+		ch := make(chan []models.Game)
+		go svc.GetActiveGames(ch)
+		active := <-ch
+
+		// Track existing keys to avoid duplicates
+		existing := make(map[string]bool)
+		for _, k := range memoryStore.GetActiveGameKeys() {
+			existing[k] = true
+		}
+		for _, g := range active {
+			if isTeamMonitored(monitored, g.CurrentState.Home.Team.TeamCode) || isTeamMonitored(monitored, g.CurrentState.Away.Team.TeamCode) {
+				key := g.GetGameKey()
+				// Enforce active if period/clock indicate gameplay and not ended
+				if g.CurrentState.Status != models.StatusEnded {
+					if (g.CurrentState.Period > 0) || (g.CurrentState.Clock != "" && g.CurrentState.Clock != "TBD") {
+						g.CurrentState.Status = models.StatusActive
+					}
+				}
+				// Always set the latest game snapshot (updates status, clock, etc.)
+				memoryStore.SetGame(g)
+				if !existing[key] {
+					memoryStore.AppendActiveGame(g)
+					existing[key] = true
+				}
+			}
+		}
+	}
+
+	// Broadcast updated list
+	BroadcastGamesList()
+}
+
+func refreshActiveGames(c *gin.Context) {
+	go refreshActiveGamesInternal()
+	c.JSON(http.StatusOK, ApiResponse{Success: true, Message: "Refresh started"})
 }
 
 func handleWebSocket(c *gin.Context) {
@@ -146,7 +251,7 @@ func handleWebSocket(c *gin.Context) {
 }
 
 func getGames(c *gin.Context) {
-	games := memoryStore.GetAllGames()
+	games := normalizeGamesData(memoryStore.GetAllGames())
 	c.JSON(http.StatusOK, ApiResponse{
 		Success: true,
 		Data:    games,
@@ -301,6 +406,9 @@ func updateLeagueConfig(c *gin.Context) {
 		})
 		return
 	}
+
+	// Trigger an immediate refresh in the background so active games are populated
+	go refreshActiveGamesInternal()
 
 	c.JSON(http.StatusOK, ApiResponse{
 		Success: true,
@@ -584,6 +692,7 @@ func StartWebServer(port string) {
 		api.GET("/upcoming", getUpcomingGames)
 		api.GET("/leagues", getLeagues)
 		api.POST("/leagues", updateLeagueConfig)
+		api.POST("/refresh", refreshActiveGames)
 		api.GET("/events", getEvents)
 		api.GET("/teams", getAllTeams)
 		api.POST("/clear", clearGames)

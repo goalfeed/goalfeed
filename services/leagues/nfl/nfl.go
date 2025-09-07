@@ -60,7 +60,7 @@ func (s NFLService) getGameUpdateFromScoreboard(game models.Game, ret chan model
 	scoreboard := s.Client.GetNFLScoreBoard(game.GameCode)
 
 	// Extract game info from scoreboard
-	var newState models.GameState
+	var newState models.GameState = game.CurrentState
 	if len(scoreboard.Events) > 0 {
 		event := scoreboard.Events[0]
 		if len(event.Competitions) > 0 {
@@ -77,8 +77,30 @@ func (s NFLService) getGameUpdateFromScoreboard(game models.Game, ret chan model
 					}
 				}
 
+				// Fallback: if API returned empty team data, reuse existing game state team info
+				if homeTeam.Team.Abbreviation == "" && game.CurrentState.Home.Team.TeamCode != "" {
+					homeTeam.Team.DisplayName = game.CurrentState.Home.Team.TeamName
+					homeTeam.Team.Abbreviation = game.CurrentState.Home.Team.TeamCode
+					homeTeam.Team.ID = game.CurrentState.Home.Team.ExtID
+					homeTeam.Team.Logo = game.CurrentState.Home.Team.LogoURL
+				}
+				if awayTeam.Team.Abbreviation == "" && game.CurrentState.Away.Team.TeamCode != "" {
+					awayTeam.Team.DisplayName = game.CurrentState.Away.Team.TeamName
+					awayTeam.Team.Abbreviation = game.CurrentState.Away.Team.TeamCode
+					awayTeam.Team.ID = game.CurrentState.Away.Team.ExtID
+					awayTeam.Team.Logo = game.CurrentState.Away.Team.LogoURL
+				}
+
 				awayScore, _ := strconv.Atoi(awayTeam.Score)
 				homeScore, _ := strconv.Atoi(homeTeam.Score)
+
+				// Derive status directly from summary signals
+				var derivedStatus models.GameStatus = models.StatusUpcoming
+				if event.Status.Type.Completed {
+					derivedStatus = models.StatusEnded
+				} else if event.Status.DisplayClock != "" || event.Status.Period > 0 {
+					derivedStatus = models.StatusActive
+				}
 
 				newState = models.GameState{
 					Home: models.TeamState{
@@ -89,12 +111,18 @@ func (s NFLService) getGameUpdateFromScoreboard(game models.Game, ret chan model
 						Team:  s.teamFromCompetitor(awayTeam),
 						Score: awayScore,
 					},
-					Status:     gameStatusFromEventStatus(event.Status),
+					Status:     derivedStatus,
 					Period:     event.Status.Period,
 					PeriodType: "QUARTER",
 					Clock:      event.Status.DisplayClock,
 					Venue: models.Venue{
 						Name: competition.Venue.FullName,
+					},
+					Details: models.EventDetails{
+						Possession: competition.Situation.Possession,
+						YardLine:   competition.Situation.YardLine,
+						Down:       competition.Situation.Down,
+						Distance:   competition.Situation.Distance,
 					},
 				}
 			}
@@ -138,6 +166,36 @@ func (s NFLService) gameFromEvent(event nfl.NFLScheduleEvent) models.Game {
 				} else if competitor.HomeAway == "away" {
 					awayTeam = competitor
 				}
+			}
+		}
+	}
+
+	// If team data is missing from schedule, hydrate from scoreboard summary
+	if (homeTeam.Team.Abbreviation == "" || awayTeam.Team.Abbreviation == "") && event.ID != "" {
+		summary := s.Client.GetNFLScoreBoard(event.ID)
+		if len(summary.Events) > 0 && len(summary.Events[0].Competitions) > 0 {
+			sc := summary.Events[0].Competitions[0]
+			var sHome nfl.NFLScoreboardCompetitor
+			var sAway nfl.NFLScoreboardCompetitor
+			for _, comp := range sc.Competitors {
+				if comp.HomeAway == "home" {
+					sHome = comp
+				} else if comp.HomeAway == "away" {
+					sAway = comp
+				}
+			}
+			// Copy team identifiers if missing
+			if homeTeam.Team.Abbreviation == "" {
+				homeTeam.Team.DisplayName = sHome.Team.DisplayName
+				homeTeam.Team.Abbreviation = sHome.Team.Abbreviation
+				homeTeam.Team.ID = sHome.Team.ID
+				homeTeam.Team.Logo = sHome.Team.Logo
+			}
+			if awayTeam.Team.Abbreviation == "" {
+				awayTeam.Team.DisplayName = sAway.Team.DisplayName
+				awayTeam.Team.Abbreviation = sAway.Team.Abbreviation
+				awayTeam.Team.ID = sAway.Team.ID
+				awayTeam.Team.Logo = sAway.Team.Logo
 			}
 		}
 	}
@@ -250,7 +308,14 @@ func (s NFLService) gameFromEvent(event nfl.NFLScheduleEvent) models.Game {
 				Team:  s.teamFromScheduleCompetitor(awayTeam),
 				Score: awayScore,
 			},
-			Status:     gameStatusFromEvent(event),
+			Status: func() models.GameStatus {
+				st := gameStatusFromEvent(event)
+				// If schedule shows clock or period, force Active
+				if st == models.StatusUpcoming && (event.Status.DisplayClock != "" || event.Status.Period > 0) {
+					return models.StatusActive
+				}
+				return st
+			}(),
 			FetchedAt:  time.Now(),
 			Period:     event.Status.Period,
 			PeriodType: "QUARTER",

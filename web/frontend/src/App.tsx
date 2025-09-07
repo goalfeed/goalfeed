@@ -58,6 +58,10 @@ const App: React.FC = () => {
         case 'games_list':
           setGames(message.data || []);
           break;
+        case 'games':
+          // Backward compatibility with older backend message type
+          setGames(message.data || []);
+          break;
         case 'event':
           setEvents(prevEvents => [message.data, ...prevEvents.slice(0, 49)]);
           break;
