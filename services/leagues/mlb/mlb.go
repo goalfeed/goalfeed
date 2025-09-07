@@ -42,7 +42,8 @@ func (s MLBService) GetActiveGames(ret chan []models.Game) {
 		for _, game := range date.Games {
 			tmpGame := s.gameFromSchedule(game)
 			_ = tmpGame
-			if gameStatusFromScheduleGame(game) == models.StatusActive {
+			status := gameStatusFromScheduleGame(game)
+			if status == models.StatusActive || status == models.StatusDelayed {
 				activeGames = append(activeGames, s.gameFromSchedule(game))
 			}
 		}
@@ -146,6 +147,14 @@ func (s MLBService) getGameUpdateFromDiffPatch(game models.Game, ret chan models
 		},
 		Status:       status,
 		ExtTimestamp: extTimestamp,
+		// Preserve existing detailed game state when using diff patch updates
+		Period:        game.CurrentState.Period,
+		PeriodType:    game.CurrentState.PeriodType,
+		TimeRemaining: game.CurrentState.TimeRemaining,
+		Clock:         game.CurrentState.Clock,
+		Venue:         game.CurrentState.Venue,
+		Details:       game.CurrentState.Details,
+		Statistics:    game.CurrentState.Statistics,
 	}
 
 	ret <- models.GameUpdate{
@@ -155,6 +164,7 @@ func (s MLBService) getGameUpdateFromDiffPatch(game models.Game, ret chan models
 }
 
 func (s MLBService) getGameUpdateFromScoreboard(game models.Game, ret chan models.GameUpdate) {
+	logger.Info(fmt.Sprintf("Getting scoreboard update for game %s", game.GameCode))
 	scoreboard := s.Client.GetMLBScoreBoard(game.GameCode)
 
 	// Extract inning information
@@ -197,7 +207,12 @@ func (s MLBService) getGameUpdateFromScoreboard(game models.Game, ret chan model
 			Team:  game.CurrentState.Away.Team,
 			Score: scoreboard.LiveData.Linescore.Teams.Away.Runs,
 		},
-		Status:        gameStatusFromStatusCode(scoreboard.GameData.Status.StatusCode),
+		Status: func() models.GameStatus {
+			status := gameStatusFromStatusCode(scoreboard.GameData.Status.StatusCode)
+			logger.Info(fmt.Sprintf("Scoreboard status for game %s: StatusCode=%s, mapped to %d",
+				game.GameCode, scoreboard.GameData.Status.StatusCode, status))
+			return status
+		}(),
 		ExtTimestamp:  scoreboard.MetaData.TimeStamp,
 		Period:        inning,
 		PeriodType:    "INNING",
@@ -212,7 +227,9 @@ func (s MLBService) getGameUpdateFromScoreboard(game models.Game, ret chan model
 			Outs:        scoreboard.LiveData.Linescore.Outs,
 			BallCount:   scoreboard.LiveData.Linescore.Balls,
 			StrikeCount: scoreboard.LiveData.Linescore.Strikes,
-			// TODO: Add base runners, pitcher, and batter when available from API
+			// Extract current pitcher and batter information
+			Pitcher: s.extractCurrentPitcher(scoreboard.LiveData.Boxscore.Teams),
+			Batter:  s.extractCurrentBatter(scoreboard.LiveData.Boxscore.Teams),
 		},
 	}
 	ret <- models.GameUpdate{
@@ -288,6 +305,7 @@ func (s MLBService) gameFromSchedule(scheduleGame mlb.MLBScheduleResponseGame) m
 
 	if scheduleGame.Status.AbstractGameState == STATUS_UPCOMING {
 		// For upcoming games, use basic venue info from schedule
+		logger.Info(fmt.Sprintf("Game %d processed as UPCOMING", scheduleGame.GamePk))
 		venue = models.Venue{
 			Id:   strconv.Itoa(scheduleGame.Venue.ID),
 			Name: scheduleGame.Venue.Name,
@@ -295,6 +313,8 @@ func (s MLBService) gameFromSchedule(scheduleGame mlb.MLBScheduleResponseGame) m
 		details = models.EventDetails{}
 	} else {
 		// For active games, get detailed scoreboard data
+		logger.Info(fmt.Sprintf("Game %d processed as ACTIVE - AbstractGameState: %s",
+			scheduleGame.GamePk, scheduleGame.Status.AbstractGameState))
 		scoreboard := s.Client.GetMLBScoreBoard(strconv.Itoa(scheduleGame.GamePk))
 
 		// Extract inning information
@@ -336,7 +356,9 @@ func (s MLBService) gameFromSchedule(scheduleGame mlb.MLBScheduleResponseGame) m
 			Outs:        scoreboard.LiveData.Linescore.Outs,
 			BallCount:   scoreboard.LiveData.Linescore.Balls,
 			StrikeCount: scoreboard.LiveData.Linescore.Strikes,
-			// TODO: Add base runners, pitcher, and batter when available from API
+			// Extract current pitcher and batter information
+			Pitcher: s.extractCurrentPitcher(scoreboard.LiveData.Boxscore.Teams),
+			Batter:  s.extractCurrentBatter(scoreboard.LiveData.Boxscore.Teams),
 		}
 	}
 
@@ -361,7 +383,13 @@ func (s MLBService) gameFromSchedule(scheduleGame mlb.MLBScheduleResponseGame) m
 				Team:  s.teamFromScheduleTeam(scheduleGame.Teams.Away),
 				Score: scheduleGame.Teams.Away.Score,
 			},
-			Status:        gameStatusFromScheduleGame(scheduleGame),
+			Status: func() models.GameStatus {
+				status := gameStatusFromScheduleGame(scheduleGame)
+				logger.Info(fmt.Sprintf("Game %d final status: %d (from schedule: AbstractGameState=%s, DetailedState=%s, StatusCode=%s)",
+					scheduleGame.GamePk, status, scheduleGame.Status.AbstractGameState,
+					scheduleGame.Status.DetailedState, scheduleGame.Status.StatusCode))
+				return status
+			}(),
 			FetchedAt:     time.Now(),
 			Period:        inning,
 			PeriodType:    "INNING",
@@ -383,21 +411,55 @@ func (s MLBService) gameFromSchedule(scheduleGame mlb.MLBScheduleResponseGame) m
 	}
 }
 func gameStatusFromScheduleGame(scheduleGame mlb.MLBScheduleResponseGame) models.GameStatus {
-	switch scheduleGame.Status.AbstractGameState {
-	case STATUS_FINAL:
+	// Check for delays first, regardless of abstract game state
+	if scheduleGame.Status.StatusCode == "IR" ||
+		scheduleGame.Status.DetailedState == "Delayed" ||
+		scheduleGame.Status.DetailedState == "Delayed: Rain" {
+		logger.Info(fmt.Sprintf("Game %d mapped to StatusDelayed - StatusCode: %s, DetailedState: %s",
+			scheduleGame.GamePk, scheduleGame.Status.StatusCode, scheduleGame.Status.DetailedState))
+		return models.StatusDelayed
+	}
+
+	// Use StatusCode for more accurate status detection
+	switch scheduleGame.Status.StatusCode {
+	case "F": // Final
+		logger.Info(fmt.Sprintf("Game %d mapped to StatusEnded - StatusCode: %s, AbstractGameState: %s",
+			scheduleGame.GamePk, scheduleGame.Status.StatusCode, scheduleGame.Status.AbstractGameState))
 		return models.StatusEnded
-	case STATUS_UPCOMING:
+	case "S": // Scheduled/Preview
+		logger.Info(fmt.Sprintf("Game %d mapped to StatusUpcoming - StatusCode: %s, AbstractGameState: %s",
+			scheduleGame.GamePk, scheduleGame.Status.StatusCode, scheduleGame.Status.AbstractGameState))
 		return models.StatusUpcoming
-	case STATUS_ACTIVE:
+	case "L": // Live
+		logger.Info(fmt.Sprintf("Game %d mapped to StatusActive - StatusCode: %s, AbstractGameState: %s",
+			scheduleGame.GamePk, scheduleGame.Status.StatusCode, scheduleGame.Status.AbstractGameState))
 		return models.StatusActive
 	default:
-		return models.StatusActive
+		// Fallback to AbstractGameState if StatusCode is not recognized
+		logger.Info(fmt.Sprintf("Game %d using fallback mapping - StatusCode: %s, AbstractGameState: %s",
+			scheduleGame.GamePk, scheduleGame.Status.StatusCode, scheduleGame.Status.AbstractGameState))
+		switch scheduleGame.Status.AbstractGameState {
+		case STATUS_FINAL:
+			logger.Info(fmt.Sprintf("Game %d fallback mapped to StatusEnded", scheduleGame.GamePk))
+			return models.StatusEnded
+		case STATUS_UPCOMING:
+			logger.Info(fmt.Sprintf("Game %d fallback mapped to StatusUpcoming", scheduleGame.GamePk))
+			return models.StatusUpcoming
+		case STATUS_ACTIVE:
+			logger.Info(fmt.Sprintf("Game %d fallback mapped to StatusActive", scheduleGame.GamePk))
+			return models.StatusActive
+		default:
+			logger.Info(fmt.Sprintf("Game %d fallback mapped to StatusActive (default)", scheduleGame.GamePk))
+			return models.StatusActive
+		}
 	}
 }
 func gameStatusFromStatusCode(statusCode string) models.GameStatus {
 	switch statusCode {
 	case "7":
 		return models.StatusEnded
+	case "IR": // In Progress - Rain Delay
+		return models.StatusDelayed
 	default:
 		return models.StatusActive
 	}
@@ -430,4 +492,68 @@ func (s MLBService) getGoalEvents(oldState models.TeamState, newState models.Tea
 		})
 	}
 	return events
+}
+
+// extractCurrentPitcher finds the current pitcher from the boxscore teams
+func (s MLBService) extractCurrentPitcher(teams mlb.BoxscoreTeams) models.Player {
+	// Check both home and away teams for current pitcher
+	for _, team := range []mlb.TeamBoxscore{teams.Home, teams.Away} {
+		for _, player := range team.Players {
+			if player.GameStatus.IsCurrentPitcher {
+				// Convert jersey number from string to int
+				jerseyNumber := 0
+				if player.JerseyNumber != "" {
+					if num, err := strconv.Atoi(player.JerseyNumber); err == nil {
+						jerseyNumber = num
+					}
+				}
+
+				return models.Player{
+					Id:       strconv.Itoa(player.Person.ID),
+					Name:     player.Person.FullName,
+					Number:   jerseyNumber,
+					Position: player.Position.Name,
+					Team: models.Team{
+						ID:       team.Team.ID,
+						TeamCode: "", // Will be filled by caller if needed
+						TeamName: team.Team.Name,
+						LeagueID: models.LeagueIdMLB,
+					},
+				}
+			}
+		}
+	}
+	return models.Player{} // Return empty player if none found
+}
+
+// extractCurrentBatter finds the current batter from the boxscore teams
+func (s MLBService) extractCurrentBatter(teams mlb.BoxscoreTeams) models.Player {
+	// Check both home and away teams for current batter
+	for _, team := range []mlb.TeamBoxscore{teams.Home, teams.Away} {
+		for _, player := range team.Players {
+			if player.GameStatus.IsCurrentBatter {
+				// Convert jersey number from string to int
+				jerseyNumber := 0
+				if player.JerseyNumber != "" {
+					if num, err := strconv.Atoi(player.JerseyNumber); err == nil {
+						jerseyNumber = num
+					}
+				}
+
+				return models.Player{
+					Id:       strconv.Itoa(player.Person.ID),
+					Name:     player.Person.FullName,
+					Number:   jerseyNumber,
+					Position: player.Position.Name,
+					Team: models.Team{
+						ID:       team.Team.ID,
+						TeamCode: "", // Will be filled by caller if needed
+						TeamName: team.Team.Name,
+						LeagueID: models.LeagueIdMLB,
+					},
+				}
+			}
+		}
+	}
+	return models.Player{} // Return empty player if none found
 }

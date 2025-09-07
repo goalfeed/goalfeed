@@ -56,6 +56,7 @@ type CFLLiveGameData struct {
 	BetGeniusFixtureID string                `json:"betGeniusFixtureId"`
 	PreferredSourceIDs CFLPreferredSourceIDs `json:"preferredSourceIds"`
 	ScoreboardInfo     CFLScoreboardInfo     `json:"scoreboardInfo"`
+	LiveStream         CFLLiveStream         `json:"liveStream"`
 	MatchInfo          CFLMatchInfo          `json:"matchInfo"`
 	Court              CFLCourt              `json:"court"`
 	Scheduler          bool                  `json:"scheduler"`
@@ -154,4 +155,55 @@ type CFLAvailableTabs struct {
 	PlayerStats bool `json:"playerStats"`
 	Lineups     bool `json:"lineups"`
 	PlayByPlay  bool `json:"playByPlay"`
+}
+
+// Live Stream Data Structures
+type CFLLiveStream struct {
+	CurrentPlay  CFLCurrentPlay  `json:"currentPlay"`
+	CurrentDrive CFLCurrentDrive `json:"currentDrive"`
+	Actions      []CFLAction     `json:"actions"`
+}
+
+type CFLCurrentPlay struct {
+	DownNumber      int         `json:"downNumber"`
+	LineOfScrimmage int         `json:"lineOfScrimmage"`
+	FirstDownLine   int         `json:"firstDownLine"`
+	PlayType        string      `json:"playType"`
+	YardsToGo       int         `json:"yardsToGo"`
+	Possession      string      `json:"possession"`
+	Clock           string      `json:"clock"`
+	Phase           string      `json:"phase"`
+	PlayFormation   string      `json:"playFormation,omitempty"`
+	Quarterback     int         `json:"quarterback,omitempty"`
+	YardLine        CFLYardLine `json:"yardLine,omitempty"`
+}
+
+type CFLYardLine struct {
+	TeamNumber int `json:"teamNumber"`
+	YardLine   int `json:"yardLine"`
+}
+
+type CFLCurrentDrive struct {
+	YardsGained           int         `json:"yardsGained"`
+	TimeOfPossession      string      `json:"timeOfPossession"`
+	HowObtained           string      `json:"howObtained"`
+	HowLost               string      `json:"howLost"`
+	Plays                 int         `json:"plays"`
+	StartingFieldPosition int         `json:"startingFieldPosition"`
+	CurrentFieldPosition  int         `json:"currentFieldPosition"`
+	DriveStart            CFLYardLine `json:"driveStart,omitempty"`
+	DriveEnd              CFLYardLine `json:"driveEnd,omitempty"`
+}
+
+type CFLAction struct {
+	ActionType  string `json:"actionType"`
+	Description string `json:"description"`
+	YardsGained int    `json:"yardsGained"`
+	Clock       string `json:"clock"`
+	Down        int    `json:"down"`
+	Distance    int    `json:"distance"`
+	Possession  string `json:"possession"`
+	YardLine    int    `json:"yardLine,omitempty"`
+	PlayerId    int    `json:"playerId,omitempty"`
+	ReceiverId  int    `json:"receiverId,omitempty"`
 }

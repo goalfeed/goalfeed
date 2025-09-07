@@ -194,10 +194,11 @@ type EventDetails struct {
 	PenaltyMinutes int    `json:"penaltyMinutes,omitempty"`
 
 	// Play details
-	YardLine    int `json:"yardLine,omitempty"`
-	Down        int `json:"down,omitempty"`
-	Distance    int `json:"distance,omitempty"`
-	YardsGained int `json:"yardsGained,omitempty"`
+	YardLine    int    `json:"yardLine,omitempty"`
+	Down        int    `json:"down,omitempty"`
+	Distance    int    `json:"distance,omitempty"`
+	YardsGained int    `json:"yardsGained,omitempty"`
+	Possession  string `json:"possession,omitempty"` // Team code with possession
 
 	// Baseball details
 	Inning      int    `json:"inning,omitempty"`
@@ -221,6 +222,7 @@ type GameUpdate struct {
 const (
 	StatusUpcoming = iota
 	StatusActive
+	StatusDelayed
 	StatusEnded
 )
 
@@ -233,6 +235,8 @@ func (gs GameStatus) MarshalJSON() ([]byte, error) {
 		return json.Marshal("upcoming")
 	case StatusActive:
 		return json.Marshal("active")
+	case StatusDelayed:
+		return json.Marshal("delayed")
 	case StatusEnded:
 		return json.Marshal("ended")
 	default:

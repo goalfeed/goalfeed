@@ -186,6 +186,7 @@ export interface EventDetails {
   down?: number;
   distance?: number;
   yardsGained?: number;
+  possession?: string; // Team code with possession
   
   // Baseball details
   inning?: number;
@@ -203,6 +204,7 @@ export interface EventDetails {
 export enum GameStatus {
   Upcoming = "upcoming",
   Active = "active", 
+  Delayed = "delayed",
   Ended = "ended"
 }
 

@@ -15,11 +15,25 @@ func (c CFLApiClient) GetCFLSchedule() CFLScheduleResponse {
 	go utils.GetByteWithHeaders(url, body, map[string]string{
 		"Accept-Encoding": "identity",
 		"User-Agent":      "Goalfeed/1.0",
+		"Accept":          "application/json",
 	})
 
 	bodyByte := <-body
 	var response CFLScheduleResponse
-	json.Unmarshal(bodyByte, &response)
+
+	// Check if the response is valid JSON
+	if len(bodyByte) == 0 {
+		// Return empty response if no data
+		return CFLScheduleResponse{}
+	}
+
+	// Try to unmarshal the JSON
+	if err := json.Unmarshal(bodyByte, &response); err != nil {
+		// If unmarshaling fails, return empty response
+		// This handles cases where the API returns compressed or corrupted data
+		return CFLScheduleResponse{}
+	}
+
 	return response
 }
 
@@ -30,6 +44,19 @@ func (c CFLApiClient) GetCFLLiveGame(fixtureId string) CFLLiveGameResponse {
 
 	bodyByte := <-body
 	var response CFLLiveGameResponse
-	json.Unmarshal(bodyByte, &response)
+
+	// Check if the response is valid JSON
+	if len(bodyByte) == 0 {
+		// Return empty response if no data
+		return CFLLiveGameResponse{}
+	}
+
+	// Try to unmarshal the JSON
+	if err := json.Unmarshal(bodyByte, &response); err != nil {
+		// If unmarshaling fails, return empty response
+		// This handles cases where the API returns compressed or corrupted data
+		return CFLLiveGameResponse{}
+	}
+
 	return response
 }

@@ -121,3 +121,4 @@ type NFLScoreboardCompetitor struct {
 		Summary      string `json:"summary"`
 	} `json:"records"`
 }
+

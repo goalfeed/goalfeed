@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"sort"
+	"strings"
 	"time"
 
 	cflClients "goalfeed/clients/leagues/cfl"
@@ -316,6 +317,14 @@ func getEvents(c *gin.Context) {
 	})
 }
 
+func clearGames(c *gin.Context) {
+	memoryStore.ClearAllGames()
+	c.JSON(http.StatusOK, ApiResponse{
+		Success: true,
+		Message: "All games cleared from memory store",
+	})
+}
+
 func getAllTeams(c *gin.Context) {
 	leagueIdStr := c.Query("leagueId")
 	if leagueIdStr == "" {
@@ -469,25 +478,41 @@ func getAllTeams(c *gin.Context) {
 			})
 		}
 	case models.LeagueIdCFL:
-		// CFL teams with logos
+		// CFL teams - logos will be handled by frontend fallback
 		cflTeams := []map[string]string{
-			{"code": "BC", "name": "BC Lions", "location": "Vancouver", "logo": "https://a.espncdn.com/i/teamlogos/cfl/500/bc.png"},
-			{"code": "CGY", "name": "Calgary Stampeders", "location": "Calgary", "logo": "https://a.espncdn.com/i/teamlogos/cfl/500/cgy.png"},
-			{"code": "EDM", "name": "Edmonton Elks", "location": "Edmonton", "logo": "https://a.espncdn.com/i/teamlogos/cfl/500/edm.png"},
-			{"code": "HAM", "name": "Hamilton Tiger-Cats", "location": "Hamilton", "logo": "https://a.espncdn.com/i/teamlogos/cfl/500/ham.png"},
-			{"code": "MTL", "name": "Montreal Alouettes", "location": "Montreal", "logo": "https://a.espncdn.com/i/teamlogos/cfl/500/mtl.png"},
-			{"code": "OTT", "name": "Ottawa Redblacks", "location": "Ottawa", "logo": "https://a.espncdn.com/i/teamlogos/cfl/500/ott.png"},
-			{"code": "SSK", "name": "Saskatchewan Roughriders", "location": "Saskatchewan", "logo": "https://a.espncdn.com/i/teamlogos/cfl/500/ssk.png"},
-			{"code": "TOR", "name": "Toronto Argonauts", "location": "Toronto", "logo": "https://a.espncdn.com/i/teamlogos/cfl/500/tor.png"},
-			{"code": "WPG", "name": "Winnipeg Blue Bombers", "location": "Winnipeg", "logo": "https://a.espncdn.com/i/teamlogos/cfl/500/wpg.png"},
+			{"code": "BC", "name": "BC Lions", "location": "Vancouver"},
+			{"code": "CGY", "name": "Calgary Stampeders", "location": "Calgary"},
+			{"code": "EDM", "name": "Edmonton Elks", "location": "Edmonton"},
+			{"code": "HAM", "name": "Hamilton Tiger-Cats", "location": "Hamilton"},
+			{"code": "MTL", "name": "Montreal Alouettes", "location": "Montreal"},
+			{"code": "OTT", "name": "Ottawa Redblacks", "location": "Ottawa"},
+			{"code": "SSK", "name": "Saskatchewan Roughriders", "location": "Saskatchewan"},
+			{"code": "TOR", "name": "Toronto Argonauts", "location": "Toronto"},
+			{"code": "WPG", "name": "Winnipeg Blue Bombers", "location": "Winnipeg"},
 		}
+
+		// Get monitored teams for CFL
+		monitoredTeams := config.GetStringSlice("watch.cfl")
+
 		for _, team := range cflTeams {
-			teams = append(teams, map[string]interface{}{
-				"code":     team["code"],
-				"name":     team["name"],
-				"location": team["location"],
-				"logo":     team["logo"],
-			})
+			// Check if this team is being monitored
+			isMonitored := false
+			for _, monitoredTeam := range monitoredTeams {
+				if monitoredTeam == "*" || strings.EqualFold(monitoredTeam, team["code"]) {
+					isMonitored = true
+					break
+				}
+			}
+
+			// Only add teams that are being monitored
+			if isMonitored {
+				teams = append(teams, map[string]interface{}{
+					"code":     team["code"],
+					"name":     team["name"],
+					"location": team["location"],
+					"logo":     "", // Empty logo - frontend will show team code as fallback
+				})
+			}
 		}
 	}
 
@@ -561,6 +586,7 @@ func StartWebServer(port string) {
 		api.POST("/leagues", updateLeagueConfig)
 		api.GET("/events", getEvents)
 		api.GET("/teams", getAllTeams)
+		api.POST("/clear", clearGames)
 	}
 
 	// WebSocket endpoint

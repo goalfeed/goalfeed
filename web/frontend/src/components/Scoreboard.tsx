@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Game } from '../types';
 import { apiClient } from '../utils/api';
+import GameCard from './GameCard';
 
 interface ScoreboardProps {
   games: Game[];
@@ -17,10 +18,16 @@ interface UpcomingGame {
     clock?: string;
     venue?: { name: string; city?: string };
   };
+  gameDetails?: {
+    gameDate: string;
+    gameTime: string;
+    timezone: string;
+  };
 }
 
 const Scoreboard: React.FC<ScoreboardProps> = ({ games }) => {
   const [upcomingGames, setUpcomingGames] = useState<UpcomingGame[]>([]);
+  const [todaysGames, setTodaysGames] = useState<UpcomingGame[]>([]);
   const [showUpcoming, setShowUpcoming] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const gamesPerPage = 5;
@@ -30,7 +37,22 @@ const Scoreboard: React.FC<ScoreboardProps> = ({ games }) => {
       try {
         const response = await apiClient.get('/api/upcoming');
         if (response.data.success) {
-          setUpcomingGames(response.data.data || []);
+          const allGames = response.data.data || [];
+          
+          // Separate today's games from upcoming games
+          const todayGames: UpcomingGame[] = [];
+          const upcomingGamesList: UpcomingGame[] = [];
+          
+          allGames.forEach((game: UpcomingGame) => {
+            if (isToday(game)) {
+              todayGames.push(game);
+            } else {
+              upcomingGamesList.push(game);
+            }
+          });
+          
+          setTodaysGames(todayGames);
+          setUpcomingGames(upcomingGamesList);
         }
       } catch (error) {
         console.error('Failed to fetch upcoming games:', error);
@@ -49,26 +71,24 @@ const Scoreboard: React.FC<ScoreboardProps> = ({ games }) => {
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'active': return 'bg-green-500';
-      case 'upcoming': return 'bg-blue-500';
-      case 'ended': return 'bg-gray-500';
-      default: return 'bg-gray-400';
-    }
-  };
-
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case 'active': return 'LIVE';
-      case 'upcoming': return 'UPCOMING';
-      case 'ended': return 'FINAL';
-      default: return status.toUpperCase();
-    }
-  };
-
   const formatGameTime = (game: UpcomingGame) => {
-    const gameDate = new Date(game.currentState.clock || '');
+    // Try to get the game date from gameDetails if available
+    let gameDate: Date;
+    
+    // Check if we have gameDetails with a proper date
+    if (game.gameDetails?.gameDate) {
+      gameDate = new Date(game.gameDetails.gameDate);
+    } else {
+      // Fallback: try to parse clock as a date, but handle invalid dates gracefully
+      const clockValue = game.currentState.clock || '';
+      gameDate = new Date(clockValue);
+      
+      // If the date is invalid, return a fallback
+      if (isNaN(gameDate.getTime())) {
+        return clockValue || 'TBD';
+      }
+    }
+    
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const gameDay = new Date(gameDate.getFullYear(), gameDate.getMonth(), gameDate.getDate());
@@ -90,32 +110,27 @@ const Scoreboard: React.FC<ScoreboardProps> = ({ games }) => {
   };
 
   const isToday = (game: UpcomingGame) => {
-    const gameDate = new Date(game.currentState.clock || '');
+    // Try to get the game date from gameDetails if available
+    let gameDate: Date;
+    
+    // Check if we have gameDetails with a proper date
+    if (game.gameDetails?.gameDate) {
+      gameDate = new Date(game.gameDetails.gameDate);
+    } else {
+      // Fallback: try to parse clock as a date, but handle invalid dates gracefully
+      const clockValue = game.currentState.clock || '';
+      gameDate = new Date(clockValue);
+      
+      // If the date is invalid, return false
+      if (isNaN(gameDate.getTime())) {
+        return false;
+      }
+    }
+    
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const gameDay = new Date(gameDate.getFullYear(), gameDate.getMonth(), gameDate.getDate());
     return gameDay.getTime() === today.getTime();
-  };
-
-  const formatGameInfo = (game: Game) => {
-    const { currentState } = game;
-    
-    // Show period/inning information
-    if (currentState.clock) {
-      return currentState.clock;
-    }
-    
-    // Show time remaining (count, etc.)
-    if (currentState.timeRemaining) {
-      return currentState.timeRemaining;
-    }
-    
-    // Show venue if available
-    if (currentState.venue?.name) {
-      return currentState.venue.name;
-    }
-    
-    return '';
   };
 
   const renderTeamLogo = (team: { teamCode: string; teamName: string; logoUrl?: string }) => {
@@ -124,7 +139,7 @@ const Scoreboard: React.FC<ScoreboardProps> = ({ games }) => {
         <img 
           src={team.logoUrl} 
           alt={`${team.teamName} logo`}
-          className="w-10 h-10 object-contain"
+          className="w-6 h-6 object-contain"
           onError={(e) => {
             // Fallback to team code if logo fails to load
             e.currentTarget.style.display = 'none';
@@ -134,121 +149,13 @@ const Scoreboard: React.FC<ScoreboardProps> = ({ games }) => {
       );
     }
     return (
-      <div className="w-10 h-10 bg-gray-600 rounded-full flex items-center justify-center text-sm font-bold text-white">
+      <div className="w-6 h-6 bg-gray-600 rounded-full flex items-center justify-center text-xs font-bold text-white">
         {team.teamCode}
       </div>
     );
   };
 
-  // Baseball Diamond Component
-  const BaseballDiamond: React.FC<{ 
-    baseRunners?: { first?: any; second?: any; third?: any };
-    outs?: number;
-    inning?: number;
-    isTopInning?: boolean;
-  }> = ({ baseRunners, outs = 0, inning, isTopInning }) => {
-    return (
-      <div className="flex flex-col items-center space-y-2">
-        {/* Inning Display */}
-        {inning && (
-          <div className="text-center">
-            <div className="text-xs text-gray-400 uppercase tracking-wide">
-              {isTopInning ? 'Top' : 'Bottom'} {inning}
-            </div>
-          </div>
-        )}
-        
-        {/* Diamond */}
-        <div className="relative w-24 h-24">
-          {/* Diamond outline */}
-          <svg className="absolute inset-0 w-full h-full" viewBox="0 0 100 100">
-            <path
-              d="M50 10 L90 50 L50 90 L10 50 Z"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              className="text-gray-400"
-            />
-            {/* Home plate */}
-            <polygon
-              points="50,90 45,85 55,85"
-              fill="currentColor"
-              className="text-gray-400"
-            />
-          </svg>
-          
-          {/* Base runners */}
-          {baseRunners?.first && (
-            <div className="absolute top-1 left-1/2 transform -translate-x-1/2 w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center text-white text-xs font-bold">
-              1
-            </div>
-          )}
-          {baseRunners?.second && (
-            <div className="absolute top-1/2 right-1 transform translate-y-1/2 w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center text-white text-xs font-bold">
-              2
-            </div>
-          )}
-          {baseRunners?.third && (
-            <div className="absolute bottom-1 left-1/2 transform translate-x-1/2 w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center text-white text-xs font-bold">
-              3
-            </div>
-          )}
-        </div>
-        
-        {/* Outs */}
-        {outs > 0 && (
-          <div className="flex space-x-1">
-            {[...Array(3)].map((_, i) => (
-              <div
-                key={i}
-                className={`w-3 h-3 rounded-full ${
-                  i < outs ? 'bg-red-500' : 'bg-gray-600'
-                }`}
-              />
-            ))}
-          </div>
-        )}
-      </div>
-    );
-  };
-
-  // Pitcher/Batter Info Component
-  const PitcherBatterInfo: React.FC<{ 
-    pitcher?: { name: string; number: number };
-    batter?: { name: string; number: number };
-    count?: { balls: number; strikes: number };
-  }> = ({ pitcher, batter, count }) => {
-    return (
-      <div className="space-y-2 text-sm">
-        {pitcher && (
-          <div className="flex justify-between">
-            <span className="text-gray-400">P:</span>
-            <span className="text-white font-medium">
-              #{pitcher.number} {pitcher.name}
-            </span>
-          </div>
-        )}
-        {batter && (
-          <div className="flex justify-between">
-            <span className="text-gray-400">B:</span>
-            <span className="text-white font-medium">
-              #{batter.number} {batter.name}
-            </span>
-          </div>
-        )}
-        {count && (
-          <div className="flex justify-between">
-            <span className="text-gray-400">Count:</span>
-            <span className="text-white font-bold">
-              {count.balls}-{count.strikes}
-            </span>
-          </div>
-        )}
-      </div>
-    );
-  };
-
-  if (games.length === 0 && upcomingGames.length === 0) {
+  if (games.length === 0 && todaysGames.length === 0 && upcomingGames.length === 0) {
     return (
       <div className="text-center py-12">
         <div className="text-gray-400 text-lg mb-2">No games scheduled</div>
@@ -259,147 +166,99 @@ const Scoreboard: React.FC<ScoreboardProps> = ({ games }) => {
 
   return (
     <div className="space-y-6">
-      {games.map((game) => (
-        <div
-          key={game.gameCode}
-          className="bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 p-6 hover:bg-white/15 transition-all duration-300"
-        >
-          {/* Header */}
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center space-x-3">
-              <span className="text-2xl">{getLeagueIcon(game.leagueId)}</span>
-              <div>
-                <div className="text-sm text-gray-300 uppercase tracking-wide">
-                  {game.currentState.venue?.city && game.currentState.venue?.name 
-                    ? `${game.currentState.venue.city} - ${game.currentState.venue.name}`
-                    : 'Game'
-                  }
-                </div>
-                <div className="text-xs text-gray-400">
-                  {formatGameInfo(game)}
-                </div>
+      {/* Debug information for CFL games */}
+      {games.filter(game => game.leagueId === 5).length > 0 && (
+        <div className="bg-yellow-500/20 border border-yellow-500/30 rounded-lg p-4">
+          <h3 className="text-yellow-300 font-bold mb-2">CFL Debug Info</h3>
+          {games.filter(game => game.leagueId === 5).map(game => (
+            <div key={game.gameCode} className="text-sm text-yellow-200">
+              <div>Game: {game.gameCode}</div>
+              <div>Status: {game.currentState.status}</div>
+              <div>Period: {game.currentState.period}</div>
+              <div>PeriodType: {game.currentState.periodType}</div>
+              <div>Clock: {game.currentState.clock}</div>
+              <div>Football Details:</div>
+              <div className="ml-4">
+                <div>Down: {game.currentState.details?.down || 'N/A'}</div>
+                <div>Distance: {game.currentState.details?.distance || 'N/A'}</div>
+                <div>Yard Line: {game.currentState.details?.yardLine || 'N/A'}</div>
+                <div>Possession: {game.currentState.details?.possession || 'N/A'}</div>
               </div>
             </div>
-            <div className={`px-3 py-1 rounded-full text-xs font-semibold text-white ${getStatusColor(game.currentState.status)}`}>
-              {getStatusText(game.currentState.status)}
-            </div>
-          </div>
-
-          {/* Main Game Content */}
-          <div className="grid grid-cols-12 gap-6 items-center">
-            {/* Away Team */}
-            <div className="col-span-4 text-right">
-              <div className="flex items-center justify-end space-x-3 mb-2">
-                {renderTeamLogo(game.currentState.away.team)}
-                <div>
-                  <div className="text-lg font-semibold text-white">
-                    {game.currentState.away.team.teamCode}
-                  </div>
-                  <div className="text-sm text-gray-300">
-                    {game.currentState.away.team.teamName}
-                  </div>
-                </div>
-              </div>
-              <div className="text-4xl font-bold text-white">
-                {game.currentState.away.score}
-              </div>
-            </div>
-
-            {/* Center - Baseball Diamond or VS */}
-            <div className="col-span-4 flex justify-center">
-              {game.leagueId === 2 && game.currentState.status === 'active' ? (
-                <BaseballDiamond 
-                  baseRunners={game.currentState.details?.baseRunners}
-                  outs={game.currentState.details?.outs}
-                  inning={game.currentState.period}
-                  isTopInning={game.currentState.clock?.includes('Top')}
-                />
-              ) : (
-                <div className="text-gray-400 text-lg font-medium">VS</div>
-              )}
-            </div>
-
-            {/* Home Team */}
-            <div className="col-span-4 text-left">
-              <div className="flex items-center space-x-3 mb-2">
-                <div>
-                  <div className="text-lg font-semibold text-white">
-                    {game.currentState.home.team.teamCode}
-                  </div>
-                  <div className="text-sm text-gray-300">
-                    {game.currentState.home.team.teamName}
-                  </div>
-                </div>
-                {renderTeamLogo(game.currentState.home.team)}
-              </div>
-              <div className="text-4xl font-bold text-white">
-                {game.currentState.home.score}
-              </div>
-            </div>
-          </div>
-
-          {/* Baseball-specific details */}
-          {game.leagueId === 2 && game.currentState.status === 'active' && (
-            <div className="mt-6 pt-4 border-t border-white/10">
-              <div className="grid grid-cols-3 gap-6">
-                {/* Pitcher/Batter Info */}
-                <div className="col-span-1">
-                  <PitcherBatterInfo 
-                    pitcher={game.currentState.details?.pitcher}
-                    batter={game.currentState.details?.batter}
-                    count={{
-                      balls: game.currentState.details?.ballCount || 0,
-                      strikes: game.currentState.details?.strikeCount || 0
-                    }}
-                  />
-                </div>
-                
-                {/* Game Status */}
-                <div className="col-span-1 text-center">
-                  <div className="text-sm text-gray-400 mb-1">Game Status</div>
-                  <div className="text-white font-medium">
-                    {game.currentState.timeRemaining || 'In Progress'}
-                  </div>
-                </div>
-                
-                {/* Additional Stats */}
-                <div className="col-span-1 text-right">
-                  <div className="text-sm text-gray-400 mb-1">Stats</div>
-                  <div className="text-white text-sm">
-                    {game.currentState.statistics && (
-                      <>
-                        <div>Hits: {game.currentState.statistics.hits || 0}</div>
-                        <div>Errors: {game.currentState.statistics.errors || 0}</div>
-                      </>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* General Game Details */}
-          {game.currentState.status === 'active' && (
-            <div className="mt-4 pt-4 border-t border-white/10">
-              <div className="flex justify-between text-sm text-gray-400">
-                {game.currentState.period && game.currentState.period > 0 && (
-                  <div>
-                    <span className="font-medium">Period:</span> {game.currentState.period}
-                    {game.currentState.periodType && (
-                      <span className="ml-1 text-xs">({game.currentState.periodType})</span>
-                    )}
-                  </div>
-                )}
-                {game.currentState.timeRemaining && (
-                  <div>
-                    <span className="font-medium">Time:</span> {game.currentState.timeRemaining}
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
+          ))}
         </div>
+      )}
+
+      {/* Debug information for MLB games */}
+      {games.filter(game => game.leagueId === 2).length > 0 && (
+        <div className="bg-blue-500/20 border border-blue-500/30 rounded-lg p-4">
+          <h3 className="text-blue-300 font-bold mb-2">MLB Debug Info</h3>
+          {games.filter(game => game.leagueId === 2).map(game => (
+            <div key={game.gameCode} className="text-sm text-blue-200">
+              <div>Game: {game.gameCode}</div>
+              <div>Status: {game.currentState.status}</div>
+              <div>Period: {game.currentState.period}</div>
+              <div>PeriodType: {game.currentState.periodType}</div>
+              <div>Clock: {game.currentState.clock}</div>
+              <div>Time Remaining: {game.currentState.timeRemaining}</div>
+              <div>Baseball Details:</div>
+              <div className="ml-4">
+                <div>Inning: {game.currentState.details?.inning || 'N/A'}</div>
+                <div>Outs: {game.currentState.details?.outs || 'N/A'}</div>
+                <div>Balls: {game.currentState.details?.ballCount || 'N/A'}</div>
+                <div>Strikes: {game.currentState.details?.strikeCount || 'N/A'}</div>
+                <div>Pitcher: {game.currentState.details?.pitcher?.name || 'N/A'}</div>
+                <div>Batter: {game.currentState.details?.batter?.name || 'N/A'}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Active Games */}
+      {games.map((game) => (
+        <GameCard key={game.gameCode} game={game} />
       ))}
+
+      {/* Today's Games */}
+      {todaysGames.length > 0 && (
+        <div className="mt-8">
+          <h3 className="text-xl font-bold text-white mb-4">Today's Games</h3>
+          <div className="space-y-3">
+            {todaysGames.map((game) => (
+              <div
+                key={game.gameCode}
+                className="backdrop-blur-sm rounded-lg border p-4 bg-gradient-to-r from-blue-500/20 to-purple-500/20 border-blue-400/30 shadow-lg"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <span className="text-lg">{getLeagueIcon(game.leagueId)}</span>
+                    <div className="flex items-center space-x-2">
+                      {renderTeamLogo(game.currentState.away.team)}
+                      <span className="text-sm font-medium text-white">
+                        {game.currentState.away.team.teamCode}
+                      </span>
+                    </div>
+                    <span className="text-gray-400 text-sm">vs</span>
+                    <div className="flex items-center space-x-2">
+                      {renderTeamLogo(game.currentState.home.team)}
+                      <span className="text-sm font-medium text-white">
+                        {game.currentState.home.team.teamCode}
+                      </span>
+                    </div>
+                    <span className="px-2 py-1 bg-blue-500/30 text-blue-300 text-xs rounded-full font-semibold">
+                      TODAY
+                    </span>
+                  </div>
+                  <div className="text-xs text-blue-300 font-semibold">
+                    {formatGameTime(game)}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Upcoming Games Section */}
       {upcomingGames.length > 0 && (

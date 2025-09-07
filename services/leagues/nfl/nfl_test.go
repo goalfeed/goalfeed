@@ -44,3 +44,4 @@ func TestNFLService_GetUpcomingGames(t *testing.T) {
 		t.Errorf("Expected league ID to be %d, got %d", models.LeagueIdNFL, game.LeagueId)
 	}
 }
+

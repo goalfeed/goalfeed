@@ -99,3 +99,20 @@ func GetAllGames() []models.Game {
 
 	return games
 }
+
+func ClearAllGames() {
+	storageMutex.Lock()
+	defer storageMutex.Unlock()
+
+	// Clear all stored games
+	for key := range storage {
+		if key != ACTIVE_GAME_CODES_KEY {
+			delete(storage, key)
+		}
+	}
+
+	// Clear active game keys
+	storage[ACTIVE_GAME_CODES_KEY] = "[]"
+
+	logger.Info("Cleared all games from memory store")
+}
