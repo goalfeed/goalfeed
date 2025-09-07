@@ -125,7 +125,9 @@ func (s NFLService) gameFromEvent(event nfl.NFLScheduleEvent) models.Game {
 	if len(event.Competitions) > 0 {
 		competition := event.Competitions[0]
 		venue = models.Venue{
-			Name: competition.Venue.FullName,
+			Name:  competition.Venue.FullName,
+			City:  competition.Venue.Address.City,
+			State: competition.Venue.Address.State,
 		}
 
 		if len(competition.Competitors) >= 2 {
@@ -140,10 +142,79 @@ func (s NFLService) gameFromEvent(event nfl.NFLScheduleEvent) models.Game {
 		}
 	}
 
-	// Parse the game date
+	// Parse the game date with multiple layouts
 	if event.Date != "" {
-		if parsedDate, err := time.Parse(time.RFC3339, event.Date); err == nil {
-			gameDate = parsedDate
+		layouts := []string{
+			time.RFC3339,
+			time.RFC3339Nano,
+			"2006-01-02T15:04:05Z",
+			"2006-01-02T15:04:05-07:00",
+			"2006-01-02T15:04Z",
+			"2006-01-02T15:04-07:00",
+		}
+		for _, layout := range layouts {
+			if parsedDate, err := time.Parse(layout, event.Date); err == nil {
+				gameDate = parsedDate
+				break
+			}
+		}
+	}
+
+	// Fallback to competition date if event.Date is empty or failed parsing
+	if gameDate.IsZero() && len(event.Competitions) > 0 {
+		competition := event.Competitions[0]
+		if competition.Date != "" {
+			layouts := []string{
+				time.RFC3339,
+				time.RFC3339Nano,
+				"2006-01-02T15:04:05Z",
+				"2006-01-02T15:04:05-07:00",
+				"2006-01-02T15:04Z",
+				"2006-01-02T15:04-07:00",
+			}
+			for _, layout := range layouts {
+				if parsedDate, err := time.Parse(layout, competition.Date); err == nil {
+					gameDate = parsedDate
+					break
+				}
+			}
+		}
+	}
+
+	// Final fallback: fetch scoreboard summary to get reliable date
+	if gameDate.IsZero() && event.ID != "" {
+		summary := s.Client.GetNFLScoreBoard(event.ID)
+		if len(summary.Events) > 0 {
+			se := summary.Events[0]
+			// Try event date first
+			layouts := []string{
+				time.RFC3339,
+				time.RFC3339Nano,
+				"2006-01-02T15:04:05Z",
+				"2006-01-02T15:04:05-07:00",
+				"2006-01-02T15:04Z",
+				"2006-01-02T15:04-07:00",
+			}
+			if se.Date != "" {
+				for _, layout := range layouts {
+					if parsedDate, err := time.Parse(layout, se.Date); err == nil {
+						gameDate = parsedDate
+						break
+					}
+				}
+			}
+			// Then try competition date from summary
+			if gameDate.IsZero() && len(se.Competitions) > 0 {
+				cd := se.Competitions[0].Date
+				if cd != "" {
+					for _, layout := range layouts {
+						if parsedDate, err := time.Parse(layout, cd); err == nil {
+							gameDate = parsedDate
+							break
+						}
+					}
+				}
+			}
 		}
 	}
 
@@ -162,8 +233,15 @@ func (s NFLService) gameFromEvent(event nfl.NFLScheduleEvent) models.Game {
 		gameTimeDisplay = event.Status.DisplayClock
 	}
 
+	// Precompute display time for details
+	gameTimeStr := "TBD"
+	if !gameDate.IsZero() {
+		gameTimeStr = gameDate.Format("3:04 PM")
+	}
+
 	return models.Game{
 		CurrentState: models.GameState{
+			ExtTimestamp: event.Date,
 			Home: models.TeamState{
 				Team:  s.teamFromScheduleCompetitor(homeTeam),
 				Score: homeScore,
@@ -179,15 +257,16 @@ func (s NFLService) gameFromEvent(event nfl.NFLScheduleEvent) models.Game {
 			Clock:      gameTimeDisplay,
 			Venue:      venue,
 		},
-		GameCode: event.ID,
-		LeagueId: models.LeagueIdNFL,
+		GameCode:     event.ID,
+		ExtTimestamp: event.Date,
+		LeagueId:     models.LeagueIdNFL,
 		GameDetails: models.GameDetails{
 			GameId:     event.ID,
 			Season:     strconv.Itoa(event.Season.Year),
 			SeasonType: "REGULAR",
 			Week:       event.Week.Number,
 			GameDate:   gameDate,
-			GameTime:   gameDate.Format("3:04 PM"),
+			GameTime:   gameTimeStr,
 			Timezone:   "UTC", // TODO: Get actual timezone from venue
 		},
 	}

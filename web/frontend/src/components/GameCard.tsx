@@ -15,6 +15,7 @@ const GameCard: React.FC<GameCardProps> = ({ game }) => {
       case 1: return '🏒'; // NHL
       case 2: return '⚾'; // MLB
       case 5: return '🏈'; // CFL
+      case 6: return '🏈'; // NFL
       default: return '🏆';
     }
   };
@@ -92,7 +93,7 @@ const GameCard: React.FC<GameCardProps> = ({ game }) => {
           isTopInning={game.currentState.clock?.includes('Top')}
         />
       );
-    } else if (game.leagueId === 5 && (game.currentState.status === 'active' || game.currentState.status === 'delayed')) {
+    } else if ((game.leagueId === 5 || game.leagueId === 6) && (game.currentState.status === 'active' || game.currentState.status === 'delayed')) {
       return <FootballGameDetails game={game} />;
     } else if (game.leagueId === 1 && (game.currentState.status === 'active' || game.currentState.status === 'delayed')) {
       return <HockeyGameDetails game={game} />;

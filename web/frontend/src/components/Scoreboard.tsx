@@ -67,6 +67,7 @@ const Scoreboard: React.FC<ScoreboardProps> = ({ games }) => {
       case 1: return '🏒'; // NHL
       case 2: return '⚾'; // MLB
       case 5: return '🏈'; // CFL
+      case 6: return '🏈'; // NFL
       default: return '🏆';
     }
   };
