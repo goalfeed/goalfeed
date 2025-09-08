@@ -49,11 +49,15 @@ const App: React.FC = () => {
       const message = event.detail;
       switch (message.type) {
         case 'game_update':
-          setGames(prevGames => 
-            prevGames.map(game => 
-              game.gameCode === message.data.gameCode ? message.data : game
-            )
-          );
+          setGames(prevGames => {
+            const exists = prevGames.some(game => game.gameCode === message.data.gameCode);
+            if (exists) {
+              return prevGames.map(game => 
+                game.gameCode === message.data.gameCode ? message.data : game
+              );
+            }
+            return [message.data, ...prevGames];
+          });
           break;
         case 'games_list':
           setGames(message.data || []);

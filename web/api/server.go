@@ -230,6 +230,26 @@ func refreshActiveGames(c *gin.Context) {
 	c.JSON(http.StatusOK, ApiResponse{Success: true, Message: "Refresh started"})
 }
 
+// DEBUG: Force-add an NFL game by ESPN event ID
+func addNFLGame(c *gin.Context) {
+	eventID := c.Query("event")
+	if eventID == "" {
+		c.JSON(http.StatusBadRequest, ApiResponse{Success: false, Message: "event parameter is required"})
+		return
+	}
+	svc := nflServices.NFLService{Client: nflClients.NFLAPIClient{}}
+	game := svc.GameFromScoreboard(eventID)
+	if game.GameCode == "" {
+		c.JSON(http.StatusNotFound, ApiResponse{Success: false, Message: "Could not fetch game from summary"})
+		return
+	}
+	memoryStore.SetGame(game)
+	memoryStore.AppendActiveGame(game)
+	BroadcastGameUpdate(game)
+	BroadcastGamesList()
+	c.JSON(http.StatusOK, ApiResponse{Success: true, Data: game, Message: "NFL game added"})
+}
+
 func handleWebSocket(c *gin.Context) {
 	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
@@ -252,6 +272,36 @@ func handleWebSocket(c *gin.Context) {
 
 func getGames(c *gin.Context) {
 	games := normalizeGamesData(memoryStore.GetAllGames())
+	// Enrich NFL games missing situation details
+	for i := range games {
+		g := &games[i]
+		if g.LeagueId == models.LeagueIdNFL {
+			// If any detail is missing, try to enrich from summary
+			if g.CurrentState.Details.Down == 0 || g.CurrentState.Details.Distance == 0 || g.CurrentState.Details.Possession == "" || g.CurrentState.Details.YardLine == 0 {
+				svc := nflServices.NFLService{Client: nflClients.NFLAPIClient{}}
+				enriched := svc.GameFromScoreboard(g.GameCode)
+				// Merge only missing fields
+				if enriched.CurrentState.Details.Down > 0 && g.CurrentState.Details.Down == 0 {
+					g.CurrentState.Details.Down = enriched.CurrentState.Details.Down
+				}
+				if enriched.CurrentState.Details.Distance > 0 && g.CurrentState.Details.Distance == 0 {
+					g.CurrentState.Details.Distance = enriched.CurrentState.Details.Distance
+				}
+				if enriched.CurrentState.Details.Possession != "" && g.CurrentState.Details.Possession == "" {
+					g.CurrentState.Details.Possession = enriched.CurrentState.Details.Possession
+				}
+				if enriched.CurrentState.Details.YardLine > 0 && g.CurrentState.Details.YardLine == 0 {
+					g.CurrentState.Details.YardLine = enriched.CurrentState.Details.YardLine
+				}
+				// Apply halftime labeling if provided
+				if enriched.CurrentState.PeriodType == "HALFTIME" {
+					g.CurrentState.PeriodType = enriched.CurrentState.PeriodType
+					g.CurrentState.Clock = enriched.CurrentState.Clock
+				}
+				memoryStore.SetGame(*g)
+			}
+		}
+	}
 	c.JSON(http.StatusOK, ApiResponse{
 		Success: true,
 		Data:    games,
@@ -693,6 +743,7 @@ func StartWebServer(port string) {
 		api.GET("/leagues", getLeagues)
 		api.POST("/leagues", updateLeagueConfig)
 		api.POST("/refresh", refreshActiveGames)
+		api.POST("/debug/nfl/add", addNFLGame)
 		api.GET("/events", getEvents)
 		api.GET("/teams", getAllTeams)
 		api.POST("/clear", clearGames)

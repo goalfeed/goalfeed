@@ -151,6 +151,8 @@ func checkForNewActiveGames(service leagues.ILeagueService) {
 				logger.Info(fmt.Sprintf("Adding %s game (%s @ %s) to active monitored games", service.GetLeagueName(), game.CurrentState.Away.Team.TeamCode, game.CurrentState.Home.Team.TeamCode))
 				memoryStore.SetGame(game)
 				memoryStore.AppendActiveGame(game)
+				// Immediately broadcast updated games list so UI gets the game right away
+				webApi.BroadcastGamesList()
 			}
 		} else {
 			logger.Info(fmt.Sprintf("Skipping %s game (%s @ %s) as teams are not being monitored", service.GetLeagueName(), game.CurrentState.Away.Team.TeamCode, game.CurrentState.Home.Team.TeamCode))

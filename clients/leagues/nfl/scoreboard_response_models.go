@@ -3,6 +3,9 @@ package nfl
 type NFLScoreboardResponse struct {
 	Leagues []NFLScoreboardLeague `json:"leagues"`
 	Events  []NFLScoreboardEvent  `json:"events"`
+	Drives  struct {
+		Current DriveCurrent `json:"current"`
+	} `json:"drives"`
 }
 
 type NFLScoreboardLeague struct {
@@ -69,14 +72,6 @@ type NFLScoreboardCompetition struct {
 		Grass  bool `json:"grass"`
 		Indoor bool `json:"indoor"`
 	} `json:"venue"`
-	Situation struct {
-		Possession       string `json:"possession"`
-		YardLine         int    `json:"yardLine"`
-		Down             int    `json:"down"`
-		Distance         int    `json:"distance"`
-		DownDistanceText string `json:"downDistanceText"`
-		IsRedZone        bool   `json:"isRedZone"`
-	} `json:"situation"`
 	Competitors []NFLScoreboardCompetitor `json:"competitors"`
 	Notes       []struct {
 		Headline string `json:"headline"`
@@ -128,4 +123,32 @@ type NFLScoreboardCompetitor struct {
 		Type         string `json:"type"`
 		Summary      string `json:"summary"`
 	} `json:"records"`
+}
+
+// Drives and current drive start info
+
+type DriveCurrent struct {
+	ID          string     `json:"id"`
+	Description string     `json:"description"`
+	Team        DriveTeam  `json:"team"`
+	Start       DriveStart `json:"start"`
+}
+
+type DriveTeam struct {
+	ID           string `json:"id"`
+	Name         string `json:"name"`
+	Abbreviation string `json:"abbreviation"`
+}
+
+type DriveStart struct {
+	Down                  int    `json:"down"`
+	Distance              int    `json:"distance"`
+	YardLine              int    `json:"yardLine"`
+	YardsToEndzone        int    `json:"yardsToEndzone"`
+	DownDistanceText      string `json:"downDistanceText"`
+	ShortDownDistanceText string `json:"shortDownDistanceText"`
+	PossessionText        string `json:"possessionText"`
+	Team                  struct {
+		ID string `json:"id"`
+	} `json:"team"`
 }

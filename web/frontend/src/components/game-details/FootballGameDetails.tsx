@@ -20,6 +20,32 @@ const FootballGameDetails: React.FC<FootballGameDetailsProps> = ({ game }) => {
             {currentState.clock}
           </div>
         )}
+        {/* Compact situation line */}
+        {currentState.details && (
+          <div className="mt-1 text-xs text-gray-300">
+            {(() => {
+              const d = currentState.details;
+              const parts: string[] = [];
+              // e.g., "2nd & 8"
+              if (d.down && d.distance) {
+                const order = ['1st','2nd','3rd','4th'][Math.max(0, Math.min(3, (d.down as number) - 1))];
+                parts.push(`${order} & ${d.distance}`);
+              }
+              // e.g., "at BUF 30" or fallback "BUF ball at 30"
+              if (d.yardLine) {
+                if (d.possession) {
+                  parts.push(`at ${d.possession} ${d.yardLine}`);
+                } else {
+                  parts.push(`at ${d.yardLine}`);
+                }
+              } else if (d.possession) {
+                parts.push(`${d.possession} ball`);
+              }
+              const text = parts.join(' ');
+              return text || null;
+            })()}
+          </div>
+        )}
       </div>
       
       {/* Possession */}
