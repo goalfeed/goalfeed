@@ -130,6 +130,9 @@ func initialize() {
 
 	logger.Info("Initializing Active Games")
 	checkLeaguesForActiveGames()
+
+	// Start Fastcast listener for NFL if enabled
+	nfl.StartNFLFastcast()
 }
 
 func checkLeaguesForActiveGames() {

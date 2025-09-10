@@ -25,6 +25,7 @@ import (
 	nflServices "goalfeed/services/leagues/nfl"
 	nhlServices "goalfeed/services/leagues/nhl"
 	"goalfeed/targets/memoryStore"
+	"goalfeed/targets/notify"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -717,6 +718,10 @@ func buildFrontend() error {
 func StartWebServer(port string) {
 	// Start WebSocket hub
 	go hub.run()
+
+	// Expose broadcast functions for other packages to avoid import cycles
+	notify.BroadcastGame = BroadcastGameUpdate
+	notify.BroadcastGamesList = BroadcastGamesList
 
 	// Try to build frontend
 	if err := buildFrontend(); err != nil {

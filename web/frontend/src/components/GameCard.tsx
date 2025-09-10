@@ -17,6 +17,12 @@ const GameCard: React.FC<GameCardProps> = ({ game }) => {
   const prevHomeScore = useRef<number>(game.currentState.home.score);
   const prevAwayScore = useRef<number>(game.currentState.away.score);
 
+  const hasPossession = (teamCode: string) => {
+    const poss = game.currentState.details?.possession;
+    if (!poss) return false;
+    return poss.toUpperCase() === (teamCode || '').toUpperCase();
+  };
+
   // Detect home score change
   useEffect(() => {
     const current = game.currentState.home.score;
@@ -167,8 +173,11 @@ const GameCard: React.FC<GameCardProps> = ({ game }) => {
               <div className="text-lg font-semibold text-white">
                 {game.currentState.away.team.teamCode}
               </div>
-              <div className="text-sm text-gray-300">
-                {game.currentState.away.team.teamName}
+              <div className="text-sm text-gray-300 flex items-center justify-end">
+                <span>{game.currentState.away.team.teamName}</span>
+                {(game.leagueId === 5 || game.leagueId === 6) && hasPossession(game.currentState.away.team.teamCode) && (
+                  <span className="ml-1" title="Possession">🏈</span>
+                )}
               </div>
             </div>
           </div>
@@ -191,8 +200,11 @@ const GameCard: React.FC<GameCardProps> = ({ game }) => {
               <div className="text-lg font-semibold text-white">
                 {game.currentState.home.team.teamCode}
               </div>
-              <div className="text-sm text-gray-300">
-                {game.currentState.home.team.teamName}
+              <div className="text-sm text-gray-300 flex items-center">
+                <span>{game.currentState.home.team.teamName}</span>
+                {(game.leagueId === 5 || game.leagueId === 6) && hasPossession(game.currentState.home.team.teamCode) && (
+                  <span className="ml-1" title="Possession">🏈</span>
+                )}
               </div>
             </div>
             {renderTeamLogo(game.currentState.home.team)}
