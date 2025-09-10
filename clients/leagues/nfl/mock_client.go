@@ -493,3 +493,23 @@ func (c NFLMockClient) GetTeam(teamAbbr string) NFLTeamResponse {
 		},
 	}
 }
+
+func (c NFLMockClient) GetAllTeams() NFLTeamResponse {
+	return NFLTeamResponse{
+		Teams: []NFLTeam{
+			{
+				ID:               "4",
+				UID:              "s:20~l:28~t:4",
+				Location:         "Buffalo",
+				Name:             "Bills",
+				Abbreviation:     "BUF",
+				DisplayName:      "Buffalo Bills",
+				ShortDisplayName: "Bills",
+				Color:            "00338D",
+				AlternateColor:   "C60C30",
+				IsActive:         true,
+				Logo:             "https://a.espncdn.com/i/teamlogos/nfl/500/buf.png",
+			},
+		},
+	}
+}
