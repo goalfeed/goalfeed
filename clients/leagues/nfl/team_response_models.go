@@ -32,4 +32,3 @@ type NFLTeam struct {
 	} `json:"links"`
 	Logo string `json:"logo"`
 }
-

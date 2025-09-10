@@ -43,3 +43,9 @@ func (c MockNHLApiClient) GetTeam(sLink string) NHLTeamResponse {
 	json.Unmarshal([]byte(TeamResponseJson), &response)
 	return response
 }
+
+func (c MockNHLApiClient) GetAllTeams() NHLTeamResponse {
+	var response NHLTeamResponse
+	json.Unmarshal([]byte(TeamResponseJson), &response)
+	return response
+}

@@ -76,10 +76,10 @@ func teamFromScheduleTeam(scheduleTeam iihf.IIHFScheduleTeam) models.Team {
 
 	// todo store/retrieve from DB
 	// todo fill out model
-	
+
 	// IIHF teams don't have logo URLs in the API, so we'll leave it empty
 	// In the future, we could construct URLs based on team codes or use a logo service
-	
+
 	team := models.Team{
 		TeamName: scheduleTeam.TeamCode,
 		TeamCode: scheduleTeam.TeamCode,

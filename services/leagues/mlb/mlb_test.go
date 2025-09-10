@@ -32,6 +32,11 @@ func (c MockMLBApiClientWithError) GetDiffPatch(gameId string, timestamp string)
 	return mlb.MLBDiffPatch{}, errors.New("mock error for testing")
 }
 
+func (c MockMLBApiClientWithError) GetAllTeams() mlb.MLBTeamResponse {
+	var mockClient = mlb.MockMLBApiClient{}
+	return mockClient.GetAllTeams()
+}
+
 func TestGetEvents(t *testing.T) {
 	var mockClient = mlb.MockMLBApiClient{}
 	service := getMockService(mockClient)
