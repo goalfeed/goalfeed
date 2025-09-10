@@ -86,3 +86,33 @@ func SetGame(game models.Game) {
 	storage[game.GetGameKey()] = string(gameByte)
 	storageMutex.Unlock()
 }
+
+func GetAllGames() []models.Game {
+	activeGameKeys := GetActiveGameKeys()
+	var games []models.Game
+
+	for _, gameKey := range activeGameKeys {
+		if game, err := GetGameByGameKey(gameKey); err == nil {
+			games = append(games, game)
+		}
+	}
+
+	return games
+}
+
+func ClearAllGames() {
+	storageMutex.Lock()
+	defer storageMutex.Unlock()
+
+	// Clear all stored games
+	for key := range storage {
+		if key != ACTIVE_GAME_CODES_KEY {
+			delete(storage, key)
+		}
+	}
+
+	// Clear active game keys
+	storage[ACTIVE_GAME_CODES_KEY] = "[]"
+
+	logger.Info("Cleared all games from memory store")
+}

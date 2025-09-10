@@ -158,11 +158,66 @@ type Info struct {
 	Value string `json:"value,omitempty"`
 }
 type Boxscore struct {
-	Teams         MLBScoreboardResponseTeams `json:"teams"`
-	Info          []Info                     `json:"info"`
-	Pitchingnotes []interface{}              `json:"pitchingNotes"`
+	Teams         BoxscoreTeams `json:"teams"`
+	Info          []Info        `json:"info"`
+	Pitchingnotes []interface{} `json:"pitchingNotes"`
 }
 type LiveData struct {
 	Linescore Linescore `json:"linescore"`
 	Boxscore  Boxscore  `json:"boxscore"`
+}
+
+// Player information structures
+type Player struct {
+	Person       Person      `json:"person"`
+	JerseyNumber string      `json:"jerseyNumber"`
+	Position     Position    `json:"position"`
+	Status       Status      `json:"status"`
+	ParentTeamID int         `json:"parentTeamId"`
+	Stats        PlayerStats `json:"stats"`
+	SeasonStats  PlayerStats `json:"seasonStats"`
+	GameStatus   GameStatus  `json:"gameStatus"`
+}
+
+type Person struct {
+	ID       int    `json:"id"`
+	FullName string `json:"fullName"`
+	Link     string `json:"link"`
+}
+
+type Position struct {
+	Code         string `json:"code"`
+	Name         string `json:"name"`
+	Type         string `json:"type"`
+	Abbreviation string `json:"abbreviation"`
+}
+
+type PlayerStats struct {
+	Batting  map[string]interface{} `json:"batting"`
+	Pitching map[string]interface{} `json:"pitching"`
+	Fielding map[string]interface{} `json:"fielding"`
+}
+
+type GameStatus struct {
+	IsCurrentBatter  bool `json:"isCurrentBatter"`
+	IsCurrentPitcher bool `json:"isCurrentPitcher"`
+	IsOnBench        bool `json:"isOnBench"`
+	IsSubstitute     bool `json:"isSubstitute"`
+}
+
+type TeamBoxscore struct {
+	Team         Team              `json:"team"`
+	Players      map[string]Player `json:"players"`
+	Batters      []int             `json:"batters"`
+	Pitchers     []int             `json:"pitchers"`
+	Bench        []int             `json:"bench"`
+	Bullpen      []int             `json:"bullpen"`
+	BattingOrder []int             `json:"battingOrder"`
+	Info         []Info            `json:"info"`
+	Note         []interface{}     `json:"note"`
+}
+
+type BoxscoreTeams struct {
+	Away TeamBoxscore `json:"away"`
+	Home TeamBoxscore `json:"home"`
 }
