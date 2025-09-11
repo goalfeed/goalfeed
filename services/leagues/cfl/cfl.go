@@ -381,9 +381,9 @@ func (s CFLService) getTouchdownEvents(oldState models.TeamState, newState model
 	diff := newState.Score - oldState.Score
 	team := newState.Team
 
-	// In CFL, we'll treat score changes as touchdowns (6 points each)
-	// We'll create events for each 6-point increment
-	for i := 0; i < diff; i += 6 {
+	// Create one event per point scored to avoid assuming 6-point increments
+	// This ensures 1, 2, 3, 6, 7, 8 point changes are represented consistently
+	for i := 0; i < diff; i++ {
 		events = append(events, models.Event{
 			TeamCode:     team.TeamCode,
 			TeamName:     team.TeamName,
