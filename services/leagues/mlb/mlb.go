@@ -202,10 +202,18 @@ func (s MLBService) getGameUpdateFromScoreboard(game models.Game, ret chan model
 		Home: models.TeamState{
 			Team:  game.CurrentState.Home.Team,
 			Score: scoreboard.LiveData.Linescore.Teams.Home.Runs,
+			Statistics: models.TeamStats{
+				Hits:   scoreboard.LiveData.Linescore.Teams.Home.Hits,
+				Errors: scoreboard.LiveData.Linescore.Teams.Home.Errors,
+			},
 		},
 		Away: models.TeamState{
 			Team:  game.CurrentState.Away.Team,
 			Score: scoreboard.LiveData.Linescore.Teams.Away.Runs,
+			Statistics: models.TeamStats{
+				Hits:   scoreboard.LiveData.Linescore.Teams.Away.Hits,
+				Errors: scoreboard.LiveData.Linescore.Teams.Away.Errors,
+			},
 		},
 		Status: func() models.GameStatus {
 			status := gameStatusFromStatusCode(scoreboard.GameData.Status.StatusCode)
@@ -227,10 +235,36 @@ func (s MLBService) getGameUpdateFromScoreboard(game models.Game, ret chan model
 			Outs:        scoreboard.LiveData.Linescore.Outs,
 			BallCount:   scoreboard.LiveData.Linescore.Balls,
 			StrikeCount: scoreboard.LiveData.Linescore.Strikes,
+			BaseRunners: func() models.BaseRunners {
+				off := scoreboard.LiveData.Linescore.Offense
+				convert := func(or *mlb.OffenseRunner) *models.Player {
+					if or == nil {
+						return nil
+					}
+					return &models.Player{ // Position and jersey unknown here
+						Id:       strconv.Itoa(or.ID),
+						Name:     or.FullName,
+						Number:   0,
+						Position: "",
+						Team:     models.Team{TeamCode: "", TeamName: "", LeagueID: models.LeagueIdMLB},
+					}
+				}
+				return models.BaseRunners{
+					First:  convert(off.First),
+					Second: convert(off.Second),
+					Third:  convert(off.Third),
+				}
+			}(),
 			// Extract current pitcher and batter information
 			Pitcher: s.extractCurrentPitcher(scoreboard.LiveData.Boxscore.Teams),
 			Batter:  s.extractCurrentBatter(scoreboard.LiveData.Boxscore.Teams),
 		},
+	}
+
+	// Populate total statistics for convenience (used by frontend GameCard)
+	newState.Statistics = models.TeamStats{
+		Hits:   newState.Home.Statistics.Hits + newState.Away.Statistics.Hits,
+		Errors: newState.Home.Statistics.Errors + newState.Away.Statistics.Errors,
 	}
 
 	// Override to active when inning/count indicate gameplay but status mapping did not
@@ -363,6 +397,22 @@ func (s MLBService) gameFromSchedule(scheduleGame mlb.MLBScheduleResponseGame) m
 			Outs:        scoreboard.LiveData.Linescore.Outs,
 			BallCount:   scoreboard.LiveData.Linescore.Balls,
 			StrikeCount: scoreboard.LiveData.Linescore.Strikes,
+			BaseRunners: func() models.BaseRunners {
+				off := scoreboard.LiveData.Linescore.Offense
+				convert := func(or *mlb.OffenseRunner) *models.Player {
+					if or == nil {
+						return nil
+					}
+					return &models.Player{
+						Id:       strconv.Itoa(or.ID),
+						Name:     or.FullName,
+						Number:   0,
+						Position: "",
+						Team:     models.Team{TeamCode: "", TeamName: "", LeagueID: models.LeagueIdMLB},
+					}
+				}
+				return models.BaseRunners{First: convert(off.First), Second: convert(off.Second), Third: convert(off.Third)}
+			}(),
 			// Extract current pitcher and batter information
 			Pitcher: s.extractCurrentPitcher(scoreboard.LiveData.Boxscore.Teams),
 			Batter:  s.extractCurrentBatter(scoreboard.LiveData.Boxscore.Teams),
@@ -380,15 +430,29 @@ func (s MLBService) gameFromSchedule(scheduleGame mlb.MLBScheduleResponseGame) m
 		gameTimeDisplay = periodDisplay
 	}
 
+	// Build initial team statistics from linescore if available
+	homeStats := models.TeamStats{}
+	awayStats := models.TeamStats{}
+	if scheduleGame.Status.AbstractGameState != STATUS_UPCOMING {
+		// Re-fetch scoreboard for stats context in this scope
+		sb := s.Client.GetMLBScoreBoard(strconv.Itoa(scheduleGame.GamePk))
+		homeStats.Hits = sb.LiveData.Linescore.Teams.Home.Hits
+		homeStats.Errors = sb.LiveData.Linescore.Teams.Home.Errors
+		awayStats.Hits = sb.LiveData.Linescore.Teams.Away.Hits
+		awayStats.Errors = sb.LiveData.Linescore.Teams.Away.Errors
+	}
+
 	return models.Game{
 		CurrentState: models.GameState{
 			Home: models.TeamState{
-				Team:  s.teamFromScheduleTeam(scheduleGame.Teams.Home),
-				Score: scheduleGame.Teams.Home.Score,
+				Team:       s.teamFromScheduleTeam(scheduleGame.Teams.Home),
+				Score:      scheduleGame.Teams.Home.Score,
+				Statistics: homeStats,
 			},
 			Away: models.TeamState{
-				Team:  s.teamFromScheduleTeam(scheduleGame.Teams.Away),
-				Score: scheduleGame.Teams.Away.Score,
+				Team:       s.teamFromScheduleTeam(scheduleGame.Teams.Away),
+				Score:      scheduleGame.Teams.Away.Score,
+				Statistics: awayStats,
 			},
 			Status: func() models.GameStatus {
 				status := gameStatusFromScheduleGame(scheduleGame)
@@ -404,6 +468,7 @@ func (s MLBService) gameFromSchedule(scheduleGame mlb.MLBScheduleResponseGame) m
 			Clock:         gameTimeDisplay,
 			Venue:         venue,
 			Details:       details,
+			Statistics:    models.TeamStats{Hits: homeStats.Hits + awayStats.Hits, Errors: homeStats.Errors + awayStats.Errors},
 		},
 		GameCode: strconv.Itoa(scheduleGame.GamePk),
 		LeagueId: models.LeagueIdMLB,

@@ -62,6 +62,9 @@ type MLBGameResponseTeam struct {
 	Name            string   `json:"name"`
 	Link            string   `json:"link"`
 	Runs            int      `json:"runs"`
+	Hits            int      `json:"hits"`
+	Errors          int      `json:"errors"`
+	LeftOnBase      int      `json:"leftOnBase"`
 	Season          int      `json:"season"`
 	Venue           Venue    `json:"venue"`
 	Teamcode        string   `json:"teamCode"`
@@ -152,6 +155,7 @@ type Linescore struct {
 	Balls                int                        `json:"balls"`
 	Strikes              int                        `json:"strikes"`
 	Outs                 int                        `json:"outs"`
+	Offense              Offense                    `json:"offense"`
 }
 type Info struct {
 	Label string `json:"label"`
@@ -165,6 +169,23 @@ type Boxscore struct {
 type LiveData struct {
 	Linescore Linescore `json:"linescore"`
 	Boxscore  Boxscore  `json:"boxscore"`
+}
+
+// Offense describes the current offense context including runners on base
+type Offense struct {
+	Batter  *OffenseRunner `json:"batter,omitempty"`
+	OnDeck  *OffenseRunner `json:"onDeck,omitempty"`
+	InHole  *OffenseRunner `json:"inHole,omitempty"`
+	Pitcher *OffenseRunner `json:"pitcher,omitempty"`
+	First   *OffenseRunner `json:"first,omitempty"`
+	Second  *OffenseRunner `json:"second,omitempty"`
+	Third   *OffenseRunner `json:"third,omitempty"`
+}
+
+type OffenseRunner struct {
+	ID       int    `json:"id"`
+	FullName string `json:"fullName"`
+	Link     string `json:"link"`
 }
 
 // Player information structures
