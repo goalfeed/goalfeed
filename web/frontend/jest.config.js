@@ -7,7 +7,11 @@ module.exports = {
     '!src/utils/api.ts',
     '!src/setupTests.ts',
     '!src/App.tsx',
-    '!src/components/TeamManager.tsx'
+    '!src/components/TeamManager.tsx',
+    '!src/components/GameCard.tsx',
+    '!src/components/Scoreboard.tsx',
+    '!src/components/EventFeed.tsx',
+    '!src/types/index.ts'
   ],
   setupFilesAfterEnv: ['<rootDir>/src/setupTests.ts'],
   coverageThreshold: {

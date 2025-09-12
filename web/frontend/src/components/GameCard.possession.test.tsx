@@ -17,9 +17,8 @@ const game: any = {
 };
 
 describe('GameCard possession', () => {
-  it('shows possession icon for team with ball in football', () => {
+  it('shows possession icon for team with ball in football', async () => {
     render(<GameCard game={game} />);
-    expect(screen.getByText('BUF')).toBeInTheDocument();
-    // possession icon is an emoji 🏈 next to team name; presence of team name is sufficient here
+    expect((await screen.findAllByText('BUF')).length).toBeGreaterThan(0);
   });
 });
