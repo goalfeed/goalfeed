@@ -37,7 +37,41 @@ func (s NFLService) GetActiveGames(ret chan []models.Game) {
 	for _, event := range schedule.Events {
 		if gameStatusFromEvent(event) == models.StatusActive {
 			// Use schedule data to ensure game appears immediately
-			activeGames = append(activeGames, s.gameFromEvent(event))
+			g := s.gameFromEvent(event)
+			// Hydrate initial score/clock/state from scoreboard so we don't start at 0-0
+			if event.ID != "" {
+				fresh := s.GameFromScoreboard(event.ID)
+				if fresh.GameCode != "" {
+					// Merge critical runtime fields
+					g.CurrentState.Home.Score = fresh.CurrentState.Home.Score
+					g.CurrentState.Away.Score = fresh.CurrentState.Away.Score
+					if fresh.CurrentState.Clock != "" {
+						g.CurrentState.Clock = fresh.CurrentState.Clock
+					}
+					if fresh.CurrentState.Period > 0 {
+						g.CurrentState.Period = fresh.CurrentState.Period
+					}
+					// Preserve Active if either source says Active
+					if fresh.CurrentState.Status == models.StatusActive || g.CurrentState.Status == models.StatusActive {
+						g.CurrentState.Status = models.StatusActive
+					} else {
+						g.CurrentState.Status = fresh.CurrentState.Status
+					}
+					// If halftime signaled in fresh, carry over labels
+					if fresh.CurrentState.PeriodType == "HALFTIME" {
+						g.CurrentState.PeriodType = fresh.CurrentState.PeriodType
+						g.CurrentState.Clock = fresh.CurrentState.Clock
+					}
+					// Backfill team identifiers if any are missing from schedule
+					if g.CurrentState.Home.Team.TeamCode == "" {
+						g.CurrentState.Home.Team = fresh.CurrentState.Home.Team
+					}
+					if g.CurrentState.Away.Team.TeamCode == "" {
+						g.CurrentState.Away.Team = fresh.CurrentState.Away.Team
+					}
+				}
+			}
+			activeGames = append(activeGames, g)
 		}
 	}
 	ret <- activeGames
