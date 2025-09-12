@@ -30,6 +30,16 @@ func TestSendEvent_OK(t *testing.T) {
 	}
 }
 
+func TestSendEvent_ErrorStatus(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer server.Close()
+	os.Setenv("SUPERVISOR_API", server.URL)
+	os.Setenv("SUPERVISOR_TOKEN", "t")
+	SendEvent(models.Event{Id: "e", Type: models.EventTypeGoal, LeagueId: int(models.LeagueIdNHL), LeagueName: "NHL"})
+}
+
 func TestSendGameUpdate_OK(t *testing.T) {
 	_, count := setupTestServer(t)
 	game := models.Game{GameCode: "g1", LeagueId: models.LeagueIdNHL}
@@ -37,6 +47,18 @@ func TestSendGameUpdate_OK(t *testing.T) {
 	if *count == 0 {
 		t.Fatalf("expected at least one request sent")
 	}
+}
+
+func TestSendGameUpdate_ErrorStatus(t *testing.T) {
+	// server responds 500
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer server.Close()
+	os.Setenv("SUPERVISOR_API", server.URL)
+	os.Setenv("SUPERVISOR_TOKEN", "t")
+	game := models.Game{GameCode: "g1", LeagueId: models.LeagueIdNHL}
+	SendGameUpdate(game)
 }
 
 func TestSendPeriodUpdate_OK(t *testing.T) {
@@ -48,11 +70,40 @@ func TestSendPeriodUpdate_OK(t *testing.T) {
 	}
 }
 
+func TestSendPeriodUpdate_ErrorStatus(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer server.Close()
+	os.Setenv("SUPERVISOR_API", server.URL)
+	os.Setenv("SUPERVISOR_TOKEN", "t")
+	game := models.Game{GameCode: "g1", LeagueId: models.LeagueIdNHL}
+	SendPeriodUpdate(game, models.EventTypePeriodStart)
+}
+
 func TestSendCustomEvent_OK(t *testing.T) {
 	_, count := setupTestServer(t)
 	SendCustomEvent("custom", map[string]interface{}{"a": 1})
 	if *count == 0 {
 		t.Fatalf("expected at least one request sent")
+	}
+}
+
+func TestGetLeagueName(t *testing.T) {
+	if getLeagueName(models.LeagueIdNHL) != "NHL" {
+		t.Fatal("nhl")
+	}
+	if getLeagueName(models.LeagueIdMLB) != "MLB" {
+		t.Fatal("mlb")
+	}
+	if getLeagueName(models.LeagueIdCFL) != "CFL" {
+		t.Fatal("cfl")
+	}
+	if getLeagueName(models.LeagueIdNFL) != "NFL" {
+		t.Fatal("nfl")
+	}
+	if getLeagueName(999) != "Unknown" {
+		t.Fatal("unknown")
 	}
 }
 
@@ -65,4 +116,15 @@ func TestCreateRichEventContainsDefaults(t *testing.T) {
 	if _, err := json.Marshal(re); err != nil {
 		t.Fatalf("rich event should marshal: %v", err)
 	}
+}
+
+func TestPublishBaselineForMonitoredTeams(t *testing.T) {
+	// mock HA
+	_, _ = setupTestServer(t)
+	// configure monitored teams
+	os.Setenv("GOALFEED_WATCH_NHL", "WPG")
+	os.Setenv("GOALFEED_WATCH_MLB", "TOR")
+	os.Setenv("GOALFEED_WATCH_CFL", "WPG")
+	os.Setenv("GOALFEED_WATCH_NFL", "BUF")
+	PublishBaselineForMonitoredTeams()
 }

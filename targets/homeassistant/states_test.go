@@ -40,12 +40,19 @@ func TestToStateString(t *testing.T) {
 	if toStateString(time.Time{}) != "unknown" {
 		t.Fatal("zero time should be unknown")
 	}
+	if toStateString(int64(42)) != "42" {
+		t.Fatal("int64 mapping failed")
+	}
+	if toStateString(map[string]int{"a": 1}) == "" {
+		t.Fatal("map json stringify expected")
+	}
 }
 
 func TestPublishEntityCachesAndSends(t *testing.T) {
 	withHAServer(t)
 	// Avoid debounce interfering with test
 	debounceAfter = 0
+	entityCache = map[string]entityCacheEntry{}
 	ok, prev := publishEntity("sensor", "goalfeed_nhl_wpg_team_status", "WPG team status", "active", nil)
 	if !ok || prev != "" {
 		t.Fatalf("first publish should send, prev empty; got ok=%v prev=%q", ok, prev)

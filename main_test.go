@@ -52,6 +52,15 @@ func (m *MockLeagueService) GetEvents(update models.GameUpdate, eventsChan chan 
 	}
 }
 
+func (m *MockLeagueService) GetUpcomingGames(ret chan []models.Game) {
+	args := m.Called(ret)
+	if len(args) > 0 {
+		if games, ok := args.Get(0).([]models.Game); ok {
+			ret <- games
+		}
+	}
+}
+
 // Mock Home Assistant
 type MockHomeAssistant struct {
 	mock.Mock
@@ -484,4 +493,33 @@ func TestNeedRefreshTicker(t *testing.T) {
 	// Verify that needRefresh was changed
 	assert.True(t, originalNeedRefresh)
 	assert.False(t, needRefresh)
+}
+
+func TestPublishSchedules(t *testing.T) {
+	setupTest(t)
+	// Mock NHL service to return an upcoming game for monitored team
+	mockService := new(MockLeagueService)
+	leagueServices[int(models.LeagueIdNHL)] = mockService
+	upcoming := []models.Game{
+		{
+			LeagueId: models.LeagueIdNHL,
+			CurrentState: models.GameState{
+				Status: models.StatusUpcoming,
+				Home:   models.TeamState{Team: models.Team{TeamCode: "WPG"}},
+				Away:   models.TeamState{Team: models.Team{TeamCode: "TOR"}},
+			},
+		},
+	}
+	mockService.On("GetUpcomingGames", mock.Anything).Run(func(args mock.Arguments) {
+		c := args.Get(0).(chan []models.Game)
+		c <- upcoming
+	}).Return(upcoming)
+
+	// Monitor WPG
+	viper.Set("watch.nhl", []string{"WPG"})
+
+	// Exercise publishSchedules; it will call into Home Assistant publish fns
+	// Those functions are safe to call without HA configured
+	publishSchedules()
+	mockService.AssertExpectations(t)
 }

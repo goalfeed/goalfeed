@@ -31,3 +31,28 @@ func TestCheckConnectionOK(t *testing.T) {
 		t.Fatalf("unexpected: ok=%v source=%s msg=%s", ok, source, msg)
 	}
 }
+
+func TestCheckConnectionRequestError(t *testing.T) {
+	os.Unsetenv("SUPERVISOR_API")
+	os.Unsetenv("SUPERVISOR_TOKEN")
+	// missing URL/token yields unset
+	ok, source, _ := CheckConnection(200 * time.Millisecond)
+	if ok || source != "unset" {
+		t.Fatalf("expected unset when missing env/config")
+	}
+}
+
+func TestCheckConnectionNon2xx(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+	}))
+	defer srv.Close()
+	os.Setenv("SUPERVISOR_API", srv.URL)
+	os.Setenv("SUPERVISOR_TOKEN", "t")
+	defer os.Unsetenv("SUPERVISOR_API")
+	defer os.Unsetenv("SUPERVISOR_TOKEN")
+	ok, source, msg := CheckConnection(200 * time.Millisecond)
+	if ok || source != "env" || msg == "OK" {
+		t.Fatalf("expected non-2xx failure, got ok=%v source=%s msg=%s", ok, source, msg)
+	}
+}

@@ -8,8 +8,8 @@ echo "Running package tests..."
 go test -coverprofile=coverage.out ./models ./targets/homeassistant ./targets/memoryStore ./services/leagues/nhl ./services/leagues/mlb ./services/leagues/iihf ./utils ./config ./clients/...
 
 echo "Running main package tests..."
-# Run main package tests that work without network
-go test -coverprofile=main_coverage.out -v -run="TestTeamIsMonitored|TestGameIsMonitored|TestSendTestGoal|TestFireGoalEvents" .
+# Run all main package tests (tests avoid network by design)
+go test -coverprofile=main_coverage.out -v .
 
 echo "Combining coverage files..."
 # Combine coverage files

@@ -62,4 +62,9 @@ func TestGameStatusJSON(t *testing.T) {
 	// Unmarshal from number
 	assert.NoError(t, json.Unmarshal([]byte("2"), &gs))
 	assert.Equal(t, GameStatus(2), gs)
+
+	// Marshal unknown should produce "unknown"
+	b, err := json.Marshal(GameStatus(999))
+	assert.NoError(t, err)
+	assert.Equal(t, "\"unknown\"", string(b))
 }

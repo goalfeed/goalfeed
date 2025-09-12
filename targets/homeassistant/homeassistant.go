@@ -250,6 +250,8 @@ func getLeagueName(leagueId models.League) string {
 		return "IIHF"
 	case models.LeagueIdCFL:
 		return "CFL"
+	case models.LeagueIdNFL:
+		return "NFL"
 	default:
 		return "Unknown"
 	}
