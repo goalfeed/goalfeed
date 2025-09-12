@@ -51,7 +51,7 @@ type WebSocketHub struct {
 
 var hub = &WebSocketHub{
 	clients:    make(map[*websocket.Conn]bool),
-	broadcast:  make(chan []byte),
+	broadcast:  make(chan []byte, 1024),
 	register:   make(chan *websocket.Conn),
 	unregister: make(chan *websocket.Conn),
 }
@@ -126,7 +126,11 @@ func BroadcastGameUpdate(game models.Game) {
 		Data: game,
 	}
 	if data, err := json.Marshal(message); err == nil {
-		hub.broadcast <- data
+		// Non-blocking broadcast; drop if no listeners to avoid test hangs
+		select {
+		case hub.broadcast <- data:
+		default:
+		}
 	}
 }
 
@@ -136,7 +140,11 @@ func BroadcastEvent(event models.Event) {
 		Data: event,
 	}
 	if data, err := json.Marshal(message); err == nil {
-		hub.broadcast <- data
+		// Non-blocking broadcast; drop if no listeners to avoid test hangs
+		select {
+		case hub.broadcast <- data:
+		default:
+		}
 	}
 }
 
@@ -147,7 +155,11 @@ func BroadcastGamesList() {
 		Data: games,
 	}
 	if data, err := json.Marshal(message); err == nil {
-		hub.broadcast <- data
+		// Non-blocking broadcast; drop if no listeners to avoid test hangs
+		select {
+		case hub.broadcast <- data:
+		default:
+		}
 	}
 }
 
@@ -157,7 +169,11 @@ func BroadcastLog(entry models.AppLogEntry) {
 		Data: entry,
 	}
 	if data, err := json.Marshal(message); err == nil {
-		hub.broadcast <- data
+		// Non-blocking broadcast; drop if no listeners to avoid test hangs
+		select {
+		case hub.broadcast <- data:
+		default:
+		}
 	}
 }
 

@@ -381,9 +381,8 @@ func (s CFLService) getTouchdownEvents(oldState models.TeamState, newState model
 	diff := newState.Score - oldState.Score
 	team := newState.Team
 
-	// Create one event per point scored to avoid assuming 6-point increments
-	// This ensures 1, 2, 3, 6, 7, 8 point changes are represented consistently
-	for i := 0; i < diff; i++ {
+	// Emit a single scoring event per update if the score increased
+	if diff > 0 {
 		events = append(events, models.Event{
 			TeamCode:     team.TeamCode,
 			TeamName:     team.TeamName,
