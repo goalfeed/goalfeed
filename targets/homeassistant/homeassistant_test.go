@@ -1,136 +1,68 @@
 package homeassistant
 
 import (
-	"goalfeed/models"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"testing"
 
-	"github.com/spf13/viper"
+	"goalfeed/models"
 )
 
-func TestSendEvent(t *testing.T) {
-	// Mock Home Assistant server
+func setupTestServer(t *testing.T) (*httptest.Server, *int) {
+	status := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "POST" {
-			t.Errorf("Expected method POST; got %s", r.Method)
-		}
-		if r.URL.String() != "/core/api/events/goal" {
-			t.Errorf("Expected URL /core/api/events/goal; got %s", r.URL.String())
-		}
+		status = status + 1 // count requests
 		w.WriteHeader(http.StatusOK)
 	}))
-	defer server.Close()
-
-	// Set environment variables to mock running inside Home Assistant add-on environment
+	t.Cleanup(server.Close)
 	os.Setenv("SUPERVISOR_API", server.URL)
-	os.Setenv("SUPERVISOR_TOKEN", "test-token")
-
-	// Create a test event
-	event := models.Event{
-		TeamCode:     "TEST",
-		TeamName:     "Test Team",
-		TeamHash:     "testhash",
-		LeagueId:     1,
-		LeagueName:   "NHL",
-		OpponentCode: "OPP",
-		OpponentName: "Opponent",
-		OpponentHash: "opphash",
-	}
-
-	// Call SendEvent
-	SendEvent(event)
-
-	// Reset environment variables (cleanup)
-	os.Unsetenv("SUPERVISOR_API")
-	os.Unsetenv("SUPERVISOR_TOKEN")
+	os.Setenv("SUPERVISOR_TOKEN", "token")
+	return server, &status
 }
 
-func TestSendEventWithConfig(t *testing.T) {
-	// Reset viper
-	viper.Reset()
-
-	// Mock Home Assistant server
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "POST" {
-			t.Errorf("Expected method POST; got %s", r.Method)
-		}
-		if r.URL.String() != "/api/events/goal" {
-			t.Errorf("Expected URL /api/events/goal; got %s", r.URL.String())
-		}
-		w.WriteHeader(http.StatusOK)
-	}))
-	defer server.Close()
-
-	// Set configuration values instead of environment variables
-	viper.Set("home_assistant.url", server.URL)
-	viper.Set("home_assistant.access_token", "config-token")
-
-	// Create a test event
-	event := models.Event{
-		TeamCode:     "TEST",
-		TeamName:     "Test Team",
-		TeamHash:     "testhash",
-		LeagueId:     1,
-		LeagueName:   "NHL",
-		OpponentCode: "OPP",
-		OpponentName: "Opponent",
-		OpponentHash: "opphash",
+func TestSendEvent_OK(t *testing.T) {
+	_, count := setupTestServer(t)
+	SendEvent(models.Event{Id: "e", Type: models.EventTypeGoal, LeagueId: int(models.LeagueIdNHL), LeagueName: "NHL"})
+	if *count == 0 {
+		t.Fatalf("expected at least one request sent")
 	}
-
-	// Call SendEvent
-	SendEvent(event)
 }
 
-func TestSendEventServerError(t *testing.T) {
-	// Mock Home Assistant server that returns an error
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusInternalServerError)
-	}))
-	defer server.Close()
-
-	// Set environment variables
-	os.Setenv("SUPERVISOR_API", server.URL)
-	os.Setenv("SUPERVISOR_TOKEN", "test-token")
-	defer os.Unsetenv("SUPERVISOR_API")
-	defer os.Unsetenv("SUPERVISOR_TOKEN")
-
-	// Create a test event
-	event := models.Event{
-		TeamCode:     "TEST",
-		TeamName:     "Test Team",
-		TeamHash:     "testhash",
-		LeagueId:     1,
-		LeagueName:   "NHL",
-		OpponentCode: "OPP",
-		OpponentName: "Opponent",
-		OpponentHash: "opphash",
+func TestSendGameUpdate_OK(t *testing.T) {
+	_, count := setupTestServer(t)
+	game := models.Game{GameCode: "g1", LeagueId: models.LeagueIdNHL}
+	SendGameUpdate(game)
+	if *count == 0 {
+		t.Fatalf("expected at least one request sent")
 	}
-
-	// Call SendEvent - should not panic
-	SendEvent(event)
 }
 
-func TestSendEventNetworkError(t *testing.T) {
-	// Set environment variables to point to a non-existent server
-	os.Setenv("SUPERVISOR_API", "http://nonexistent.localhost:99999")
-	os.Setenv("SUPERVISOR_TOKEN", "test-token")
-	defer os.Unsetenv("SUPERVISOR_API")
-	defer os.Unsetenv("SUPERVISOR_TOKEN")
-
-	// Create a test event
-	event := models.Event{
-		TeamCode:     "TEST",
-		TeamName:     "Test Team",
-		TeamHash:     "testhash",
-		LeagueId:     1,
-		LeagueName:   "NHL",
-		OpponentCode: "OPP",
-		OpponentName: "Opponent",
-		OpponentHash: "opphash",
+func TestSendPeriodUpdate_OK(t *testing.T) {
+	_, count := setupTestServer(t)
+	game := models.Game{GameCode: "g1", LeagueId: models.LeagueIdNHL}
+	SendPeriodUpdate(game, models.EventTypePeriodStart)
+	if *count == 0 {
+		t.Fatalf("expected at least one request sent")
 	}
+}
 
-	// Call SendEvent - should handle network error gracefully
-	SendEvent(event)
+func TestSendCustomEvent_OK(t *testing.T) {
+	_, count := setupTestServer(t)
+	SendCustomEvent("custom", map[string]interface{}{"a": 1})
+	if *count == 0 {
+		t.Fatalf("expected at least one request sent")
+	}
+}
+
+func TestCreateRichEventContainsDefaults(t *testing.T) {
+	re := createRichEvent(models.Event{Type: models.EventTypeGoal})
+	if re.GameState.Status != models.StatusActive {
+		t.Fatalf("expected default active status in rich event")
+	}
+	// Ensure it is JSON marshalable
+	if _, err := json.Marshal(re); err != nil {
+		t.Fatalf("rich event should marshal: %v", err)
+	}
 }

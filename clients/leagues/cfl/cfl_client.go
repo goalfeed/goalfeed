@@ -9,10 +9,14 @@ import (
 type CFLApiClient struct {
 }
 
+// fetchers for testability
+var fetchByte = utils.GetByte
+var fetchByteWithHeaders = utils.GetByteWithHeaders
+
 func (c CFLApiClient) GetCFLSchedule() CFLScheduleResponse {
 	var body chan []byte = make(chan []byte)
 	url := "https://cflscoreboard.cfl.ca/json/scoreboard/rounds.json"
-	go utils.GetByteWithHeaders(url, body, map[string]string{
+	go fetchByteWithHeaders(url, body, map[string]string{
 		"Accept-Encoding": "identity",
 		"User-Agent":      "Goalfeed/1.0",
 		"Accept":          "application/json",
@@ -40,7 +44,7 @@ func (c CFLApiClient) GetCFLSchedule() CFLScheduleResponse {
 func (c CFLApiClient) GetCFLLiveGame(fixtureId string) CFLLiveGameResponse {
 	var body chan []byte = make(chan []byte)
 	url := fmt.Sprintf("https://gsm-widgets.betstream.betgenius.com/widget-data/multisportgametracker?productName=democfl_light&region=MB&country=CA&fixtureId=%s&activeContent=court&sport=AmericanFootball&sportId=17&culture[0]=en-US&competitionId=1035&isUsingBetGeniusId=true", fixtureId)
-	go utils.GetByte(url, body)
+	go fetchByte(url, body)
 
 	bodyByte := <-body
 	var response CFLLiveGameResponse

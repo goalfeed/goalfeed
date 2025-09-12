@@ -9,10 +9,13 @@ import (
 type NFLAPIClient struct {
 }
 
+// fetchByte allows tests to stub the HTTP fetcher
+var fetchByte = utils.GetByte
+
 func (c NFLAPIClient) GetNFLSchedule() NFLScheduleResponse {
 	var body chan []byte = make(chan []byte)
 	url := "https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard"
-	go utils.GetByte(url, body)
+	go fetchByte(url, body)
 
 	bodyByte := <-body
 	var response NFLScheduleResponse
@@ -23,7 +26,7 @@ func (c NFLAPIClient) GetNFLSchedule() NFLScheduleResponse {
 func (c NFLAPIClient) GetNFLScoreBoard(gameId string) NFLScoreboardResponse {
 	var body chan []byte = make(chan []byte)
 	url := fmt.Sprintf("https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary?event=%s", gameId)
-	go utils.GetByte(url, body)
+	go fetchByte(url, body)
 
 	bodyByte := <-body
 	var response NFLScoreboardResponse
@@ -34,7 +37,7 @@ func (c NFLAPIClient) GetNFLScoreBoard(gameId string) NFLScoreboardResponse {
 func (c NFLAPIClient) GetTeam(teamAbbr string) NFLTeamResponse {
 	var body chan []byte = make(chan []byte)
 	url := fmt.Sprintf("https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams/%s", teamAbbr)
-	go utils.GetByte(url, body)
+	go fetchByte(url, body)
 
 	bodyByte := <-body
 	var response NFLTeamResponse
@@ -45,7 +48,7 @@ func (c NFLAPIClient) GetTeam(teamAbbr string) NFLTeamResponse {
 func (c NFLAPIClient) GetAllTeams() NFLTeamResponse {
 	var body chan []byte = make(chan []byte)
 	url := "https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams"
-	go utils.GetByte(url, body)
+	go fetchByte(url, body)
 
 	bodyByte := <-body
 	var response NFLTeamResponse
