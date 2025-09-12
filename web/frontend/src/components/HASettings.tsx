@@ -11,7 +11,7 @@ type HAStatus = {
 
 const HASettings: React.FC = () => {
   const [status, setStatus] = useState<HAStatus | null>(null);
-  const [configuredUrl, setConfiguredUrl] = useState('');
+  // Removed unused configuredUrl state to satisfy ESLint
   const [configuredTokenSet, setConfiguredTokenSet] = useState(false);
   const [urlInput, setUrlInput] = useState('');
   const [tokenInput, setTokenInput] = useState('');
@@ -24,7 +24,6 @@ const HASettings: React.FC = () => {
       apiClient.get('/api/homeassistant/status'),
     ]);
     if (cfg.data.success) {
-      setConfiguredUrl(cfg.data.data.configured.url || '');
       setConfiguredTokenSet(!!cfg.data.data.configured.tokenSet);
       setUrlInput(cfg.data.data.configured.url || '');
     }
