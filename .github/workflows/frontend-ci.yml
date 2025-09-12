@@ -1,0 +1,45 @@
+name: Frontend CI
+
+on:
+  push:
+    paths:
+      - 'web/frontend/**'
+      - '.github/workflows/frontend-ci.yml'
+  pull_request:
+    paths:
+      - 'web/frontend/**'
+      - '.github/workflows/frontend-ci.yml'
+
+jobs:
+  test-and-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: web/frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: web/frontend
+        run: npm ci
+
+      - name: Run tests with coverage
+        working-directory: web/frontend
+        run: npm run test:ci
+
+      - name: Build frontend
+        working-directory: web/frontend
+        run: npm run build
+
+      - name: Upload coverage artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-coverage
+          path: web/frontend/coverage
+
