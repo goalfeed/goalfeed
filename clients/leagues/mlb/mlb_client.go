@@ -17,7 +17,6 @@ func (c MLBApiClient) GetMLBScoreBoard(gameId string) MLBScoreboardResponse {
 
 	bodyByte := <-body
 	var response MLBScoreboardResponse
-	fmt.Println(string(bodyByte))
 	json.Unmarshal(bodyByte, &response)
 	return response
 }

@@ -147,3 +147,11 @@ goalfeed.db
 # Log files
 *.log
 logs/
+
+# Home Assistant dev config (do not commit runtime storage)
+dev/homeassistant/config/.storage/
+dev/homeassistant/config/.cloud/
+dev/homeassistant/config/.uuid
+dev/homeassistant/config/home-assistant_v2.db*
+dev/homeassistant/config/*.log
+dev/

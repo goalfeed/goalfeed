@@ -217,7 +217,7 @@ func (s MLBService) getGameUpdateFromScoreboard(game models.Game, ret chan model
 		},
 		Status: func() models.GameStatus {
 			status := gameStatusFromStatusCode(scoreboard.GameData.Status.StatusCode)
-			logger.Info(fmt.Sprintf("Scoreboard status for game %s: StatusCode=%s, mapped to %d",
+			logger.Info(fmt.Sprintf("Scoreboard status for game %s: %s -> %d",
 				game.GameCode, scoreboard.GameData.Status.StatusCode, status))
 			return status
 		}(),

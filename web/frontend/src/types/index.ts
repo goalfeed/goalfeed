@@ -214,6 +214,11 @@ export interface Event {
   type: EventType;
   timestamp: string;
   description: string;
+  delivery?: {
+    target?: string;
+    success?: boolean;
+    error?: string;
+  };
   
   // Team and player info
   teamCode: string;
@@ -299,8 +304,23 @@ export interface ApiResponse<T> {
 }
 
 export interface WebSocketMessage {
-  type: 'game_update' | 'event' | 'games_list' | 'period_update' | 'game_start' | 'game_end';
+  type: 'game_update' | 'event' | 'games_list' | 'period_update' | 'game_start' | 'game_end' | 'log';
   data: any;
+}
+
+export interface AppLogEntry {
+  id: string;
+  type: 'event' | 'state_change';
+  leagueId: number;
+  leagueName: string;
+  teamCode: string;
+  opponent?: string;
+  gameCode?: string;
+  metric?: string;
+  before?: any;
+  after?: any;
+  event?: Event;
+  timestamp: string;
 }
 
 // Event priority levels

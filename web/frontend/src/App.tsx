@@ -1,16 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { Game, Event, LeagueConfig } from './types';
+import { Game, Event, LeagueConfig, AppLogEntry } from './types';
 import { apiClient } from './utils/api';
 import { useWebSocket } from './hooks/useWebSocket';
 import Scoreboard from './components/Scoreboard';
 import TeamManager from './components/TeamManager';
 import EventFeed from './components/EventFeed';
+import HASettings from './components/HASettings';
+import LogFeed from './components/LogFeed';
 
 const App: React.FC = () => {
   const [games, setGames] = useState<Game[]>([]);
   const [events, setEvents] = useState<Event[]>([]);
+  const [logs, setLogs] = useState<AppLogEntry[]>([]);
   const [leagueConfigs, setLeagueConfigs] = useState<LeagueConfig[]>([]);
-  const [activeTab, setActiveTab] = useState<'scoreboard' | 'teams' | 'events'>('scoreboard');
+  const [activeTab, setActiveTab] = useState<'scoreboard' | 'teams' | 'events' | 'logs' | 'ha'>('scoreboard');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -21,9 +24,11 @@ const App: React.FC = () => {
     const fetchData = async () => {
       try {
         setIsLoading(true);
-        const [gamesResponse, leaguesResponse] = await Promise.all([
+        const [gamesResponse, leaguesResponse, logsResponse, eventsResponse] = await Promise.all([
           apiClient.get('/api/games'),
-          apiClient.get('/api/leagues')
+          apiClient.get('/api/leagues'),
+          apiClient.get('/api/logs?limit=100'),
+          apiClient.get('/api/events?limit=50')
         ]);
 
         if (gamesResponse.data.success) {
@@ -31,6 +36,12 @@ const App: React.FC = () => {
         }
         if (leaguesResponse.data.success) {
           setLeagueConfigs(leaguesResponse.data.data);
+        }
+        if (logsResponse.data.success) {
+          setLogs(logsResponse.data.data || []);
+        }
+        if (eventsResponse.data.success) {
+          setEvents(eventsResponse.data.data || []);
         }
       } catch (err) {
         setError('Failed to load data');
@@ -69,6 +80,28 @@ const App: React.FC = () => {
         case 'event':
           setEvents(prevEvents => [message.data, ...prevEvents.slice(0, 49)]);
           break;
+        case 'log':
+          setLogs(prev => [message.data, ...prev.slice(0, 199)]);
+          if (message.data?.type === 'event') {
+            const delivery = {
+              target: message.data.target,
+              success: message.data.success,
+              error: message.data.error,
+            };
+            setEvents(prevEvents => {
+              const cid = message.data.correlationId;
+              let matched = false;
+              const updated = prevEvents.map(ev => {
+                if (cid && ev.id === cid) {
+                  matched = true;
+                  return { ...ev, delivery };
+                }
+                return ev;
+              });
+              return matched ? updated : prevEvents;
+            });
+          }
+          break;
       }
     };
 
@@ -103,7 +136,9 @@ const App: React.FC = () => {
   const tabs = [
     { id: 'scoreboard' as const, label: 'Live Scoreboard', icon: '🏒' },
     { id: 'teams' as const, label: 'Manage Teams', icon: '⚙️' },
-    { id: 'events' as const, label: 'Recent Events', icon: '📰' }
+    { id: 'events' as const, label: 'Recent Events', icon: '📰' },
+    { id: 'logs' as const, label: 'Logs', icon: '📜' },
+    { id: 'ha' as const, label: 'Home Assistant', icon: '🏠' }
   ];
 
   if (isLoading) {
@@ -203,6 +238,12 @@ const App: React.FC = () => {
           )}
           {activeTab === 'events' && (
             <EventFeed events={events} />
+          )}
+          {activeTab === 'logs' && (
+            <LogFeed logs={logs} />
+          )}
+          {activeTab === 'ha' && (
+            <HASettings />
           )}
         </div>
       </main>

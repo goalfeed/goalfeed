@@ -7,3 +7,7 @@ var BroadcastGame func(models.Game)
 
 // BroadcastGamesList is set by the web API at startup to forward full game lists to clients.
 var BroadcastGamesList func()
+
+// BroadcastLog is set by the web API to forward app log entries to clients.
+var BroadcastLog func(models.AppLogEntry)
+

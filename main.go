@@ -13,6 +13,7 @@ import (
 	"goalfeed/services/leagues/mlb"
 	"goalfeed/services/leagues/nfl"
 	"goalfeed/services/leagues/nhl"
+	"goalfeed/targets/applog"
 	"goalfeed/targets/homeassistant"
 	"goalfeed/targets/memoryStore"
 	"goalfeed/utils"
@@ -88,6 +89,7 @@ func runTickers() {
 		{1 * time.Minute, checkLeaguesForActiveGames},
 		{1 * time.Second, watchActiveGames},
 		{1 * time.Minute, sendTestGoal},
+		{10 * time.Minute, publishSchedules},
 		{5 * time.Second, func() {
 			if needRefresh {
 				checkLeaguesForActiveGames()
@@ -130,6 +132,9 @@ func initialize() {
 
 	logger.Info("Initializing Active Games")
 	checkLeaguesForActiveGames()
+
+	// Publish baseline sensors for monitored teams at startup
+	homeassistant.PublishBaselineForMonitoredTeams()
 
 	// Start Fastcast listener for NFL if enabled
 	nfl.StartNFLFastcast()
@@ -190,8 +195,8 @@ func checkGame(gameKey string) {
 
 	service := leagueServices[int(game.LeagueId)]
 	logger.Info(fmt.Sprintf("[%s - %s %d @ %s %d] Checking", service.GetLeagueName(), game.CurrentState.Away.Team.TeamCode, game.CurrentState.Away.Score, game.CurrentState.Home.Team.TeamCode, game.CurrentState.Home.Score))
+	// Do not write pre-update snapshot back to memory to avoid downgrading persisted state mid-poll
 	game.IsFetching = true
-	memoryStore.SetGame(game)
 
 	updateChan := make(chan models.GameUpdate)
 	eventChan := make(chan []models.Event)
@@ -202,6 +207,34 @@ func checkGame(gameKey string) {
 	// Check for period changes and game state changes
 	oldPeriod := game.CurrentState.Period
 	oldStatus := game.CurrentState.Status
+
+	// Short-circuit if no meaningful change
+	same := func() bool {
+		ns := update.NewState
+		os := game.CurrentState
+		if ns.Status != os.Status {
+			return false
+		}
+		if ns.Home.Score != os.Home.Score || ns.Away.Score != os.Away.Score {
+			return false
+		}
+		if ns.Period != os.Period {
+			return false
+		}
+		if ns.Clock != os.Clock {
+			return false
+		}
+		if ns.ExtTimestamp != "" && ns.ExtTimestamp != os.ExtTimestamp {
+			return false
+		}
+		return true
+	}()
+	if same {
+		// Nothing changed; clear fetching flag in persisted game and return
+		game.IsFetching = false
+		memoryStore.SetGame(game)
+		return
+	}
 
 	game.CurrentState = update.NewState
 
@@ -218,12 +251,16 @@ func checkGame(gameKey string) {
 	if oldStatus != game.CurrentState.Status {
 		switch game.CurrentState.Status {
 		case models.StatusActive:
-			if oldStatus == models.StatusUpcoming {
+			// Announce start only on a real edge with advancement
+			advanced := (update.NewState.ExtTimestamp != update.OldState.ExtTimestamp) || (game.CurrentState.Period > oldPeriod) || (game.CurrentState.Clock != "")
+			if oldStatus == models.StatusUpcoming && advanced {
 				go homeassistant.SendPeriodUpdate(game, models.EventTypeGameStart)
 				logger.Info(fmt.Sprintf("[%s - %s @ %s] Game started", service.GetLeagueName(), game.CurrentState.Away.Team.TeamCode, game.CurrentState.Home.Team.TeamCode))
 			}
 		case models.StatusEnded:
 			go homeassistant.SendPeriodUpdate(game, models.EventTypeGameEnd)
+			// Reset sensors at end of game
+			go homeassistant.PublishEndOfGameReset(game)
 			logger.Info(fmt.Sprintf("[%s - %s @ %s] Game ended", service.GetLeagueName(), game.CurrentState.Away.Team.TeamCode, game.CurrentState.Home.Team.TeamCode))
 		}
 	}
@@ -236,6 +273,8 @@ func checkGame(gameKey string) {
 		memoryStore.SetGame(game)
 		// Send enhanced game update to Home Assistant
 		go homeassistant.SendGameUpdate(game)
+		// Publish team-first sensors
+		go homeassistant.PublishTeamSensors(game)
 		// Broadcast game update to web clients
 		webApi.BroadcastGameUpdate(game)
 	}
@@ -247,6 +286,8 @@ func fireGoalEvents(events chan []models.Event, game models.Game) {
 		if teamIsMonitoredByLeague(event.TeamCode, leagueServices[int(game.LeagueId)].GetLeagueName()) {
 			// Send enhanced event to Home Assistant
 			go eventSender(event)
+			// Append to app log
+			go applog.AppendEvent(event)
 			// Broadcast event to web clients
 			webApi.BroadcastEvent(event)
 		}
@@ -291,4 +332,38 @@ func sendTestGoal() {
 		OpponentName: "TEST",
 		OpponentHash: "TESTTEST",
 	})
+}
+
+func publishSchedules() {
+	logger.Info("Publishing schedule sensors")
+	leagueConfigs := []struct {
+		id   models.League
+		name string
+	}{
+		{models.LeagueIdNHL, "nhl"},
+		{models.LeagueIdMLB, "mlb"},
+		{models.LeagueIdCFL, "cfl"},
+		{models.LeagueIdNFL, "nfl"},
+	}
+
+	for _, lc := range leagueConfigs {
+		teams := config.GetStringSlice("watch." + lc.name)
+		if len(teams) == 0 {
+			continue
+		}
+		svc := leagueServices[int(lc.id)]
+		if svc == nil {
+			continue
+		}
+		ch := make(chan []models.Game)
+		go svc.GetUpcomingGames(ch)
+		upcoming := <-ch
+		for _, g := range upcoming {
+			if teamIsMonitoredByLeague(g.CurrentState.Home.Team.TeamCode, lc.name) || teamIsMonitoredByLeague(g.CurrentState.Away.Team.TeamCode, lc.name) {
+				if g.CurrentState.Status == models.StatusUpcoming || (!g.GameDetails.GameDate.IsZero() && g.GameDetails.GameDate.After(time.Now().Add(-1*time.Hour))) {
+					homeassistant.PublishScheduleSensorsForGame(g)
+				}
+			}
+		}
+	}
 }

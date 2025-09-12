@@ -24,8 +24,11 @@ import (
 	mlbServices "goalfeed/services/leagues/mlb"
 	nflServices "goalfeed/services/leagues/nfl"
 	nhlServices "goalfeed/services/leagues/nhl"
+	"goalfeed/targets/applog"
+	"goalfeed/targets/homeassistant"
 	"goalfeed/targets/memoryStore"
 	"goalfeed/targets/notify"
+	"goalfeed/utils"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -148,6 +151,16 @@ func BroadcastGamesList() {
 	}
 }
 
+func BroadcastLog(entry models.AppLogEntry) {
+	message := WebSocketMessage{
+		Type: "log",
+		Data: entry,
+	}
+	if data, err := json.Marshal(message); err == nil {
+		hub.broadcast <- data
+	}
+}
+
 // Helper to check if a team is monitored given list (supports "*")
 func isTeamMonitored(monitored []string, teamCode string) bool {
 	for _, t := range monitored {
@@ -212,10 +225,45 @@ func refreshActiveGamesInternal() {
 						g.CurrentState.Status = models.StatusActive
 					}
 				}
-				// Always set the latest game snapshot (updates status, clock, etc.)
-				memoryStore.SetGame(g)
+				// Merge with stored snapshot to avoid regressions
+				stored, err := memoryStore.GetGameByGameKey(key)
+				if err != nil {
+					memoryStore.SetGame(g)
+					if !existing[key] {
+						memoryStore.AppendActiveGame(g)
+						existing[key] = true
+					}
+					continue
+				}
+				merged := stored
+				incoming := g
+				if incoming.CurrentState.Status == models.StatusEnded {
+					merged = incoming
+				} else {
+					// Preserve active if either indicates gameplay
+					if merged.CurrentState.Status == models.StatusActive || incoming.CurrentState.Status == models.StatusActive {
+						merged.CurrentState.Status = models.StatusActive
+					} else {
+						merged.CurrentState.Status = incoming.CurrentState.Status
+					}
+					// Scores advance only
+					if incoming.CurrentState.Home.Score > merged.CurrentState.Home.Score {
+						merged.CurrentState.Home.Score = incoming.CurrentState.Home.Score
+					}
+					if incoming.CurrentState.Away.Score > merged.CurrentState.Away.Score {
+						merged.CurrentState.Away.Score = incoming.CurrentState.Away.Score
+					}
+					// Period/clock advance only
+					if incoming.CurrentState.Period > merged.CurrentState.Period {
+						merged.CurrentState.Period = incoming.CurrentState.Period
+					}
+					if incoming.CurrentState.Clock != "" && incoming.CurrentState.Clock != "TBD" {
+						merged.CurrentState.Clock = incoming.CurrentState.Clock
+					}
+				}
+				memoryStore.SetGame(merged)
 				if !existing[key] {
-					memoryStore.AppendActiveGame(g)
+					memoryStore.AppendActiveGame(merged)
 					existing[key] = true
 				}
 			}
@@ -460,6 +508,8 @@ func updateLeagueConfig(c *gin.Context) {
 
 	// Trigger an immediate refresh in the background so active games are populated
 	go refreshActiveGamesInternal()
+	// Also publish baseline sensors for updated monitored teams
+	go homeassistant.PublishBaselineForMonitoredTeams()
 
 	c.JSON(http.StatusOK, ApiResponse{
 		Success: true,
@@ -468,11 +518,108 @@ func updateLeagueConfig(c *gin.Context) {
 }
 
 func getEvents(c *gin.Context) {
-	// Return recent events
-	events := []models.Event{} // TODO: Implement event storage
+	// Optional filters
+	leagueIdStr := c.Query("leagueId")
+	teamCode := c.Query("team")
+	sinceStr := c.Query("since")
+	limitStr := c.Query("limit")
+
+	var leagueId int
+	if leagueIdStr != "" {
+		if _, err := fmt.Sscanf(leagueIdStr, "%d", &leagueId); err != nil {
+			c.JSON(http.StatusBadRequest, ApiResponse{Success: false, Message: "Invalid leagueId"})
+			return
+		}
+	}
+
+	var since time.Time
+	if sinceStr != "" {
+		t, err := time.Parse(time.RFC3339, sinceStr)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, ApiResponse{Success: false, Message: "Invalid since (RFC3339)"})
+			return
+		}
+		since = t
+	}
+
+	limit := 50
+	if limitStr != "" {
+		if _, err := fmt.Sscanf(limitStr, "%d", &limit); err != nil {
+			c.JSON(http.StatusBadRequest, ApiResponse{Success: false, Message: "Invalid limit"})
+			return
+		}
+	}
+
+	// Pull from applog and filter for event entries
+	entries := applog.Query(leagueId, teamCode, since, limit*2)
+
+	type Delivery struct {
+		Target  string `json:"target,omitempty"`
+		Success *bool  `json:"success,omitempty"`
+		Error   string `json:"error,omitempty"`
+	}
+	type DeliveredEvent struct {
+		models.Event
+		Delivery *Delivery `json:"delivery,omitempty"`
+	}
+
+	var out []DeliveredEvent
+	for i := range entries {
+		e := entries[i]
+		if strings.EqualFold(string(e.Type), "event") && e.Event != nil {
+			var del *Delivery
+			if e.Target != "" || e.Success != nil || e.Error != "" {
+				del = &Delivery{Target: e.Target, Success: e.Success, Error: e.Error}
+			}
+			out = append(out, DeliveredEvent{Event: *e.Event, Delivery: del})
+		}
+		if len(out) >= limit {
+			break
+		}
+	}
+
 	c.JSON(http.StatusOK, ApiResponse{
 		Success: true,
-		Data:    events,
+		Data:    out,
+	})
+}
+
+func getLogs(c *gin.Context) {
+	leagueIdStr := c.Query("leagueId")
+	teamCode := c.Query("team")
+	sinceStr := c.Query("since")
+	limitStr := c.Query("limit")
+
+	var leagueId int
+	if leagueIdStr != "" {
+		if _, err := fmt.Sscanf(leagueIdStr, "%d", &leagueId); err != nil {
+			c.JSON(http.StatusBadRequest, ApiResponse{Success: false, Message: "Invalid leagueId"})
+			return
+		}
+	}
+
+	var since time.Time
+	if sinceStr != "" {
+		t, err := time.Parse(time.RFC3339, sinceStr)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, ApiResponse{Success: false, Message: "Invalid since (RFC3339)"})
+			return
+		}
+		since = t
+	}
+
+	limit := 0
+	if limitStr != "" {
+		if _, err := fmt.Sscanf(limitStr, "%d", &limit); err != nil {
+			c.JSON(http.StatusBadRequest, ApiResponse{Success: false, Message: "Invalid limit"})
+			return
+		}
+	}
+
+	entries := applog.Query(leagueId, teamCode, since, limit)
+	c.JSON(http.StatusOK, ApiResponse{
+		Success: true,
+		Data:    entries,
 	})
 }
 
@@ -681,6 +828,69 @@ func getAllTeams(c *gin.Context) {
 	})
 }
 
+// --- Home Assistant integration handlers ---
+func getHomeAssistantStatus(c *gin.Context) {
+	connected, source, message := homeassistant.CheckConnection(3 * time.Second)
+	url, token, _ := homeassistant.ResolveHA()
+	c.JSON(http.StatusOK, ApiResponse{
+		Success: true,
+		Data: map[string]interface{}{
+			"connected": connected,
+			"source":    source,
+			"message":   message,
+			"url":       url,
+			"tokenSet":  token != "",
+		},
+	})
+}
+
+func getHomeAssistantConfig(c *gin.Context) {
+	// Show what is configured in viper (not necessarily active if env overrides)
+	configuredURL := config.GetString("home_assistant.url")
+	configuredToken := config.GetString("home_assistant.access_token")
+	c.JSON(http.StatusOK, ApiResponse{
+		Success: true,
+		Data: map[string]interface{}{
+			"configured": map[string]interface{}{
+				"url":      configuredURL,
+				"tokenSet": configuredToken != "",
+			},
+		},
+	})
+}
+
+type haConfigBody struct {
+	URL         string `json:"url"`
+	AccessToken string `json:"accessToken"`
+	ClearToken  bool   `json:"clearToken"`
+}
+
+func setHomeAssistantConfig(c *gin.Context) {
+	var body haConfigBody
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, ApiResponse{Success: false, Message: "Invalid JSON"})
+		return
+	}
+	// Update viper values
+	if strings.TrimSpace(body.URL) != "" {
+		viper.Set("home_assistant.url", body.URL)
+	}
+	if body.ClearToken {
+		viper.Set("home_assistant.access_token", "")
+	} else if strings.TrimSpace(body.AccessToken) != "" {
+		viper.Set("home_assistant.access_token", body.AccessToken)
+	}
+	// Persist to config file if possible
+	if err := viper.WriteConfig(); err != nil {
+		log.Printf("Failed to write config: %v", err)
+	}
+	// Log a line for visibility and trigger baseline/refresh
+	utils.GetLogger().Info("Home Assistant configuration updated via API")
+	go homeassistant.PublishBaselineForMonitoredTeams()
+	go refreshActiveGamesInternal()
+	c.JSON(http.StatusOK, ApiResponse{Success: true, Message: "Configuration updated"})
+}
+
 func buildFrontend() error {
 	frontendDir := "./web/frontend"
 
@@ -722,6 +932,7 @@ func StartWebServer(port string) {
 	// Expose broadcast functions for other packages to avoid import cycles
 	notify.BroadcastGame = BroadcastGameUpdate
 	notify.BroadcastGamesList = BroadcastGamesList
+	notify.BroadcastLog = BroadcastLog
 
 	// Try to build frontend
 	if err := buildFrontend(); err != nil {
@@ -750,7 +961,12 @@ func StartWebServer(port string) {
 		api.POST("/refresh", refreshActiveGames)
 		api.POST("/debug/nfl/add", addNFLGame)
 		api.GET("/events", getEvents)
+		api.GET("/logs", getLogs)
 		api.GET("/teams", getAllTeams)
+		// Home Assistant integration endpoints
+		api.GET("/homeassistant/status", getHomeAssistantStatus)
+		api.GET("/homeassistant/config", getHomeAssistantConfig)
+		api.POST("/homeassistant/config", setHomeAssistantConfig)
 		api.POST("/clear", clearGames)
 	}
 

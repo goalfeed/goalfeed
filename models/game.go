@@ -243,3 +243,38 @@ func (gs GameStatus) MarshalJSON() ([]byte, error) {
 		return json.Marshal("unknown")
 	}
 }
+
+// UnmarshalJSON parses GameStatus from string or number for JSON deserialization
+func (gs *GameStatus) UnmarshalJSON(data []byte) error {
+	// Try string first
+	var s string
+	if err := json.Unmarshal(data, &s); err == nil {
+		switch s {
+		case "upcoming":
+			*gs = StatusUpcoming
+			return nil
+		case "active":
+			*gs = StatusActive
+			return nil
+		case "delayed":
+			*gs = StatusDelayed
+			return nil
+		case "ended":
+			*gs = StatusEnded
+			return nil
+		default:
+			// Unknown string maps to upcoming to avoid repeated starts
+			*gs = StatusUpcoming
+			return nil
+		}
+	}
+	// Fallback to numeric
+	var n int
+	if err := json.Unmarshal(data, &n); err == nil {
+		*gs = GameStatus(n)
+		return nil
+	}
+	// Default
+	*gs = StatusUpcoming
+	return nil
+}

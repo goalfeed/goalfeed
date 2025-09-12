@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"goalfeed/config"
 	"goalfeed/models"
+	"goalfeed/targets/applog"
 	"goalfeed/utils"
 	"net/http"
 	"os"
@@ -60,6 +61,8 @@ func SendEvent(event models.Event) {
 	if err != nil {
 		logger.Warn(err)
 		logger.Warn("Failed to send event to Home Assistant")
+		ok := false
+		applog.Append(models.AppLogEntry{Type: models.AppLogTypeEvent, LeagueId: models.League(event.LeagueId), LeagueName: event.LeagueName, TeamCode: event.TeamCode, Opponent: event.OpponentCode, GameCode: event.GameCode, Event: &event, Target: "ha:event:goal", Success: &ok, Error: err.Error(), CorrelationId: event.Id})
 		return
 	}
 	defer resp.Body.Close()
@@ -68,8 +71,12 @@ func SendEvent(event models.Event) {
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		logger.Warn(resp.Status)
 		logger.Warn("Failed to send event to Home Assistant")
+		ok := false
+		applog.Append(models.AppLogEntry{Type: models.AppLogTypeEvent, LeagueId: models.League(event.LeagueId), LeagueName: event.LeagueName, TeamCode: event.TeamCode, Opponent: event.OpponentCode, GameCode: event.GameCode, Event: &event, Target: "ha:event:goal", Success: &ok, Error: resp.Status, CorrelationId: event.Id})
 	} else {
 		logger.Info(fmt.Sprintf("Successfully sent %s event to Home Assistant", event.Type))
+		ok := true
+		applog.Append(models.AppLogEntry{Type: models.AppLogTypeEvent, LeagueId: models.League(event.LeagueId), LeagueName: event.LeagueName, TeamCode: event.TeamCode, Opponent: event.OpponentCode, GameCode: event.GameCode, Event: &event, Target: "ha:event:goal", Success: &ok, CorrelationId: event.Id})
 	}
 }
 
@@ -137,13 +144,19 @@ func SendGameUpdate(game models.Game) {
 	resp, err := client.Do(req)
 	if err != nil {
 		logger.Warn("Failed to send game update to Home Assistant: " + err.Error())
+		ok := false
+		applog.Append(models.AppLogEntry{Type: models.AppLogTypeStateChange, LeagueId: game.LeagueId, LeagueName: getLeagueName(game.LeagueId), TeamCode: game.CurrentState.Home.Team.TeamCode, Opponent: game.CurrentState.Away.Team.TeamCode, GameCode: game.GameCode, Metric: "game_update", Success: &ok, Error: err.Error()})
 		return
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		logger.Warn("Failed to send game update to Home Assistant: " + resp.Status)
+		ok := false
+		applog.Append(models.AppLogEntry{Type: models.AppLogTypeStateChange, LeagueId: game.LeagueId, LeagueName: getLeagueName(game.LeagueId), TeamCode: game.CurrentState.Home.Team.TeamCode, Opponent: game.CurrentState.Away.Team.TeamCode, GameCode: game.GameCode, Metric: "game_update", Success: &ok, Error: resp.Status})
 	}
+
+	// Removed duplicate team.current_score state logging here; sensor publishing handles change logs
 }
 
 // SendPeriodUpdate sends period/quarter start/end events
