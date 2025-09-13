@@ -46,6 +46,20 @@ func (s NHLService) GetActiveGames(ret chan []models.Game) {
 	ret <- activeGames
 }
 
+func (s NHLService) GetUpcomingGames(ret chan []models.Game) {
+	schedule := s.getSchedule()
+	var upcomingGames []models.Game
+
+	for _, date := range schedule.GameWeek {
+		for _, game := range date.Games {
+			if gameStatusFromScheduleGame(game) == models.StatusUpcoming {
+				upcomingGames = append(upcomingGames, s.gameFromSchedule(game))
+			}
+		}
+	}
+	ret <- upcomingGames
+}
+
 func (s NHLService) GetGameUpdate(game models.Game, ret chan models.GameUpdate) {
 	s.getGameUpdateFromScoreboard(game, ret)
 }
@@ -62,6 +76,19 @@ func fudgeTimestamp(extTimestamp string) string {
 
 func (s NHLService) getGameUpdateFromScoreboard(game models.Game, ret chan models.GameUpdate) {
 	scoreboard := s.Client.GetNHLScoreBoard(game.GameCode)
+
+	// Extract period information from game state
+	var period int
+	var periodType string
+	var clock string
+
+	// For NHL, we can extract basic info from the game state
+	if scoreboard.GameState == "LIVE" {
+		period = 1 // Default to period 1 for live games
+		periodType = "REGULAR"
+		clock = "LIVE"
+	}
+
 	newState := models.GameState{
 		Home: models.TeamState{
 			Team:  game.CurrentState.Home.Team,
@@ -71,7 +98,13 @@ func (s NHLService) getGameUpdateFromScoreboard(game models.Game, ret chan model
 			Team:  game.CurrentState.Away.Team,
 			Score: scoreboard.AwayTeam.Score,
 		},
-		Status: gameStatusFromGameState(scoreboard.GameState),
+		Status:     gameStatusFromGameState(scoreboard.GameState),
+		Period:     period,
+		PeriodType: periodType,
+		Clock:      clock,
+		Venue: models.Venue{
+			Name: scoreboard.Venue.Default,
+		},
 	}
 	ret <- models.GameUpdate{
 		OldState: game.CurrentState,
@@ -86,19 +119,62 @@ func (s NHLService) teamFromScheduleTeam(scheduleTeam nhl.NHLScheduleTeam) model
 		TeamCode: scheduleTeam.Abbrev,
 		ExtID:    scheduleTeam.Abbrev,
 		LeagueID: models.LeagueIdNHL,
+		LogoURL:  scheduleTeam.Logo,
 	}
 }
 
 func (s NHLService) gameFromSchedule(scheduleGame nhl.NHLScheduleResponseGame) models.Game {
+	// Extract period information
+	var period int
+	var periodType string
+	var clock string
+
+	if scheduleGame.GameState == "LIVE" {
+		period = 1 // Default to period 1 for live games
+		periodType = "REGULAR"
+		clock = "LIVE"
+	}
+
+	// Convert UTC time to local time for display
+	localTime := scheduleGame.StartTimeUTC.Local()
+
+	// Format game time for upcoming games
+	var gameTimeDisplay string
+	if scheduleGame.GameState == "PRE" || scheduleGame.GameState == "FUT" || scheduleGame.GameState == "OFF" {
+		gameTimeDisplay = localTime.Format("Mon 3:04 PM")
+	} else {
+		gameTimeDisplay = clock
+	}
+
 	return models.Game{
 		CurrentState: models.GameState{
-			Home:      models.TeamState{Team: s.teamFromScheduleTeam(scheduleGame.HomeTeam), Score: scheduleGame.HomeTeam.Score},
-			Away:      models.TeamState{Team: s.teamFromScheduleTeam(scheduleGame.AwayTeam), Score: scheduleGame.AwayTeam.Score},
-			Status:    gameStatusFromScheduleGame(scheduleGame),
-			FetchedAt: time.Now(),
+			Home: models.TeamState{
+				Team:  s.teamFromScheduleTeam(scheduleGame.HomeTeam),
+				Score: scheduleGame.HomeTeam.Score,
+			},
+			Away: models.TeamState{
+				Team:  s.teamFromScheduleTeam(scheduleGame.AwayTeam),
+				Score: scheduleGame.AwayTeam.Score,
+			},
+			Status:     gameStatusFromScheduleGame(scheduleGame),
+			FetchedAt:  time.Now(),
+			Period:     period,
+			PeriodType: periodType,
+			Clock:      gameTimeDisplay,
+			Venue: models.Venue{
+				Name: scheduleGame.Venue.Default,
+			},
 		},
 		GameCode: strconv.Itoa(scheduleGame.ID),
 		LeagueId: models.LeagueIdNHL,
+		GameDetails: models.GameDetails{
+			GameId:     strconv.Itoa(scheduleGame.ID),
+			Season:     strconv.Itoa(scheduleGame.Season),
+			SeasonType: strconv.Itoa(scheduleGame.GameType),
+			GameDate:   localTime,
+			GameTime:   localTime.Format("3:04 PM"),
+			Timezone:   "Local",
+		},
 	}
 }
 

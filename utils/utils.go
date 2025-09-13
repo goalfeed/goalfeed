@@ -38,3 +38,27 @@ func GetByte(url string, ret chan []byte) {
 	}
 	ret <- bodyBytes
 }
+
+// GetByteWithHeaders sends a GET request with custom headers and returns the response body via the channel.
+func GetByteWithHeaders(url string, ret chan []byte, headers map[string]string) {
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		log.Print(err)
+		os.Exit(1)
+	}
+	for k, v := range headers {
+		req.Header.Set(k, v)
+	}
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		fmt.Printf("%+v\n", err)
+		ret <- []byte{}
+		return
+	}
+	defer resp.Body.Close()
+	bodyBytes, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		log.Fatal(err)
+	}
+	ret <- bodyBytes
+}

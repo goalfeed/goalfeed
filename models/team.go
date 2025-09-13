@@ -7,11 +7,12 @@ import (
 )
 
 type Team struct {
-	ID       int    `json:"TeamId"`
-	TeamCode string `json:"TeamCode"`
-	TeamName string `json:"TeamName"`
-	LeagueID int    `json:"LeagueID"`
-	ExtID    string `json:"ExtID"`
+	ID       int    `json:"teamId"`
+	TeamCode string `json:"teamCode"`
+	TeamName string `json:"teamName"`
+	LeagueID int    `json:"leagueId"`
+	ExtID    string `json:"extId"`
+	LogoURL  string `json:"logoUrl,omitempty"`
 }
 
 // GetTeamHash generates a unique has for the team based on the TeamCode and LeagueId

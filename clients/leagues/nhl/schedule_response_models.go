@@ -35,7 +35,7 @@ type Odds struct {
 }
 
 type NHLScheduleTeam struct {
-	ID             int       `json:"id,omitempty""`
+	ID             int       `json:"id,omitempty"`
 	PlaceName      PlaceName `json:"placeName,omitempty"`
 	Abbrev         string    `json:"abbrev,omitempty"`
 	Logo           string    `json:"logo,omitempty"`

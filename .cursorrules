@@ -1,0 +1,32 @@
+# Goalfeed Development Rules
+
+## Web Frontend Auto-Compilation
+When any files in the `web/frontend/src/` directory are modified:
+1. Automatically run `cd web/frontend && npm run build` to recompile the React frontend
+2. Restart the Goalfeed server if it's running to serve the updated frontend
+3. Verify the build was successful before proceeding
+
+## Go Backend Changes
+When Go files are modified:
+1. Run `go build -o goalfeed .` to compile the backend
+2. If the server is running, restart it with the new binary
+
+## API Testing
+When testing API endpoints:
+1. Use `curl` commands to test endpoints like `/api/games`, `/api/leagues`
+2. Check that JSON responses are properly formatted
+3. Verify WebSocket connections at `/ws`
+
+## Development Workflow
+- Always test changes with real API data when possible
+- Use the web interface at http://localhost:8080 for visual testing
+- Check server logs for any errors or warnings
+- Ensure TypeScript compilation succeeds before deploying
+
+## File Organization
+- Frontend code goes in `web/frontend/src/`
+- Backend API code goes in `web/api/`
+- League-specific services go in `services/leagues/`
+- Data models go in `models/`
+- Client implementations go in `clients/leagues/`
+

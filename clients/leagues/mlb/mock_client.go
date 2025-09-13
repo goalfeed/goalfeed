@@ -42,3 +42,9 @@ func (c MockMLBApiClient) GetDiffPatch(gameId string, timestamp string) (MLBDiff
 	err := json.Unmarshal([]byte(DiffPatchResponseJson), &response)
 	return response, err
 }
+
+func (c MockMLBApiClient) GetAllTeams() MLBTeamResponse {
+	var response MLBTeamResponse
+	json.Unmarshal([]byte(TeamResponseJson), &response)
+	return response
+}

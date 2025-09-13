@@ -1,0 +1,19 @@
+version: "3.9"
+
+services:
+  homeassistant:
+    image: ghcr.io/home-assistant/home-assistant:stable
+    container_name: goalfeed-ha
+    ports:
+      - "8123:8123"
+    environment:
+      - TZ=${TZ:-UTC}
+    volumes:
+      - ./dev/homeassistant/config:/config
+      - /etc/localtime:/etc/localtime:ro
+    restart: unless-stopped
+    shm_size: "512m"
+
+    # On macOS/Windows use host.docker.internal to reach services on the host
+    # (e.g., set Goalfeed base URL to http://host.docker.internal:8080 inside HA)
+

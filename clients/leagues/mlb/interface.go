@@ -5,4 +5,5 @@ type IMLBApiClient interface {
 	GetMLBScoreBoard(sGameId string) MLBScoreboardResponse
 	GetDiffPatch(gameId string, timestamp string) (MLBDiffPatch, error)
 	GetTeam(sLink string) MLBTeamResponse
+	GetAllTeams() MLBTeamResponse
 }

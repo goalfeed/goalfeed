@@ -1,8 +1,9 @@
 package config
 
 import (
-	"github.com/spf13/viper"
 	"strings"
+
+	"github.com/spf13/viper"
 )
 
 func init() {
@@ -18,6 +19,13 @@ func init() {
 	// Read in the configuration file
 	viper.SetEnvPrefix("GOALFEED")
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+	// Defaults
+	viper.SetDefault("nfl.fastcast.enabled", true)
+	// NFL Fastcast keepalive/reconnect defaults
+	viper.SetDefault("nfl.fastcast.ping_interval_sec", 20)
+	viper.SetDefault("nfl.fastcast.pong_wait_sec", 60)
+	viper.SetDefault("nfl.fastcast.reconnect_base_ms", 2000)
+	viper.SetDefault("nfl.fastcast.reconnect_max_ms", 30000)
 	viper.ReadInConfig()
 }
 

@@ -1,0 +1,25 @@
+{
+  "name": "goalfeed",
+  "version": "1.0.0",
+  "description": "Real-time sports scoreboard with web interface",
+  "scripts": {
+    "dev": "./dev.sh dev",
+    "start": "./dev.sh start",
+    "rebuild": "./dev.sh rebuild",
+    "frontend": "./dev.sh frontend",
+    "backend": "./dev.sh backend",
+    "restart": "./dev.sh restart",
+    "stop": "./dev.sh stop",
+    "build": "./dev.sh rebuild",
+    "test": "go test ./...",
+    "lint": "go vet ./...",
+    "fmt": "go fmt ./..."
+  },
+  "keywords": ["sports", "scoreboard", "real-time", "go", "react"],
+  "author": "Goalfeed Team",
+  "license": "MIT",
+  "devDependencies": {
+    "fswatch": "^1.0.0"
+  }
+}
+

@@ -127,6 +127,30 @@ func TestDeleteActiveGameKey(t *testing.T) {
 	}
 }
 
+func TestGetAllGamesAndClearAll(t *testing.T) {
+	// reset storage
+	storage = make(map[string]string)
+	// create two games and set active keys
+	g1 := models.Game{GameCode: "g1", LeagueId: 1}
+	g2 := models.Game{GameCode: "g2", LeagueId: 1}
+	SetGame(g1)
+	SetGame(g2)
+	SetActiveGameKeys([]string{g1.GetGameKey(), g2.GetGameKey()})
+
+	games := GetAllGames()
+	if len(games) != 2 {
+		t.Fatalf("expected 2 games, got %d", len(games))
+	}
+
+	ClearAllGames()
+	if len(GetActiveGameKeys()) != 0 {
+		t.Fatalf("expected 0 active keys after clear")
+	}
+	if len(GetAllGames()) != 0 {
+		t.Fatalf("expected 0 games after clear")
+	}
+}
+
 func TestSetGameWithCircularReference(t *testing.T) {
 	// Clear storage for a fresh start
 	storage = make(map[string]string)

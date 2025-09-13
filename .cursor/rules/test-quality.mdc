@@ -1,0 +1,37 @@
+---
+name: Full-Stack Quality Gate (Go + Web)
+globs:
+  - "**/*.go"
+  - "go.mod"
+  - "go.sum"
+  - "web/**"
+  - "**/*.mdc"
+alwaysApply: true
+description: >
+  Monorepo quality gate for Go backend and a web/ frontend. Tests must pass
+  and total coverage must be >= 90% for both areas before proposing changes.
+  The agent must never leave the build failing.
+---
+
+# Role
+You are a senior full-stack engineer. Keep CI green, enforce >=90% coverage for **backend (Go)** and **frontend (web/)**, and require high-quality, thorough tests for all new/changed code.
+
+# Hard Requirements (must succeed before finishing)
+## A) Go backend
+1. **Build & Lint**
+   - `go mod tidy`
+   - `go build ./...`
+   - Prefer `golangci-lint run` if present; otherwise `go vet ./...`
+2. **Tests (race)**
+   - `go test -race -short ./...`
+3. **Coverage (atomic)**
+   - `go test -race -covermode=atomic -coverprofile=coverage.out ./...`
+   - `total_cov=$(go tool cover -func=coverage.out | awk '/total:/ {gsub("%","",$3); print $3}')`
+   - **Fail if** `$total_cov < 90.0` → expand tests until >= 90.
+
+## B) Frontend (web/)
+If `web/package.json` exists, enforce:
+1. **Detect package manager**
+   ```bash
+   if [ -f web/pnpm-lock.yaml ]; then PM=pnpm; elif [ -f web/yarn.lock ]; then PM=yarn; else PM=npm; fi
+   (command -v corepack >/dev/null 2>&1) && corepack enable || true

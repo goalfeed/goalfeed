@@ -52,3 +52,14 @@ func (c NHLApiClient) GetDiffPatch(gameId string, timestamp string) (NHLDiffPatc
 	err := json.Unmarshal(bodyByte, &response)
 	return response, err
 }
+
+func (c NHLApiClient) GetAllTeams() NHLTeamResponse {
+	var body chan []byte = make(chan []byte)
+	url := "https://api-web.nhle.com/v1/teams"
+	go utils.GetByte(url, body)
+
+	bodyByte := <-body
+	var response NHLTeamResponse
+	json.Unmarshal(bodyByte, &response)
+	return response
+}
