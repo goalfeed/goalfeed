@@ -15,20 +15,20 @@ type CFLRound struct {
 }
 
 type CFLGame struct {
-	ID           int           `json:"id"`
-	Date         string        `json:"date"`
-	Status       string        `json:"status"`
-	HomeSquad    CFLTeam       `json:"homeSquad"`
-	AwaySquad    CFLTeam       `json:"awaySquad"`
-	ActivePeriod interface{}   `json:"activePeriod"`
-	Timeouts     CFLTimeouts   `json:"timeouts"`
-	Possession   string        `json:"possession"`
-	CFLID        int           `json:"cflId"`
-	Clock        string        `json:"clock"`
-	Winner       interface{}   `json:"winner"`
-	IsHidden     bool          `json:"isHidden"`
-	Markets      interface{}   `json:"markets"`
-	MarketsBCLC  []interface{} `json:"marketsBCLC"`
+	ID           int         `json:"id"`
+	Date         string      `json:"date"`
+	Status       string      `json:"status"`
+	HomeSquad    CFLTeam     `json:"homeSquad"`
+	AwaySquad    CFLTeam     `json:"awaySquad"`
+	ActivePeriod interface{} `json:"activePeriod"`
+	Timeouts     CFLTimeouts `json:"timeouts"`
+	Possession   string      `json:"possession"`
+	CFLID        int         `json:"cflId"`
+	Clock        string      `json:"clock"`
+	Winner       interface{} `json:"winner"`
+	IsHidden     bool        `json:"isHidden"`
+	Markets      interface{} `json:"markets"`
+	MarketsBCLC  interface{} `json:"marketsBCLC"`
 }
 
 type CFLTeam struct {

@@ -13,6 +13,8 @@ const (
 	STATUS_SCHEDULED = "scheduled"
 	STATUS_COMPLETE  = "complete"
 	STATUS_LIVE      = "live"
+	STATUS_ACTIVE    = "active"
+	STATUS_PLAYING   = "playing"
 )
 
 type CFLService struct {
@@ -92,18 +94,7 @@ func (s CFLService) GetGameUpdate(game models.Game, ret chan models.GameUpdate) 
 	logger.Info("Fetching live CFL game data from Genius Sports API")
 	liveGame := s.Client.GetCFLLiveGame(game.GameCode)
 
-	// Check if we got valid data from the API
-	if liveGame.Data.BetGeniusFixtureID == "" {
-		logger.Warnf("No live game data received for CFL game %s", game.GameCode)
-		// Fall back to basic game state if no live data
-		ret <- models.GameUpdate{
-			OldState: game.CurrentState,
-			NewState: game.CurrentState, // Keep existing state
-		}
-		return
-	}
-
-	// Extract detailed game information
+	// Extract detailed game information (fallback-friendly)
 	var period int
 	var periodType string
 	var clock string
@@ -111,34 +102,51 @@ func (s CFLService) GetGameUpdate(game models.Game, ret chan models.GameUpdate) 
 
 	logger.Infof("CFL GetGameUpdate: MatchStatus='%s', CurrentPhase='%s'", liveGame.Data.ScoreboardInfo.MatchStatus, liveGame.Data.ScoreboardInfo.CurrentPhase)
 
-	if liveGame.Data.ScoreboardInfo.MatchStatus == STATUS_LIVE {
-		// Extract period information from live stream data
-		period = s.extractPeriodFromLiveStream(liveGame.Data.LiveStream.CurrentPlay.Phase)
-		periodType = "QUARTER"
-		clock = liveGame.Data.LiveStream.CurrentPlay.Clock
+	// Prefer live stream values when available; fallback to scoreboard
+	phase := liveGame.Data.LiveStream.CurrentPlay.Phase
+	if phase == "" {
+		phase = liveGame.Data.ScoreboardInfo.CurrentPhase
+	}
+	period = s.extractPeriodFromLiveStream(phase)
+	periodType = "QUARTER"
 
-		// Extract detailed football-specific information from live stream
-		details = models.EventDetails{
-			// Extract down information from current play
-			Down: liveGame.Data.LiveStream.CurrentPlay.DownNumber,
-			// Extract distance information from current play
-			Distance: liveGame.Data.LiveStream.CurrentPlay.YardsToGo,
-			// Extract yard line information from current play
-			YardLine: liveGame.Data.LiveStream.CurrentPlay.LineOfScrimmage,
-			// Extract possession information from current play
-			Possession: liveGame.Data.LiveStream.CurrentPlay.Possession,
+	clock = liveGame.Data.LiveStream.CurrentPlay.Clock
+	if clock == "" {
+		clock = liveGame.Data.ScoreboardInfo.TimeRemainingInPhase
+		if clock == "" {
+			clock = game.CurrentState.Clock
 		}
+	}
 
-		logger.Infof("CFL GetGameUpdate: Live game details - Period=%d, Clock='%s', Down=%d, Distance=%d, YardLine=%d, Possession='%s', PlayType='%s', Formation='%s'",
-			period, clock, details.Down, details.Distance, details.YardLine, details.Possession,
-			liveGame.Data.LiveStream.CurrentPlay.PlayType, liveGame.Data.LiveStream.CurrentPlay.PlayFormation)
-	} else {
-		// For non-live games, use basic information
-		period = 1
-		periodType = "QUARTER"
-		clock = "PRE-GAME"
-		details = models.EventDetails{}
-		logger.Infof("CFL GetGameUpdate: Non-live game - Period=%d, Clock='%s'", period, clock)
+	details = models.EventDetails{
+		Down: func() int {
+			d := liveGame.Data.LiveStream.CurrentPlay.DownNumber
+			if d == 0 {
+				return s.extractDownFromLiveData(liveGame.Data.ScoreboardInfo.Down)
+			}
+			return d
+		}(),
+		Distance: func() int {
+			d := liveGame.Data.LiveStream.CurrentPlay.YardsToGo
+			if d == 0 {
+				return s.extractDistanceFromLiveData(liveGame.Data.ScoreboardInfo.YardsToGo)
+			}
+			return d
+		}(),
+		YardLine: func() int {
+			yl := liveGame.Data.LiveStream.CurrentPlay.LineOfScrimmage
+			if yl == 0 {
+				return s.extractYardLineFromLiveData(liveGame.Data.ScoreboardInfo)
+			}
+			return yl
+		}(),
+		Possession: func() string {
+			p := liveGame.Data.LiveStream.CurrentPlay.Possession
+			if p == "" {
+				return s.extractPossessionFromLiveData(liveGame.Data.ScoreboardInfo.Possession)
+			}
+			return p
+		}(),
 	}
 
 	newState := models.GameState{
@@ -158,6 +166,13 @@ func (s CFLService) GetGameUpdate(game models.Game, ret chan models.GameUpdate) 
 		Venue: models.Venue{
 			Name: liveGame.Data.MatchInfo.VenueName,
 		},
+	}
+
+	// Halftime normalization similar to NFL
+	lowerPhase := strings.ToLower(liveGame.Data.ScoreboardInfo.CurrentPhase)
+	if strings.Contains(lowerPhase, "halftime") || (newState.Period == 2 && (newState.Clock == "0:00" || strings.EqualFold(newState.Clock, "HALFTIME"))) {
+		newState.PeriodType = "HALFTIME"
+		newState.Clock = "HALFTIME"
 	}
 
 	logger.Infof("CFL GetGameUpdate: New state - Status='%s', Period=%d, Clock='%s'", newState.Status, newState.Period, newState.Clock)
@@ -334,14 +349,14 @@ func (s CFLService) gameFromCFLGame(cflGame cfl.CFLGame) models.Game {
 func gameStatusFromCFLGame(cflGame cfl.CFLGame) models.GameStatus {
 	logger.Infof("CFL Game Status Check: ID=%d, Status='%s', Clock='%s'", cflGame.ID, cflGame.Status, cflGame.Clock)
 
-	switch cflGame.Status {
+	switch strings.ToLower(cflGame.Status) {
 	case STATUS_COMPLETE:
 		logger.Infof("CFL Game %d: Status COMPLETE -> StatusEnded", cflGame.ID)
 		return models.StatusEnded
 	case STATUS_SCHEDULED:
 		logger.Infof("CFL Game %d: Status SCHEDULED -> StatusUpcoming", cflGame.ID)
 		return models.StatusUpcoming
-	case STATUS_LIVE:
+	case STATUS_LIVE, STATUS_ACTIVE, STATUS_PLAYING:
 		logger.Infof("CFL Game %d: Status LIVE -> StatusActive", cflGame.ID)
 		return models.StatusActive
 	default:
