@@ -91,6 +91,23 @@ func TestGetActiveGames(t *testing.T) {
 	assert.Equal(t, len(activeGames), 1)
 }
 
+func TestGetUpcomingGames_Count(t *testing.T) {
+	var gamesChan chan []models.Game = make(chan []models.Game)
+	var mockClient = mlb.MockMLBApiClient{}
+	service := getMockService(mockClient)
+	go service.GetUpcomingGames(gamesChan)
+	upcoming := <-gamesChan
+	if len(upcoming) == 0 {
+		t.Fatalf("expected upcoming games > 0")
+	}
+	// Should be marked upcoming
+	for _, g := range upcoming {
+		if g.CurrentState.Status != models.StatusUpcoming {
+			t.Fatalf("expected upcoming status")
+		}
+	}
+}
+
 func getActiveGame(service leagues.ILeagueService) models.Game {
 	var gamesChan chan []models.Game = make(chan []models.Game)
 	go service.GetActiveGames(gamesChan)
@@ -227,4 +244,17 @@ func TestGameStatusFromScheduleGame(t *testing.T) {
 		},
 	}
 	assert.Equal(t, models.GameStatus(models.StatusActive), gameStatusFromScheduleGame(unknownGame))
+}
+
+func TestGetTeamCodeFromNameFallbacks(t *testing.T) {
+	svc := MLBService{}
+	if svc.getTeamCodeFromName("Some New Team") != "SOM" {
+		t.Fatalf("expected first 3 uppercase fallback")
+	}
+}
+
+func TestGetMLBLogoURL(t *testing.T) {
+	if getMLBLogoURL("TOR") != "https://a.espncdn.com/i/teamlogos/mlb/500/tor.png" {
+		t.Fatalf("unexpected logo url")
+	}
 }

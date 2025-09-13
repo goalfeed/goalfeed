@@ -24,6 +24,9 @@ var (
 )
 
 func getLogFilePath() string {
+	if logFilePath != "" {
+		return logFilePath
+	}
 	fileOnce.Do(func() {
 		// Default path relative to working directory
 		defaultPath := "app.log.jsonl"

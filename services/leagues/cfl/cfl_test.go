@@ -216,3 +216,93 @@ func TestCFLService_GetEvents(t *testing.T) {
 		t.Errorf("Expected team code to be 'OTT', got '%s'", events[0].TeamCode)
 	}
 }
+
+func TestCFLService_GetUpcomingAndActiveBranches(t *testing.T) {
+	mockSchedule := cfl.CFLScheduleResponse{
+		{
+			ID:     1,
+			Name:   "Round",
+			Status: "",
+			Tournaments: []cfl.CFLGame{
+				{ID: 1, Status: "scheduled", HomeSquad: cfl.CFLTeam{ID: 1, Name: "A", ShortName: "A"}, AwaySquad: cfl.CFLTeam{ID: 2, Name: "B", ShortName: "B"}},
+				{ID: 2, Status: "live", Clock: "12:34", HomeSquad: cfl.CFLTeam{ID: 3, Name: "C", ShortName: "C"}, AwaySquad: cfl.CFLTeam{ID: 4, Name: "D", ShortName: "D"}},
+			},
+		},
+	}
+	service := CFLService{Client: cfl.MockCFLApiClient{ScheduleResponse: mockSchedule}}
+
+	chA := make(chan []models.Game)
+	go service.GetActiveGames(chA)
+	active := <-chA
+	if len(active) != 1 {
+		t.Fatalf("expected 1 active game, got %d", len(active))
+	}
+
+	chU := make(chan []models.Game)
+	go service.GetUpcomingGames(chU)
+	up := <-chU
+	if len(up) != 1 {
+		t.Fatalf("expected 1 upcoming game, got %d", len(up))
+	}
+}
+
+func TestCFLHelpers_StatusAndExtractors(t *testing.T) {
+	svc := CFLService{}
+	if svc.extractPeriodFromLiveStream("Q3") != 3 {
+		t.Fatalf("expected Q3 -> 3")
+	}
+	if svc.extractPeriodFromLiveStream("bad") != 1 {
+		t.Fatalf("expected bad -> 1")
+	}
+	if svc.extractDownFromLiveData(2) != 2 {
+		t.Fatalf("down int failed")
+	}
+	if svc.extractDownFromLiveData("4") != 4 {
+		t.Fatalf("down string failed")
+	}
+	if svc.extractDownFromLiveData(nil) != 0 {
+		t.Fatalf("down nil failed")
+	}
+	if svc.extractDistanceFromLiveData(7) != 7 {
+		t.Fatalf("dist int failed")
+	}
+	if svc.extractDistanceFromLiveData("12") != 12 {
+		t.Fatalf("dist string failed")
+	}
+	if svc.extractPossessionFromLiveData("OTT") != "OTT" {
+		t.Fatalf("possession failed")
+	}
+	if gameStatusFromLiveGame("prematch") != models.StatusUpcoming {
+		t.Fatalf("prematch -> upcoming")
+	}
+	if gameStatusFromLiveGame("live") != models.StatusActive {
+		t.Fatalf("live -> active")
+	}
+	if gameStatusFromLiveGame("final") != models.StatusEnded {
+		t.Fatalf("final -> ended")
+	}
+	// gameStatusFromCFLGame defaults
+	gs := gameStatusFromCFLGame(cfl.CFLGame{Status: "", Clock: "12:34"})
+	if gs != models.StatusActive {
+		t.Fatalf("clock implies active")
+	}
+	gs = gameStatusFromCFLGame(cfl.CFLGame{Status: ""})
+	if gs != models.StatusUpcoming {
+		t.Fatalf("default upcoming")
+	}
+	gs = gameStatusFromCFLGame(cfl.CFLGame{Status: "complete"})
+	if gs != models.StatusEnded {
+		t.Fatalf("complete -> ended")
+	}
+}
+
+func TestCFLService_GetGameUpdate_NoLiveData(t *testing.T) {
+	service := CFLService{Client: cfl.MockCFLApiClient{LiveGameResponse: cfl.CFLLiveGameResponse{}}}
+	game := models.Game{CurrentState: models.GameState{Home: models.TeamState{}, Away: models.TeamState{}}, GameCode: "X"}
+	ch := make(chan models.GameUpdate)
+	go service.GetGameUpdate(game, ch)
+	upd := <-ch
+	if upd.NewState.Home.Score != game.CurrentState.Home.Score || upd.NewState.Away.Score != game.CurrentState.Away.Score {
+		t.Fatalf("expected no change on empty live data")
+	}
+}

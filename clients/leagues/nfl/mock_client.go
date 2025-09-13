@@ -471,6 +471,27 @@ func (c NFLMockClient) GetNFLScoreBoard(gameId string) NFLScoreboardResponse {
 				},
 			},
 		},
+		Drives: struct {
+			Current DriveCurrent `json:"current"`
+		}{
+			Current: DriveCurrent{
+				ID:          "D1",
+				Description: "Drive start",
+				Team:        DriveTeam{ID: "4", Name: "Buffalo Bills", Abbreviation: "BUF"},
+				Start: DriveStart{
+					Down:                  1,
+					Distance:              10,
+					YardLine:              25,
+					YardsToEndzone:        75,
+					DownDistanceText:      "1st & 10",
+					ShortDownDistanceText: "1st & 10",
+					PossessionText:        "BUF 25",
+					Team: struct {
+						ID string `json:"id"`
+					}{ID: "4"},
+				},
+			},
+		},
 	}
 }
 

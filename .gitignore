@@ -155,3 +155,6 @@ dev/homeassistant/config/.uuid
 dev/homeassistant/config/home-assistant_v2.db*
 dev/homeassistant/config/*.log
 dev/
+
+*.log.jsonl
+espn-fast-cast-nfl-docs
