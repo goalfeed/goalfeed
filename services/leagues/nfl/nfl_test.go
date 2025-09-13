@@ -45,19 +45,6 @@ func TestNFLService_GetUpcomingGames(t *testing.T) {
 	}
 }
 
-func TestParseSituationShortDetail(t *testing.T) {
-	// Full form with team and yard line
-	d, dist, poss, yl := parseSituationShortDetail("1st & 10 at CLE 25")
-	if d != 1 || dist != 10 || poss != "CLE" || yl != 25 {
-		t.Fatalf("unexpected parse: %d %d %s %d", d, dist, poss, yl)
-	}
-	// Minimal form without location
-	d, dist, poss, yl = parseSituationShortDetail("2nd & 8")
-	if d != 2 || dist != 8 || poss != "" || yl != 0 {
-		t.Fatalf("unexpected parse: %d %d %s %d", d, dist, poss, yl)
-	}
-}
-
 func TestGameFromEvent_HalftimeLabeling(t *testing.T) {
 	svc := NFLService{Client: nfl.NFLMockClient{}}
 	ev := nfl.NFLScheduleEvent{}

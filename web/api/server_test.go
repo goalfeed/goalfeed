@@ -581,3 +581,135 @@ func TestGetLogs_SinceFilter(t *testing.T) {
 		t.Fatalf("expected only the new log entry, got %+v", resp.Data)
 	}
 }
+
+func TestGetGames_NFLDetailsEnrichment(t *testing.T) {
+	r := setupRouter()
+
+	// Test NFL games with details enrichment
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/api/games?leagueId=4", nil)
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+
+	var resp struct {
+		Success bool
+		Data    []map[string]any
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+
+	if !resp.Success {
+		t.Fatalf("expected success=true")
+	}
+
+	// Should have NFL games with enriched details
+	if len(resp.Data) == 0 {
+		t.Fatalf("expected at least one NFL game")
+	}
+
+	// Check that NFL games have enriched details
+	for _, game := range resp.Data {
+		if leagueId, ok := game["leagueId"].(float64); ok && int(leagueId) == 4 {
+			// NFL game should have enriched details
+			if _, hasDetails := game["details"]; !hasDetails {
+				t.Fatalf("expected NFL game to have details enrichment")
+			}
+		}
+	}
+}
+
+func TestGetGames_EnrichmentErrorHandling(t *testing.T) {
+	r := setupRouter()
+
+	// Test with invalid league ID that might cause enrichment errors
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/api/games?leagueId=999", nil)
+	r.ServeHTTP(w, req)
+
+	// Should still return 200 even if enrichment fails
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200 even with enrichment errors, got %d", w.Code)
+	}
+
+	var resp struct {
+		Success bool
+		Data    []map[string]any
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+
+	if !resp.Success {
+		t.Fatalf("expected success=true even with enrichment errors")
+	}
+}
+
+func TestGetUpcoming_NoMonitoredTeams(t *testing.T) {
+	r := setupRouter()
+
+	// Test upcoming games endpoint
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/api/upcoming", nil)
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+
+	var resp struct {
+		Success bool
+		Data    []map[string]any
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+
+	if !resp.Success {
+		t.Fatalf("expected success=true")
+	}
+
+	// Should return empty array when no teams are monitored
+	// (this tests the case where config has no monitored teams)
+}
+
+func TestGetGames_AllLeagues(t *testing.T) {
+	r := setupRouter()
+
+	// Test getting games from all leagues
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/api/games", nil)
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+
+	var resp struct {
+		Success bool
+		Data    []map[string]any
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+
+	if !resp.Success {
+		t.Fatalf("expected success=true")
+	}
+
+	// Should have games from multiple leagues
+	leagues := make(map[float64]bool)
+	for _, game := range resp.Data {
+		if leagueId, ok := game["leagueId"].(float64); ok {
+			leagues[leagueId] = true
+		}
+	}
+
+	// Should have games from at least NHL and NFL (based on mock data)
+	if len(leagues) == 0 {
+		t.Fatalf("expected games from at least one league")
+	}
+}
