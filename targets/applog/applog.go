@@ -43,6 +43,18 @@ func getLogFilePath() string {
 	return logFilePath
 }
 
+// SetLogFilePathForTest overrides the log file path for tests only
+func SetLogFilePathForTest(path string) {
+	fileMu.Lock()
+	defer fileMu.Unlock()
+	logFilePath = path
+	// Ensure directory exists
+	dir := filepath.Dir(path)
+	if dir != "." && dir != "" {
+		_ = os.MkdirAll(dir, 0o755)
+	}
+}
+
 // Append writes an AppLogEntry to the durable log and broadcasts it to clients
 func Append(entry models.AppLogEntry) {
 	entry.Timestamp = time.Now()

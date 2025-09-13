@@ -93,6 +93,31 @@ func TestApplyNFLPatches_WrapperBase64Zlib(t *testing.T) {
 	}
 }
 
+func TestApplyNFLPatches_FloatClockAndSideScores(t *testing.T) {
+	memoryStore.ClearAllGames()
+	eventID := "401547405"
+	seedNFLGame(eventID)
+	ops := []patchOp{
+		{Op: "replace", Path: "/fullStatus/clock", Value: float64(360)}, // 6:00
+		{Op: "replace", Path: "/competitors/0/homeAway", Value: "home"},
+		{Op: "replace", Path: "/competitors/1/homeAway", Value: "away"},
+		{Op: "replace", Path: "/competitors/0/score", Value: "10"},
+		{Op: "replace", Path: "/competitors/1/score", Value: "7"},
+	}
+	b, _ := json.Marshal(ops)
+	applyNFLPatches(json.RawMessage(b), "gp-football-nfl-"+eventID)
+	g, err := memoryStore.GetGameByGameKey(models.Game{GameCode: eventID, LeagueId: models.LeagueIdNFL}.GetGameKey())
+	if err != nil {
+		t.Fatalf("game not found: %v", err)
+	}
+	if g.CurrentState.Clock != "6:00" {
+		t.Fatalf("expected 6:00 clock from float seconds, got %s", g.CurrentState.Clock)
+	}
+	if g.CurrentState.Home.Score != 10 || g.CurrentState.Away.Score != 7 {
+		t.Fatalf("expected home=10 away=7 via side mapping, got %d-%d", g.CurrentState.Home.Score, g.CurrentState.Away.Score)
+	}
+}
+
 func TestStartNFLFastcast_Disabled(t *testing.T) {
 	viper.Set("nfl.fastcast.enabled", false)
 	StartNFLFastcast()

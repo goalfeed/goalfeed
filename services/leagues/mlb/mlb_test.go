@@ -6,6 +6,7 @@ import (
 	"goalfeed/models"
 	"goalfeed/services/leagues"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -256,5 +257,37 @@ func TestGetTeamCodeFromNameFallbacks(t *testing.T) {
 func TestGetMLBLogoURL(t *testing.T) {
 	if getMLBLogoURL("TOR") != "https://a.espncdn.com/i/teamlogos/mlb/500/tor.png" {
 		t.Fatalf("unexpected logo url")
+	}
+}
+
+func TestGameFromScheduleFormatting(t *testing.T) {
+	service := MLBService{Client: mlb.MockMLBApiClient{}}
+	// Active game sample
+	active := mlb.MLBScheduleResponseGame{
+		GamePk: 2020020001,
+		Status: mlb.Status{AbstractGameState: "Live", DetailedState: "Live", StatusCode: "1"},
+		Teams: mlb.Teams{
+			Home: mlb.MLBScheduleTeam{Team: mlb.TeamInfo{Name: "Philadelphia Phillies"}},
+			Away: mlb.MLBScheduleTeam{Team: mlb.TeamInfo{Name: "Pittsburgh Pirates"}},
+		},
+	}
+	gActive := service.gameFromSchedule(active)
+	if gActive.CurrentState.PeriodType != "INNING" {
+		t.Fatalf("expected inning period type for active")
+	}
+	// Upcoming game sample
+	upcoming := mlb.MLBScheduleResponseGame{
+		GamePk:   2020020003,
+		Gamedate: time.Now().Add(24 * time.Hour),
+		Status:   mlb.Status{AbstractGameState: "Preview", DetailedState: "Scheduled", StatusCode: "1"},
+		Venue:    mlb.Venue{ID: 0, Name: "Some Park"},
+		Teams: mlb.Teams{
+			Home: mlb.MLBScheduleTeam{Team: mlb.TeamInfo{Name: "Toronto Blue Jays"}},
+			Away: mlb.MLBScheduleTeam{Team: mlb.TeamInfo{Name: "New York Yankees"}},
+		},
+	}
+	gUpcoming := service.gameFromSchedule(upcoming)
+	if gUpcoming.CurrentState.Status != models.StatusUpcoming || gUpcoming.CurrentState.Clock == "" {
+		t.Fatalf("expected upcoming with non-empty display time")
 	}
 }

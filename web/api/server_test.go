@@ -165,6 +165,17 @@ func TestUpdateLeagueConfig_InvalidJSON(t *testing.T) {
 	}
 }
 
+func TestUpdateLeagueConfig_InvalidLeague(t *testing.T) {
+	r := setupRouter()
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("POST", "/api/leagues", strings.NewReader(`{"leagueId":99,"teams":["X"]}`))
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 for invalid leagueId, got %d", w.Code)
+	}
+}
+
 func TestEventsAndLogsEndpoints_WithTempApplog(t *testing.T) {
 	// Point applog to a temp file via viper key app_log.path
 	logDir := t.TempDir()
@@ -272,6 +283,31 @@ func TestHomeAssistantStatus_Unset(t *testing.T) {
 	}
 	if !resp.Success || resp.Data["connected"].(bool) != false || resp.Data["source"].(string) != "unset" {
 		t.Fatalf("expected disconnected unset status")
+	}
+}
+
+func TestHomeAssistantStatus_EnvSource(t *testing.T) {
+	os.Setenv("SUPERVISOR_API", "http://127.0.0.1:9999")
+	os.Setenv("SUPERVISOR_TOKEN", "tok")
+	defer os.Unsetenv("SUPERVISOR_API")
+	defer os.Unsetenv("SUPERVISOR_TOKEN")
+
+	r := setupRouter()
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/api/homeassistant/status", nil)
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+	var resp struct {
+		Success bool
+		Data    map[string]any
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if !resp.Success || resp.Data["source"].(string) != "env" || resp.Data["tokenSet"].(bool) != true {
+		t.Fatalf("expected env source and tokenSet true, got %+v", resp.Data)
 	}
 }
 
@@ -431,5 +467,117 @@ func TestIsTeamMonitored_WildcardAndExact(t *testing.T) {
 	}
 	if !isTeamMonitored([]string{"tor"}, "TOR") {
 		t.Fatalf("case-insensitive match failed")
+	}
+}
+
+func TestGetAllTeams_MLB_OK(t *testing.T) {
+	r := setupRouter()
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/api/teams?leagueId=2", nil)
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+	var resp struct {
+		Success bool
+		Data    []map[string]any
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if !resp.Success || len(resp.Data) == 0 {
+		t.Fatalf("expected MLB teams array")
+	}
+	// Verify a known team has a logo
+	foundTOR := false
+	logoOK := false
+	for _, tm := range resp.Data {
+		if tm["code"] == "TOR" {
+			foundTOR = true
+			if s, ok := tm["logo"].(string); ok && s != "" {
+				logoOK = true
+			}
+			break
+		}
+	}
+	if !foundTOR || !logoOK {
+		t.Fatalf("expected TOR with logo in MLB teams")
+	}
+}
+
+func TestGetAllTeams_MissingLeagueId(t *testing.T) {
+	r := setupRouter()
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/api/teams", nil)
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", w.Code)
+	}
+}
+
+func TestGetEvents_DeliveryMapping(t *testing.T) {
+	// Isolate applog file
+	logDir := t.TempDir()
+	logPath := filepath.Join(logDir, "applog.jsonl")
+	applog.SetLogFilePathForTest(logPath)
+	viper.Set("app_log.path", logPath)
+	// Append event with delivery fields via Append to capture fields
+	success := true
+	ev := models.Event{LeagueId: int(models.LeagueIdNFL), LeagueName: "NFL", TeamCode: "BUF", GameCode: "E1"}
+	entry := models.AppLogEntry{Type: models.AppLogTypeEvent, LeagueId: models.LeagueIdNFL, LeagueName: "NFL", TeamCode: "BUF", GameCode: "E1", Target: "ha.event", Success: &success, Error: "", Event: &ev}
+	applog.Append(entry)
+
+	r := setupRouter()
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/api/events?leagueId=6&limit=5", nil)
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+	var resp struct {
+		Success bool
+		Data    []map[string]any
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if !resp.Success || len(resp.Data) == 0 {
+		t.Fatalf("expected at least one delivered event")
+	}
+	// Delivery object should be present
+	if _, ok := resp.Data[0]["delivery"]; !ok {
+		t.Fatalf("expected delivery metadata in response")
+	}
+}
+
+func TestGetLogs_SinceFilter(t *testing.T) {
+	logDir := t.TempDir()
+	logPath := filepath.Join(logDir, "applog.jsonl")
+	applog.SetLogFilePathForTest(logPath)
+	viper.Set("app_log.path", logPath)
+	// Append an old and a new log line separated by more than a second to avoid RFC3339 truncation issues
+	applog.AppendLogLine(models.AppLogLevelInfo, "old", "test", nil)
+	time.Sleep(1100 * time.Millisecond)
+	since := time.Now().Format(time.RFC3339)
+	time.Sleep(1100 * time.Millisecond)
+	applog.AppendLogLine(models.AppLogLevelInfo, "new", "test", nil)
+
+	r := setupRouter()
+	w := httptest.NewRecorder()
+	path := "/api/logs?since=" + since
+	req, _ := http.NewRequest("GET", path, nil)
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+	var resp struct {
+		Success bool
+		Data    []models.AppLogEntry
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if !resp.Success || len(resp.Data) != 1 || resp.Data[0].Message != "new" {
+		t.Fatalf("expected only the new log entry, got %+v", resp.Data)
 	}
 }
