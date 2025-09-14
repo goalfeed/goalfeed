@@ -92,3 +92,21 @@ func TestMockNHLApiClient_SetScores(t *testing.T) {
 		client.SetAwayScore(2)
 	})
 }
+
+func TestNHLApiClient_GetAllTeams(t *testing.T) {
+	client := NHLApiClient{}
+
+	// Test that the method exists and doesn't panic
+	assert.NotPanics(t, func() {
+		_ = client.GetAllTeams()
+	})
+}
+
+func TestMockNHLApiClient_GetAllTeams(t *testing.T) {
+	client := MockNHLApiClient{}
+
+	response := client.GetAllTeams()
+
+	// Verify the response is valid
+	assert.NotNil(t, response)
+}

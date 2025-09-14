@@ -198,4 +198,77 @@ func TestGetByteWithHeaders(t *testing.T) {
 			t.Fatal("GetByteWithHeaders timed out")
 		}
 	})
+
+	// Test different HTTP status codes
+	t.Run("NotFound", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusNotFound)
+			w.Write([]byte("not found"))
+		}))
+		defer server.Close()
+
+		ret := make(chan []byte)
+		go GetByteWithHeaders(server.URL, ret, nil)
+		select {
+		case result := <-ret:
+			assert.Equal(t, []byte("not found"), result)
+		case <-time.After(5 * time.Second):
+			t.Fatal("GetByteWithHeaders timed out")
+		}
+	})
+
+	// Test bad request
+	t.Run("BadRequest", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte("bad request"))
+		}))
+		defer server.Close()
+
+		ret := make(chan []byte)
+		go GetByteWithHeaders(server.URL, ret, nil)
+		select {
+		case result := <-ret:
+			assert.Equal(t, []byte("bad request"), result)
+		case <-time.After(5 * time.Second):
+			t.Fatal("GetByteWithHeaders timed out")
+		}
+	})
+
+	// Test unauthorized
+	t.Run("Unauthorized", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusUnauthorized)
+			w.Write([]byte("unauthorized"))
+		}))
+		defer server.Close()
+
+		ret := make(chan []byte)
+		go GetByteWithHeaders(server.URL, ret, nil)
+		select {
+		case result := <-ret:
+			assert.Equal(t, []byte("unauthorized"), result)
+		case <-time.After(5 * time.Second):
+			t.Fatal("GetByteWithHeaders timed out")
+		}
+	})
+
+	// Test timeout scenario
+	t.Run("Timeout", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			time.Sleep(15 * time.Second) // Longer than the 10 second timeout
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte("should timeout"))
+		}))
+		defer server.Close()
+
+		ret := make(chan []byte)
+		go GetByteWithHeaders(server.URL, ret, nil)
+		select {
+		case result := <-ret:
+			assert.Equal(t, []byte{}, result) // Should return empty on timeout
+		case <-time.After(15 * time.Second):
+			t.Fatal("GetByteWithHeaders timed out")
+		}
+	})
 }

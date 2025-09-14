@@ -291,3 +291,92 @@ func TestGameFromScheduleFormatting(t *testing.T) {
 		t.Fatalf("expected upcoming with non-empty display time")
 	}
 }
+
+func TestGameStatusFromScheduleGame_StatusCodeCases(t *testing.T) {
+	testCases := []struct {
+		name           string
+		statusCode     string
+		detailedState  string
+		expectedStatus models.GameStatus
+	}{
+		{"Final game", "F", "Final", models.StatusEnded},
+		{"Scheduled game", "S", "Scheduled", models.StatusUpcoming},
+		{"Live game", "L", "Live", models.StatusActive},
+		{"Unknown status code", "X", "Unknown", models.StatusActive}, // Default case
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			game := mlb.MLBScheduleResponseGame{
+				GamePk: 12345,
+				Status: mlb.Status{
+					StatusCode:        tc.statusCode,
+					DetailedState:     tc.detailedState,
+					AbstractGameState: "Test",
+				},
+			}
+
+			result := gameStatusFromScheduleGame(game)
+			assert.Equal(t, tc.expectedStatus, result)
+		})
+	}
+}
+
+func TestGameStatusFromScheduleGame_DelayCases(t *testing.T) {
+	testCases := []struct {
+		name           string
+		statusCode     string
+		detailedState  string
+		expectedStatus models.GameStatus
+	}{
+		{"Rain delay", "IR", "Delayed: Rain", models.StatusDelayed},
+		{"General delay", "IR", "Delayed", models.StatusDelayed},
+		{"IR status code", "IR", "In Progress", models.StatusDelayed},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			game := mlb.MLBScheduleResponseGame{
+				GamePk: 12345,
+				Status: mlb.Status{
+					StatusCode:        tc.statusCode,
+					DetailedState:     tc.detailedState,
+					AbstractGameState: "Test",
+				},
+			}
+
+			result := gameStatusFromScheduleGame(game)
+			assert.Equal(t, tc.expectedStatus, result)
+		})
+	}
+}
+
+func TestGameStatusFromScheduleGame_FallbackCases(t *testing.T) {
+	testCases := []struct {
+		name              string
+		statusCode        string
+		abstractGameState string
+		expectedStatus    models.GameStatus
+	}{
+		{"Fallback Final", "X", "Final", models.StatusEnded},
+		{"Fallback Upcoming", "X", "Preview", models.StatusUpcoming},
+		{"Fallback Active", "X", "Live", models.StatusActive},
+		{"Fallback Default", "X", "Unknown", models.StatusActive},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			game := mlb.MLBScheduleResponseGame{
+				GamePk: 12345,
+				Status: mlb.Status{
+					StatusCode:        tc.statusCode,
+					DetailedState:     "Test",
+					AbstractGameState: tc.abstractGameState,
+				},
+			}
+
+			result := gameStatusFromScheduleGame(game)
+			assert.Equal(t, tc.expectedStatus, result)
+		})
+	}
+}

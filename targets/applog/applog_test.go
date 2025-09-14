@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"goalfeed/models"
+	"goalfeed/targets/notify"
 
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
@@ -311,4 +312,149 @@ func TestSetLogFilePathForTest_WithDirectory(t *testing.T) {
 		// Clean up
 		os.RemoveAll(dir)
 	}
+}
+
+func TestAppend_WithExistingId(t *testing.T) {
+	SetLogFilePathForTest(filepath.Join(t.TempDir(), "test.log"))
+	defer os.Remove(getLogFilePath())
+
+	entry := models.AppLogEntry{
+		Id:       "custom-id",
+		Type:     models.AppLogTypeEvent,
+		LeagueId: models.LeagueIdNHL,
+		TeamCode: "TOR",
+		Metric:   "goal",
+	}
+	Append(entry)
+
+	entries := Query(0, "", time.Time{}, 0)
+	assert.Len(t, entries, 1)
+	assert.Equal(t, "custom-id", entries[0].Id)
+}
+
+func TestAppend_WithEmptyId(t *testing.T) {
+	SetLogFilePathForTest(filepath.Join(t.TempDir(), "test.log"))
+	defer os.Remove(getLogFilePath())
+
+	entry := models.AppLogEntry{
+		Type:     models.AppLogTypeEvent,
+		LeagueId: models.LeagueIdNHL,
+		TeamCode: "TOR",
+		Metric:   "goal",
+	}
+	Append(entry)
+
+	entries := Query(0, "", time.Time{}, 0)
+	assert.Len(t, entries, 1)
+	assert.NotEmpty(t, entries[0].Id)
+	assert.Contains(t, entries[0].Id, "TOR")
+	assert.Contains(t, entries[0].Id, "goal")
+}
+
+func TestAppend_WithInvalidDirectory(t *testing.T) {
+	// Set path to a directory that doesn't exist and can't be created
+	SetLogFilePathForTest("/invalid/path/that/does/not/exist/test.log")
+
+	entry := models.AppLogEntry{
+		Type:     models.AppLogTypeEvent,
+		LeagueId: models.LeagueIdNHL,
+		TeamCode: "TOR",
+		Metric:   "goal",
+	}
+
+	// This should not panic, but may log warnings
+	Append(entry)
+
+	// Verify no entries were written due to file open error
+	entries := Query(0, "", time.Time{}, 0)
+	assert.Len(t, entries, 0)
+}
+
+func TestAppend_WithReadOnlyFile(t *testing.T) {
+	tempDir := t.TempDir()
+	logFile := filepath.Join(tempDir, "readonly.log")
+
+	// Create a read-only file
+	f, err := os.Create(logFile)
+	assert.NoError(t, err)
+	f.Close()
+
+	// Make it read-only
+	err = os.Chmod(logFile, 0o444)
+	assert.NoError(t, err)
+
+	SetLogFilePathForTest(logFile)
+	defer os.Remove(logFile)
+
+	entry := models.AppLogEntry{
+		Type:     models.AppLogTypeEvent,
+		LeagueId: models.LeagueIdNHL,
+		TeamCode: "TOR",
+		Metric:   "goal",
+	}
+
+	// This should not panic, but may log warnings due to write error
+	Append(entry)
+
+	// Verify no entries were written due to write error
+	entries := Query(0, "", time.Time{}, 0)
+	assert.Len(t, entries, 0)
+}
+
+func TestAppend_WithNotifyBroadcast(t *testing.T) {
+	SetLogFilePathForTest(filepath.Join(t.TempDir(), "test.log"))
+	defer os.Remove(getLogFilePath())
+
+	// Test with notify.BroadcastLog set to nil (should not panic)
+	originalBroadcast := notify.BroadcastLog
+	notify.BroadcastLog = nil
+	defer func() { notify.BroadcastLog = originalBroadcast }()
+
+	entry := models.AppLogEntry{
+		Type:     models.AppLogTypeEvent,
+		LeagueId: models.LeagueIdNHL,
+		TeamCode: "TOR",
+		Metric:   "goal",
+	}
+
+	// This should not panic even with nil BroadcastLog
+	Append(entry)
+
+	// Verify entry was written
+	entries := Query(0, "", time.Time{}, 0)
+	assert.Len(t, entries, 1)
+}
+
+func TestAppend_WithNotifyBroadcastFunction(t *testing.T) {
+	SetLogFilePathForTest(filepath.Join(t.TempDir(), "test.log"))
+	defer os.Remove(getLogFilePath())
+
+	// Test with notify.BroadcastLog set to a function
+	originalBroadcast := notify.BroadcastLog
+	broadcastCalled := false
+	var broadcastedEntry models.AppLogEntry
+
+	notify.BroadcastLog = func(entry models.AppLogEntry) {
+		broadcastCalled = true
+		broadcastedEntry = entry
+	}
+	defer func() { notify.BroadcastLog = originalBroadcast }()
+
+	entry := models.AppLogEntry{
+		Type:     models.AppLogTypeEvent,
+		LeagueId: models.LeagueIdNHL,
+		TeamCode: "TOR",
+		Metric:   "goal",
+	}
+
+	Append(entry)
+
+	// Verify entry was written
+	entries := Query(0, "", time.Time{}, 0)
+	assert.Len(t, entries, 1)
+
+	// Verify broadcast was called
+	assert.True(t, broadcastCalled)
+	assert.Equal(t, models.League(models.LeagueIdNHL), broadcastedEntry.LeagueId)
+	assert.Equal(t, "TOR", broadcastedEntry.TeamCode)
 }

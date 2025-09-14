@@ -306,3 +306,67 @@ func TestCFLService_GetGameUpdate_NoLiveData(t *testing.T) {
 		t.Fatalf("expected no change on empty live data")
 	}
 }
+
+func TestCFLService_GetTeamLogoFromLiveGameResponse(t *testing.T) {
+	service := CFLService{}
+
+	// Test with home team logo
+	liveGame := cfl.CFLLiveGameResponse{
+		Data: cfl.CFLLiveGameData{
+			MatchInfo: cfl.CFLMatchInfo{
+				HomeTeam: cfl.CFLDetailedTeam{
+					CompetitorID: "123",
+					Details: cfl.CFLTeamDetails{
+						Brand: cfl.CFLBrand{
+							Logo: "home-logo.png",
+						},
+					},
+				},
+				AwayTeam: cfl.CFLDetailedTeam{
+					CompetitorID: "456",
+					Details: cfl.CFLTeamDetails{
+						Brand: cfl.CFLBrand{
+							Logo: "away-logo.png",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	// Test home team logo
+	logo := service.getTeamLogoFromLiveGameResponse(liveGame, "123")
+	if logo != "home-logo.png" {
+		t.Errorf("Expected home team logo 'home-logo.png', got '%s'", logo)
+	}
+
+	// Test away team logo
+	logo = service.getTeamLogoFromLiveGameResponse(liveGame, "456")
+	if logo != "away-logo.png" {
+		t.Errorf("Expected away team logo 'away-logo.png', got '%s'", logo)
+	}
+
+	// Test SVG fallback for home team
+	liveGame.Data.MatchInfo.HomeTeam.Details.Brand.Logo = ""
+	liveGame.Data.MatchInfo.HomeTeam.Details.Brand.Theme.Light.Logo.SVG = "home-logo.svg"
+
+	logo = service.getTeamLogoFromLiveGameResponse(liveGame, "123")
+	if logo != "home-logo.svg" {
+		t.Errorf("Expected SVG fallback 'home-logo.svg', got '%s'", logo)
+	}
+
+	// Test SVG fallback for away team
+	liveGame.Data.MatchInfo.AwayTeam.Details.Brand.Logo = ""
+	liveGame.Data.MatchInfo.AwayTeam.Details.Brand.Theme.Light.Logo.SVG = "away-logo.svg"
+
+	logo = service.getTeamLogoFromLiveGameResponse(liveGame, "456")
+	if logo != "away-logo.svg" {
+		t.Errorf("Expected SVG fallback 'away-logo.svg', got '%s'", logo)
+	}
+
+	// Test fallback to static logo mapping
+	logo = service.getTeamLogoFromLiveGameResponse(liveGame, "999")
+	if logo != "" {
+		t.Errorf("Expected empty string for unknown team, got '%s'", logo)
+	}
+}

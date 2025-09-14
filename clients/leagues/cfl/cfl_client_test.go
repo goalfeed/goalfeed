@@ -141,3 +141,55 @@ func TestCFLClient_LiveGame_RetryPath(t *testing.T) {
 		t.Fatalf("unexpected live game resp after retry: %+v", resp)
 	}
 }
+
+func TestCFLClient_Schedule_JSONUnmarshalError(t *testing.T) {
+	// Test the case where JSON unmarshal fails on primary but retry succeeds
+	oldB := fetchByte
+	oldBH := fetchByteWithHeaders
+	defer func() { fetchByte = oldB; fetchByteWithHeaders = oldBH }()
+
+	callCount := 0
+	fetchByteWithHeaders = func(url string, ret chan []byte, headers map[string]string) {
+		callCount++
+		if callCount == 1 {
+			ret <- []byte(`invalid json`) // First call fails with invalid JSON
+		} else {
+			ret <- []byte(`[{"id": 1}]`) // Retry succeeds
+		}
+	}
+	fetchByte = func(url string, ret chan []byte) {
+		ret <- []byte(`[{"id": 1}]`) // No-headers call succeeds
+	}
+
+	c := CFLApiClient{}
+	resp := c.GetCFLSchedule()
+	if len(resp) != 1 || resp[0].ID != 1 {
+		t.Fatalf("unexpected schedule resp after JSON unmarshal error retry: %+v", resp)
+	}
+}
+
+func TestCFLClient_Schedule_EmptyResponseRetry(t *testing.T) {
+	// Test the case where primary returns empty but retry succeeds
+	oldB := fetchByte
+	oldBH := fetchByteWithHeaders
+	defer func() { fetchByte = oldB; fetchByteWithHeaders = oldBH }()
+
+	callCount := 0
+	fetchByteWithHeaders = func(url string, ret chan []byte, headers map[string]string) {
+		callCount++
+		if callCount == 1 {
+			ret <- []byte(`[]`) // First call returns empty array
+		} else {
+			ret <- []byte(`[{"id": 1}]`) // Retry succeeds
+		}
+	}
+	fetchByte = func(url string, ret chan []byte) {
+		ret <- []byte(`[{"id": 1}]`) // No-headers call succeeds
+	}
+
+	c := CFLApiClient{}
+	resp := c.GetCFLSchedule()
+	if len(resp) != 1 || resp[0].ID != 1 {
+		t.Fatalf("unexpected schedule resp after empty response retry: %+v", resp)
+	}
+}

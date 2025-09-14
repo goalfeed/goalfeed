@@ -347,6 +347,456 @@ func (c NFLMockClient) GetNFLSchedule() NFLScheduleResponse {
 }
 
 func (c NFLMockClient) GetNFLScoreBoard(gameId string) NFLScoreboardResponse {
+	// Handle special test cases
+	switch gameId {
+	case "empty-events":
+		return NFLScoreboardResponse{
+			Events: []NFLScoreboardEvent{},
+		}
+	case "empty-competitions":
+		return NFLScoreboardResponse{
+			Events: []NFLScoreboardEvent{
+				{
+					ID:           gameId,
+					Competitions: []NFLScoreboardCompetition{},
+				},
+			},
+		}
+	case "halftime-detail":
+		return NFLScoreboardResponse{
+			Events: []NFLScoreboardEvent{
+				{
+					ID: gameId,
+					Status: struct {
+						Clock        float64 `json:"clock"`
+						DisplayClock string  `json:"displayClock"`
+						Period       int     `json:"period"`
+						Type         struct {
+							ID          string `json:"id"`
+							Name        string `json:"name"`
+							State       string `json:"state"`
+							Completed   bool   `json:"completed"`
+							Description string `json:"description"`
+							Detail      string `json:"detail"`
+							ShortDetail string `json:"shortDetail"`
+						} `json:"type"`
+					}{
+						Clock:        0,
+						DisplayClock: "0:00",
+						Period:       2,
+						Type: struct {
+							ID          string `json:"id"`
+							Name        string `json:"name"`
+							State       string `json:"state"`
+							Completed   bool   `json:"completed"`
+							Description string `json:"description"`
+							Detail      string `json:"detail"`
+							ShortDetail string `json:"shortDetail"`
+						}{
+							ID:          "3",
+							Name:        "STATUS_HALFTIME",
+							State:       "in",
+							Completed:   false,
+							Description: "Halftime",
+							Detail:      "Halftime",
+							ShortDetail: "HALFTIME",
+						},
+					},
+					Competitions: []NFLScoreboardCompetition{
+						{
+							ID: gameId,
+							Competitors: []NFLScoreboardCompetitor{
+								{
+									ID:       gameId + "-1",
+									HomeAway: "away",
+									Team: struct {
+										ID               string `json:"id"`
+										UID              string `json:"uid"`
+										Location         string `json:"location"`
+										Name             string `json:"name"`
+										Abbreviation     string `json:"abbreviation"`
+										DisplayName      string `json:"displayName"`
+										ShortDisplayName string `json:"shortDisplayName"`
+										Color            string `json:"color"`
+										AlternateColor   string `json:"alternateColor"`
+										IsActive         bool   `json:"isActive"`
+										Venue            struct {
+											ID string `json:"id"`
+										} `json:"venue"`
+										Links []struct {
+											Rel  []string `json:"rel"`
+											Href string   `json:"href"`
+											Text string   `json:"text"`
+										} `json:"links"`
+										Logo string `json:"logo"`
+									}{
+										ID:               "4",
+										Location:         "Buffalo",
+										Name:             "Bills",
+										Abbreviation:     "BUF",
+										DisplayName:      "Buffalo Bills",
+										ShortDisplayName: "Bills",
+										Color:            "00338D",
+										IsActive:         true,
+										Logo:             "https://a.espncdn.com/i/teamlogos/nfl/500/buf.png",
+									},
+									Score: "21",
+								},
+								{
+									ID:       gameId + "-2",
+									HomeAway: "home",
+									Team: struct {
+										ID               string `json:"id"`
+										UID              string `json:"uid"`
+										Location         string `json:"location"`
+										Name             string `json:"name"`
+										Abbreviation     string `json:"abbreviation"`
+										DisplayName      string `json:"displayName"`
+										ShortDisplayName string `json:"shortDisplayName"`
+										Color            string `json:"color"`
+										AlternateColor   string `json:"alternateColor"`
+										IsActive         bool   `json:"isActive"`
+										Venue            struct {
+											ID string `json:"id"`
+										} `json:"venue"`
+										Links []struct {
+											Rel  []string `json:"rel"`
+											Href string   `json:"href"`
+											Text string   `json:"text"`
+										} `json:"links"`
+										Logo string `json:"logo"`
+									}{
+										ID:               "15",
+										Location:         "Miami",
+										Name:             "Dolphins",
+										Abbreviation:     "MIA",
+										DisplayName:      "Miami Dolphins",
+										ShortDisplayName: "Dolphins",
+										Color:            "008E97",
+										IsActive:         true,
+										Logo:             "https://a.espncdn.com/i/teamlogos/nfl/500/mia.png",
+									},
+									Score: "17",
+								},
+							},
+							Venue: struct {
+								ID       string `json:"id"`
+								FullName string `json:"fullName"`
+								Address  struct {
+									City  string `json:"city"`
+									State string `json:"state"`
+								} `json:"address"`
+								Grass  bool `json:"grass"`
+								Indoor bool `json:"indoor"`
+							}{
+								ID:       "1",
+								FullName: "Hard Rock Stadium",
+								Address: struct {
+									City  string `json:"city"`
+									State string `json:"state"`
+								}{
+									City:  "Miami Gardens",
+									State: "FL",
+								},
+								Grass:  true,
+								Indoor: false,
+							},
+						},
+					},
+				},
+			},
+		}
+	case "halftime-period2":
+		return NFLScoreboardResponse{
+			Events: []NFLScoreboardEvent{
+				{
+					ID: gameId,
+					Status: struct {
+						Clock        float64 `json:"clock"`
+						DisplayClock string  `json:"displayClock"`
+						Period       int     `json:"period"`
+						Type         struct {
+							ID          string `json:"id"`
+							Name        string `json:"name"`
+							State       string `json:"state"`
+							Completed   bool   `json:"completed"`
+							Description string `json:"description"`
+							Detail      string `json:"detail"`
+							ShortDetail string `json:"shortDetail"`
+						} `json:"type"`
+					}{
+						Clock:        0,
+						DisplayClock: "0:00",
+						Period:       2,
+						Type: struct {
+							ID          string `json:"id"`
+							Name        string `json:"name"`
+							State       string `json:"state"`
+							Completed   bool   `json:"completed"`
+							Description string `json:"description"`
+							Detail      string `json:"detail"`
+							ShortDetail string `json:"shortDetail"`
+						}{
+							ID:          "3",
+							Name:        "STATUS_IN_PROGRESS",
+							State:       "in",
+							Completed:   false,
+							Description: "2nd Quarter",
+							Detail:      "2nd Quarter",
+							ShortDetail: "2nd Quarter",
+						},
+					},
+					Competitions: []NFLScoreboardCompetition{
+						{
+							ID: gameId,
+							Competitors: []NFLScoreboardCompetitor{
+								{
+									ID:       gameId + "-1",
+									HomeAway: "away",
+									Team: struct {
+										ID               string `json:"id"`
+										UID              string `json:"uid"`
+										Location         string `json:"location"`
+										Name             string `json:"name"`
+										Abbreviation     string `json:"abbreviation"`
+										DisplayName      string `json:"displayName"`
+										ShortDisplayName string `json:"shortDisplayName"`
+										Color            string `json:"color"`
+										AlternateColor   string `json:"alternateColor"`
+										IsActive         bool   `json:"isActive"`
+										Venue            struct {
+											ID string `json:"id"`
+										} `json:"venue"`
+										Links []struct {
+											Rel  []string `json:"rel"`
+											Href string   `json:"href"`
+											Text string   `json:"text"`
+										} `json:"links"`
+										Logo string `json:"logo"`
+									}{
+										ID:               "4",
+										Location:         "Buffalo",
+										Name:             "Bills",
+										Abbreviation:     "BUF",
+										DisplayName:      "Buffalo Bills",
+										ShortDisplayName: "Bills",
+										Color:            "00338D",
+										IsActive:         true,
+										Logo:             "https://a.espncdn.com/i/teamlogos/nfl/500/buf.png",
+									},
+									Score: "21",
+								},
+								{
+									ID:       gameId + "-2",
+									HomeAway: "home",
+									Team: struct {
+										ID               string `json:"id"`
+										UID              string `json:"uid"`
+										Location         string `json:"location"`
+										Name             string `json:"name"`
+										Abbreviation     string `json:"abbreviation"`
+										DisplayName      string `json:"displayName"`
+										ShortDisplayName string `json:"shortDisplayName"`
+										Color            string `json:"color"`
+										AlternateColor   string `json:"alternateColor"`
+										IsActive         bool   `json:"isActive"`
+										Venue            struct {
+											ID string `json:"id"`
+										} `json:"venue"`
+										Links []struct {
+											Rel  []string `json:"rel"`
+											Href string   `json:"href"`
+											Text string   `json:"text"`
+										} `json:"links"`
+										Logo string `json:"logo"`
+									}{
+										ID:               "15",
+										Location:         "Miami",
+										Name:             "Dolphins",
+										Abbreviation:     "MIA",
+										DisplayName:      "Miami Dolphins",
+										ShortDisplayName: "Dolphins",
+										Color:            "008E97",
+										IsActive:         true,
+										Logo:             "https://a.espncdn.com/i/teamlogos/nfl/500/mia.png",
+									},
+									Score: "17",
+								},
+							},
+							Venue: struct {
+								ID       string `json:"id"`
+								FullName string `json:"fullName"`
+								Address  struct {
+									City  string `json:"city"`
+									State string `json:"state"`
+								} `json:"address"`
+								Grass  bool `json:"grass"`
+								Indoor bool `json:"indoor"`
+							}{
+								ID:       "1",
+								FullName: "Hard Rock Stadium",
+								Address: struct {
+									City  string `json:"city"`
+									State string `json:"state"`
+								}{
+									City:  "Miami Gardens",
+									State: "FL",
+								},
+								Grass:  true,
+								Indoor: false,
+							},
+						},
+					},
+				},
+			},
+		}
+	case "situation-fallback":
+		return NFLScoreboardResponse{
+			Events: []NFLScoreboardEvent{
+				{
+					ID: gameId,
+					Status: struct {
+						Clock        float64 `json:"clock"`
+						DisplayClock string  `json:"displayClock"`
+						Period       int     `json:"period"`
+						Type         struct {
+							ID          string `json:"id"`
+							Name        string `json:"name"`
+							State       string `json:"state"`
+							Completed   bool   `json:"completed"`
+							Description string `json:"description"`
+							Detail      string `json:"detail"`
+							ShortDetail string `json:"shortDetail"`
+						} `json:"type"`
+					}{
+						Clock:        0,
+						DisplayClock: "0:00",
+						Period:       2,
+						Type: struct {
+							ID          string `json:"id"`
+							Name        string `json:"name"`
+							State       string `json:"state"`
+							Completed   bool   `json:"completed"`
+							Description string `json:"description"`
+							Detail      string `json:"detail"`
+							ShortDetail string `json:"shortDetail"`
+						}{
+							ID:          "3",
+							Name:        "STATUS_HALFTIME",
+							State:       "in",
+							Completed:   false,
+							Description: "Halftime",
+							Detail:      "Halftime",
+							ShortDetail: "HALFTIME",
+						},
+					},
+					Competitions: []NFLScoreboardCompetition{
+						{
+							ID: gameId,
+							Competitors: []NFLScoreboardCompetitor{
+								{
+									ID:       gameId + "-1",
+									HomeAway: "away",
+									Team: struct {
+										ID               string `json:"id"`
+										UID              string `json:"uid"`
+										Location         string `json:"location"`
+										Name             string `json:"name"`
+										Abbreviation     string `json:"abbreviation"`
+										DisplayName      string `json:"displayName"`
+										ShortDisplayName string `json:"shortDisplayName"`
+										Color            string `json:"color"`
+										AlternateColor   string `json:"alternateColor"`
+										IsActive         bool   `json:"isActive"`
+										Venue            struct {
+											ID string `json:"id"`
+										} `json:"venue"`
+										Links []struct {
+											Rel  []string `json:"rel"`
+											Href string   `json:"href"`
+											Text string   `json:"text"`
+										} `json:"links"`
+										Logo string `json:"logo"`
+									}{
+										ID:               "4",
+										Location:         "Buffalo",
+										Name:             "Bills",
+										Abbreviation:     "BUF",
+										DisplayName:      "Buffalo Bills",
+										ShortDisplayName: "Bills",
+										Color:            "00338D",
+										IsActive:         true,
+										Logo:             "https://a.espncdn.com/i/teamlogos/nfl/500/buf.png",
+									},
+									Score: "21",
+								},
+								{
+									ID:       gameId + "-2",
+									HomeAway: "home",
+									Team: struct {
+										ID               string `json:"id"`
+										UID              string `json:"uid"`
+										Location         string `json:"location"`
+										Name             string `json:"name"`
+										Abbreviation     string `json:"abbreviation"`
+										DisplayName      string `json:"displayName"`
+										ShortDisplayName string `json:"shortDisplayName"`
+										Color            string `json:"color"`
+										AlternateColor   string `json:"alternateColor"`
+										IsActive         bool   `json:"isActive"`
+										Venue            struct {
+											ID string `json:"id"`
+										} `json:"venue"`
+										Links []struct {
+											Rel  []string `json:"rel"`
+											Href string   `json:"href"`
+											Text string   `json:"text"`
+										} `json:"links"`
+										Logo string `json:"logo"`
+									}{
+										ID:               "15",
+										Location:         "Miami",
+										Name:             "Dolphins",
+										Abbreviation:     "MIA",
+										DisplayName:      "Miami Dolphins",
+										ShortDisplayName: "Dolphins",
+										Color:            "008E97",
+										IsActive:         true,
+										Logo:             "https://a.espncdn.com/i/teamlogos/nfl/500/mia.png",
+									},
+									Score: "17",
+								},
+							},
+							Venue: struct {
+								ID       string `json:"id"`
+								FullName string `json:"fullName"`
+								Address  struct {
+									City  string `json:"city"`
+									State string `json:"state"`
+								} `json:"address"`
+								Grass  bool `json:"grass"`
+								Indoor bool `json:"indoor"`
+							}{
+								ID:       "1",
+								FullName: "Hard Rock Stadium",
+								Address: struct {
+									City  string `json:"city"`
+									State string `json:"state"`
+								}{
+									City:  "Miami Gardens",
+									State: "FL",
+								},
+								Grass:  true,
+								Indoor: false,
+							},
+						},
+					},
+				},
+			},
+		}
+	}
+
+	// Default response for other game IDs
 	return NFLScoreboardResponse{
 		Events: []NFLScoreboardEvent{
 			{

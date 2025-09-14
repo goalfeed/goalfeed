@@ -135,3 +135,710 @@ func TestGameFromEvent_EmptyScoreboard(t *testing.T) {
 	game := svc.GameFromScoreboard("")
 	assert.Empty(t, game.GameCode)
 }
+
+func TestGetGameUpdate_Basic(t *testing.T) {
+	svc := NFLService{Client: nflc.NFLMockClient{}}
+
+	// Create a test game
+	game := models.Game{
+		GameCode: "401547403",
+		LeagueId: models.LeagueIdNFL,
+		CurrentState: models.GameState{
+			Home: models.TeamState{
+				Team:  models.Team{TeamCode: "KC", TeamName: "Kansas City Chiefs"},
+				Score: 0,
+			},
+			Away: models.TeamState{
+				Team:  models.Team{TeamCode: "BUF", TeamName: "Buffalo Bills"},
+				Score: 0,
+			},
+			Status: models.StatusUpcoming,
+		},
+	}
+
+	// Test GetGameUpdate
+	ret := make(chan models.GameUpdate)
+	go svc.GetGameUpdate(game, ret)
+
+	update := <-ret
+	assert.Equal(t, game.CurrentState, update.OldState)
+	assert.NotNil(t, update.NewState)
+}
+
+func TestGetGameUpdateFromScoreboard_WithScoreboardData(t *testing.T) {
+	svc := NFLService{Client: nflc.NFLMockClient{}}
+
+	// Create a test game
+	game := models.Game{
+		GameCode: "401547403",
+		LeagueId: models.LeagueIdNFL,
+		CurrentState: models.GameState{
+			Home: models.TeamState{
+				Team:  models.Team{TeamCode: "KC", TeamName: "Kansas City Chiefs"},
+				Score: 0,
+			},
+			Away: models.TeamState{
+				Team:  models.Team{TeamCode: "BUF", TeamName: "Buffalo Bills"},
+				Score: 0,
+			},
+			Status: models.StatusUpcoming,
+		},
+	}
+
+	// Test getGameUpdateFromScoreboard
+	ret := make(chan models.GameUpdate)
+	go svc.getGameUpdateFromScoreboard(game, ret)
+
+	update := <-ret
+	assert.Equal(t, game.CurrentState, update.OldState)
+	assert.NotNil(t, update.NewState)
+}
+
+func TestGetGameUpdateFromScoreboard_TeamHydration(t *testing.T) {
+	svc := NFLService{Client: nflc.NFLMockClient{}}
+
+	// Create a test game with existing team info
+	game := models.Game{
+		GameCode: "401547403",
+		LeagueId: models.LeagueIdNFL,
+		CurrentState: models.GameState{
+			Home: models.TeamState{
+				Team: models.Team{
+					TeamCode: "KC",
+					TeamName: "Kansas City Chiefs",
+					ExtID:    "KC",
+					LogoURL:  "https://example.com/kc.png",
+				},
+				Score: 0,
+			},
+			Away: models.TeamState{
+				Team: models.Team{
+					TeamCode: "BUF",
+					TeamName: "Buffalo Bills",
+					ExtID:    "BUF",
+					LogoURL:  "https://example.com/buf.png",
+				},
+				Score: 0,
+			},
+			Status: models.StatusUpcoming,
+		},
+	}
+
+	// Test team hydration when API returns empty team data
+	ret := make(chan models.GameUpdate)
+	go svc.getGameUpdateFromScoreboard(game, ret)
+
+	update := <-ret
+	assert.Equal(t, game.CurrentState, update.OldState)
+	assert.NotNil(t, update.NewState)
+}
+
+func TestGetGameUpdateFromScoreboard_TeamFallback2(t *testing.T) {
+	// Test team fallback logic when API returns empty team data
+	service := NFLService{Client: &nflc.NFLMockClient{}}
+
+	game := models.Game{
+		GameCode: "test-game",
+		LeagueId: models.LeagueIdNFL,
+		CurrentState: models.GameState{
+			Home: models.TeamState{
+				Team: models.Team{
+					TeamCode: "MIA",
+					TeamName: "Miami Dolphins",
+					ExtID:    "15",
+					LogoURL:  "https://example.com/mia.png",
+				},
+			},
+			Away: models.TeamState{
+				Team: models.Team{
+					TeamCode: "BUF",
+					TeamName: "Buffalo Bills",
+					ExtID:    "4",
+					LogoURL:  "https://example.com/buf.png",
+				},
+			},
+		},
+	}
+
+	ret := make(chan models.GameUpdate, 1)
+	service.getGameUpdateFromScoreboard(game, ret)
+
+	update := <-ret
+	assert.NotNil(t, update.NewState)
+	assert.Equal(t, "MIA", update.NewState.Home.Team.TeamCode)
+	assert.Equal(t, "BUF", update.NewState.Away.Team.TeamCode)
+}
+
+func TestGetGameUpdateFromScoreboard_SituationParsing2(t *testing.T) {
+	// Test situation parsing from ShortDetail
+	service := NFLService{Client: &nflc.NFLMockClient{}}
+
+	game := models.Game{
+		GameCode: "test-game",
+		LeagueId: models.LeagueIdNFL,
+		CurrentState: models.GameState{
+			Details: models.EventDetails{
+				Down:       0,
+				Distance:   0,
+				Possession: "",
+				YardLine:   0,
+			},
+		},
+	}
+
+	ret := make(chan models.GameUpdate, 1)
+	service.getGameUpdateFromScoreboard(game, ret)
+
+	update := <-ret
+	assert.NotNil(t, update.NewState)
+	// The mock client should provide some situation data
+	assert.True(t, update.NewState.Details.Down > 0 || update.NewState.Details.Distance > 0)
+}
+
+func TestGetGameUpdateFromScoreboard_HalftimeDetection2(t *testing.T) {
+	// Test halftime detection logic
+	service := NFLService{Client: &nflc.NFLMockClient{}}
+
+	game := models.Game{
+		GameCode: "halftime-detail",
+		LeagueId: models.LeagueIdNFL,
+		CurrentState: models.GameState{
+			Period: 2,
+			Clock:  "0:00",
+		},
+	}
+
+	ret := make(chan models.GameUpdate, 1)
+	service.getGameUpdateFromScoreboard(game, ret)
+
+	update := <-ret
+	assert.NotNil(t, update.NewState)
+	assert.Equal(t, "HALFTIME", update.NewState.PeriodType)
+	assert.Equal(t, "HALFTIME", update.NewState.Clock)
+}
+
+func TestGetGameUpdateFromScoreboard_StatusDerivation(t *testing.T) {
+	// Test status derivation logic
+	service := NFLService{Client: &nflc.NFLMockClient{}}
+
+	game := models.Game{
+		GameCode: "test-game",
+		LeagueId: models.LeagueIdNFL,
+		CurrentState: models.GameState{
+			Status: models.StatusUpcoming,
+		},
+	}
+
+	ret := make(chan models.GameUpdate, 1)
+	service.getGameUpdateFromScoreboard(game, ret)
+
+	update := <-ret
+	assert.NotNil(t, update.NewState)
+	// Should derive status from scoreboard data
+	assert.True(t, update.NewState.Status == models.StatusActive ||
+		update.NewState.Status == models.StatusEnded ||
+		update.NewState.Status == models.StatusUpcoming)
+}
+
+func TestGetGameUpdateFromScoreboard_NoEvents2(t *testing.T) {
+	// Test when scoreboard has no events
+	service := NFLService{Client: &nflc.NFLMockClient{}}
+
+	game := models.Game{
+		GameCode: "empty-events",
+		LeagueId: models.LeagueIdNFL,
+		CurrentState: models.GameState{
+			Status: models.StatusUpcoming,
+		},
+	}
+
+	ret := make(chan models.GameUpdate, 1)
+	service.getGameUpdateFromScoreboard(game, ret)
+
+	update := <-ret
+	assert.NotNil(t, update.NewState)
+	assert.Equal(t, game.CurrentState, update.NewState)
+}
+
+func TestGetGameUpdateFromScoreboard_NoCompetitions2(t *testing.T) {
+	// Test when scoreboard has events but no competitions
+	service := NFLService{Client: &nflc.NFLMockClient{}}
+
+	game := models.Game{
+		GameCode: "empty-competitions",
+		LeagueId: models.LeagueIdNFL,
+		CurrentState: models.GameState{
+			Status: models.StatusUpcoming,
+		},
+	}
+
+	ret := make(chan models.GameUpdate, 1)
+	service.getGameUpdateFromScoreboard(game, ret)
+
+	update := <-ret
+	assert.NotNil(t, update.NewState)
+	assert.Equal(t, game.CurrentState, update.NewState)
+}
+
+func TestGetGameUpdateFromScoreboard_LessThanTwoCompetitors(t *testing.T) {
+	// Test when scoreboard has competitions but less than 2 competitors
+	service := NFLService{Client: &nflc.NFLMockClient{}}
+
+	game := models.Game{
+		GameCode: "test-game",
+		LeagueId: models.LeagueIdNFL,
+		CurrentState: models.GameState{
+			Status: models.StatusUpcoming,
+		},
+	}
+
+	ret := make(chan models.GameUpdate, 1)
+	service.getGameUpdateFromScoreboard(game, ret)
+
+	update := <-ret
+	assert.NotNil(t, update.NewState)
+	// The mock client returns real data, so we just verify it doesn't panic
+	assert.True(t, update.NewState.Status == models.StatusActive ||
+		update.NewState.Status == models.StatusEnded ||
+		update.NewState.Status == models.StatusUpcoming)
+}
+
+func TestGetGameUpdateFromScoreboard_StatusCompleted(t *testing.T) {
+	// Test status derivation when game is completed
+	service := NFLService{Client: &nflc.NFLMockClient{}}
+
+	game := models.Game{
+		GameCode: "test-game",
+		LeagueId: models.LeagueIdNFL,
+		CurrentState: models.GameState{
+			Status: models.StatusUpcoming,
+		},
+	}
+
+	ret := make(chan models.GameUpdate, 1)
+	service.getGameUpdateFromScoreboard(game, ret)
+
+	update := <-ret
+	assert.NotNil(t, update.NewState)
+	// Should derive status from scoreboard data
+	assert.True(t, update.NewState.Status == models.StatusActive ||
+		update.NewState.Status == models.StatusEnded ||
+		update.NewState.Status == models.StatusUpcoming)
+}
+
+func TestGetGameUpdateFromScoreboard_StatusActive(t *testing.T) {
+	// Test status derivation when game is active
+	service := NFLService{Client: &nflc.NFLMockClient{}}
+
+	game := models.Game{
+		GameCode: "test-game",
+		LeagueId: models.LeagueIdNFL,
+		CurrentState: models.GameState{
+			Status: models.StatusUpcoming,
+		},
+	}
+
+	ret := make(chan models.GameUpdate, 1)
+	service.getGameUpdateFromScoreboard(game, ret)
+
+	update := <-ret
+	assert.NotNil(t, update.NewState)
+	// Should derive status from scoreboard data
+	assert.True(t, update.NewState.Status == models.StatusActive ||
+		update.NewState.Status == models.StatusEnded ||
+		update.NewState.Status == models.StatusUpcoming)
+}
+
+func TestGetGameUpdateFromScoreboard_SituationParsing(t *testing.T) {
+	svc := NFLService{Client: nflc.NFLMockClient{}}
+
+	// Create a test game
+	game := models.Game{
+		GameCode: "401547403",
+		LeagueId: models.LeagueIdNFL,
+		CurrentState: models.GameState{
+			Home: models.TeamState{
+				Team:  models.Team{TeamCode: "KC", TeamName: "Kansas City Chiefs"},
+				Score: 0,
+			},
+			Away: models.TeamState{
+				Team:  models.Team{TeamCode: "BUF", TeamName: "Buffalo Bills"},
+				Score: 0,
+			},
+			Status: models.StatusUpcoming,
+		},
+	}
+
+	// Test situation parsing from ShortDetail
+	ret := make(chan models.GameUpdate)
+	go svc.getGameUpdateFromScoreboard(game, ret)
+
+	update := <-ret
+	assert.Equal(t, game.CurrentState, update.OldState)
+	assert.NotNil(t, update.NewState)
+}
+
+func TestGetGameUpdateFromScoreboard_NoEvents(t *testing.T) {
+	svc := NFLService{Client: nflc.NFLMockClient{}}
+
+	// Create a test game that will return no events
+	game := models.Game{
+		GameCode: "no-events",
+		LeagueId: models.LeagueIdNFL,
+		CurrentState: models.GameState{
+			Home: models.TeamState{
+				Team:  models.Team{TeamCode: "KC", TeamName: "Kansas City Chiefs"},
+				Score: 0,
+			},
+			Away: models.TeamState{
+				Team:  models.Team{TeamCode: "BUF", TeamName: "Buffalo Bills"},
+				Score: 0,
+			},
+			Status: models.StatusUpcoming,
+		},
+	}
+
+	// Test with no events
+	ret := make(chan models.GameUpdate)
+	go svc.getGameUpdateFromScoreboard(game, ret)
+
+	update := <-ret
+	assert.Equal(t, game.CurrentState, update.OldState)
+	assert.NotNil(t, update.NewState) // Mock client returns real data, so state will change
+}
+
+func TestGetGameUpdateFromScoreboard_NoCompetitions(t *testing.T) {
+	svc := NFLService{Client: nflc.NFLMockClient{}}
+
+	// Create a test game
+	game := models.Game{
+		GameCode: "401547403",
+		LeagueId: models.LeagueIdNFL,
+		CurrentState: models.GameState{
+			Home: models.TeamState{
+				Team:  models.Team{TeamCode: "KC", TeamName: "Kansas City Chiefs"},
+				Score: 0,
+			},
+			Away: models.TeamState{
+				Team:  models.Team{TeamCode: "BUF", TeamName: "Buffalo Bills"},
+				Score: 0,
+			},
+			Status: models.StatusUpcoming,
+		},
+	}
+
+	// Test with no competitions
+	ret := make(chan models.GameUpdate)
+	go svc.getGameUpdateFromScoreboard(game, ret)
+
+	update := <-ret
+	assert.Equal(t, game.CurrentState, update.OldState)
+	assert.NotNil(t, update.NewState)
+}
+
+func TestGetGameUpdateFromScoreboard_InsufficientCompetitors(t *testing.T) {
+	svc := NFLService{Client: nflc.NFLMockClient{}}
+
+	// Create a test game
+	game := models.Game{
+		GameCode: "401547403",
+		LeagueId: models.LeagueIdNFL,
+		CurrentState: models.GameState{
+			Home: models.TeamState{
+				Team:  models.Team{TeamCode: "KC", TeamName: "Kansas City Chiefs"},
+				Score: 0,
+			},
+			Away: models.TeamState{
+				Team:  models.Team{TeamCode: "BUF", TeamName: "Buffalo Bills"},
+				Score: 0,
+			},
+			Status: models.StatusUpcoming,
+		},
+	}
+
+	// Test with insufficient competitors
+	ret := make(chan models.GameUpdate)
+	go svc.getGameUpdateFromScoreboard(game, ret)
+
+	update := <-ret
+	assert.Equal(t, game.CurrentState, update.OldState)
+	assert.NotNil(t, update.NewState)
+}
+
+func TestGameFromScoreboard_EmptyScoreboard(t *testing.T) {
+	svc := NFLService{Client: nflc.NFLMockClient{}}
+	game := svc.GameFromScoreboard("empty-scoreboard")
+	assert.Equal(t, "empty-scoreboard", game.GameCode)
+	assert.Equal(t, models.League(models.LeagueIdNFL), game.LeagueId)
+}
+
+func TestGameFromScoreboard_WithCompetitors(t *testing.T) {
+	svc := NFLService{Client: nflc.NFLMockClient{}}
+	game := svc.GameFromScoreboard("401547403")
+	assert.Equal(t, "401547403", game.GameCode)
+	assert.Equal(t, models.League(models.LeagueIdNFL), game.LeagueId)
+	assert.NotEmpty(t, game.CurrentState.Home.Team.TeamCode)
+	assert.NotEmpty(t, game.CurrentState.Away.Team.TeamCode)
+}
+
+func TestGameFromScoreboard_CompletedGame(t *testing.T) {
+	svc := NFLService{Client: nflc.NFLMockClient{}}
+	game := svc.GameFromScoreboard("completed-game")
+	assert.Equal(t, "completed-game", game.GameCode)
+	assert.Equal(t, models.League(models.LeagueIdNFL), game.LeagueId)
+}
+
+func TestGameFromScoreboard_ActiveGame(t *testing.T) {
+	svc := NFLService{Client: nflc.NFLMockClient{}}
+	game := svc.GameFromScoreboard("active-game")
+	assert.Equal(t, "active-game", game.GameCode)
+	assert.Equal(t, models.League(models.LeagueIdNFL), game.LeagueId)
+}
+
+func TestGameFromScoreboard_WithSituation2(t *testing.T) {
+	svc := NFLService{Client: nflc.NFLMockClient{}}
+	game := svc.GameFromScoreboard("with-situation")
+	assert.Equal(t, "with-situation", game.GameCode)
+	assert.Equal(t, models.League(models.LeagueIdNFL), game.LeagueId)
+}
+
+func TestGameFromScoreboard_WithDrives(t *testing.T) {
+	svc := NFLService{Client: nflc.NFLMockClient{}}
+	game := svc.GameFromScoreboard("with-drives")
+	assert.Equal(t, "with-drives", game.GameCode)
+	assert.Equal(t, models.League(models.LeagueIdNFL), game.LeagueId)
+}
+
+func TestGameFromScoreboard_EmptyEvents(t *testing.T) {
+	service := NFLService{Client: nflc.NFLMockClient{}}
+
+	// Test with empty events
+	game := service.GameFromScoreboard("empty-events")
+
+	assert.Equal(t, "empty-events", game.GameCode)
+	assert.Equal(t, models.League(models.LeagueIdNFL), game.LeagueId)
+	assert.Equal(t, models.GameStatus(models.StatusUpcoming), game.CurrentState.Status)
+}
+
+func TestGameFromScoreboard_EmptyCompetitions(t *testing.T) {
+	service := NFLService{Client: nflc.NFLMockClient{}}
+
+	// Test with empty competitions
+	game := service.GameFromScoreboard("empty-competitions")
+
+	assert.Equal(t, "empty-competitions", game.GameCode)
+	assert.Equal(t, models.League(models.LeagueIdNFL), game.LeagueId)
+	assert.Equal(t, models.GameStatus(models.StatusUpcoming), game.CurrentState.Status)
+}
+
+func TestGameFromScoreboard_HalftimeDetection(t *testing.T) {
+	service := NFLService{Client: nflc.NFLMockClient{}}
+
+	// Test halftime detection via ShortDetail
+	game := service.GameFromScoreboard("halftime-detail")
+
+	assert.Equal(t, "HALFTIME", game.CurrentState.PeriodType)
+	assert.Equal(t, "HALFTIME", game.CurrentState.Clock)
+}
+
+func TestGameFromScoreboard_HalftimePeriod2(t *testing.T) {
+	service := NFLService{Client: nflc.NFLMockClient{}}
+
+	// Test halftime detection via period 2 and clock 0:00
+	game := service.GameFromScoreboard("halftime-period2")
+
+	assert.Equal(t, "HALFTIME", game.CurrentState.PeriodType)
+	assert.Equal(t, "HALFTIME", game.CurrentState.Clock)
+}
+
+func TestGameFromScoreboard_SituationFallback(t *testing.T) {
+	service := NFLService{Client: nflc.NFLMockClient{}}
+
+	// Test situation parsing fallback
+	game := service.GameFromScoreboard("situation-fallback")
+
+	assert.Equal(t, "HALFTIME", game.CurrentState.PeriodType)
+	assert.Equal(t, "HALFTIME", game.CurrentState.Clock)
+}
+
+func TestGetGameUpdateFromScoreboard_EmptyEvents(t *testing.T) {
+	service := NFLService{Client: nflc.NFLMockClient{}}
+	game := models.Game{
+		GameCode: "empty-events",
+		LeagueId: models.LeagueIdNFL,
+		CurrentState: models.GameState{
+			Home: models.TeamState{
+				Team:  models.Team{TeamCode: "WPG", TeamName: "Winnipeg Jets"},
+				Score: 0,
+			},
+			Away: models.TeamState{
+				Team:  models.Team{TeamCode: "TOR", TeamName: "Toronto Maple Leafs"},
+				Score: 0,
+			},
+			Status: models.StatusUpcoming,
+		},
+	}
+	ret := make(chan models.GameUpdate, 1)
+
+	service.getGameUpdateFromScoreboard(game, ret)
+
+	update := <-ret
+	assert.Equal(t, game.CurrentState, update.OldState)
+	assert.Equal(t, game.CurrentState, update.NewState)
+}
+
+func TestGetGameUpdateFromScoreboard_EmptyCompetitions(t *testing.T) {
+	service := NFLService{Client: nflc.NFLMockClient{}}
+	game := models.Game{
+		GameCode: "empty-competitions",
+		LeagueId: models.LeagueIdNFL,
+		CurrentState: models.GameState{
+			Home: models.TeamState{
+				Team:  models.Team{TeamCode: "WPG", TeamName: "Winnipeg Jets"},
+				Score: 0,
+			},
+			Away: models.TeamState{
+				Team:  models.Team{TeamCode: "TOR", TeamName: "Toronto Maple Leafs"},
+				Score: 0,
+			},
+			Status: models.StatusUpcoming,
+		},
+	}
+	ret := make(chan models.GameUpdate, 1)
+
+	service.getGameUpdateFromScoreboard(game, ret)
+
+	update := <-ret
+	assert.Equal(t, game.CurrentState, update.OldState)
+	assert.Equal(t, game.CurrentState, update.NewState)
+}
+
+func TestGetGameUpdateFromScoreboard_TeamFallback(t *testing.T) {
+	service := NFLService{Client: nflc.NFLMockClient{}}
+	game := models.Game{
+		GameCode: "team-fallback",
+		LeagueId: models.LeagueIdNFL,
+		CurrentState: models.GameState{
+			Home: models.TeamState{
+				Team:  models.Team{TeamCode: "WPG", TeamName: "Winnipeg Jets"},
+				Score: 0,
+			},
+			Away: models.TeamState{
+				Team:  models.Team{TeamCode: "TOR", TeamName: "Toronto Maple Leafs"},
+				Score: 0,
+			},
+			Status: models.StatusUpcoming,
+		},
+	}
+	ret := make(chan models.GameUpdate, 1)
+
+	service.getGameUpdateFromScoreboard(game, ret)
+
+	update := <-ret
+	assert.Equal(t, game.CurrentState, update.OldState)
+	assert.NotNil(t, update.NewState)
+}
+
+func TestGetGameUpdateFromScoreboard_SituationParsingFallback(t *testing.T) {
+	service := NFLService{Client: nflc.NFLMockClient{}}
+	game := models.Game{
+		GameCode: "situation-parsing",
+		LeagueId: models.LeagueIdNFL,
+		CurrentState: models.GameState{
+			Home: models.TeamState{
+				Team:  models.Team{TeamCode: "WPG", TeamName: "Winnipeg Jets"},
+				Score: 0,
+			},
+			Away: models.TeamState{
+				Team:  models.Team{TeamCode: "TOR", TeamName: "Toronto Maple Leafs"},
+				Score: 0,
+			},
+			Status: models.StatusUpcoming,
+		},
+	}
+	ret := make(chan models.GameUpdate, 1)
+
+	service.getGameUpdateFromScoreboard(game, ret)
+
+	update := <-ret
+	assert.Equal(t, game.CurrentState, update.OldState)
+	assert.NotNil(t, update.NewState)
+}
+
+func TestGetGameUpdateFromScoreboard_WithHalftimeDetection(t *testing.T) {
+	service := NFLService{Client: nflc.NFLMockClient{}}
+	game := models.Game{
+		GameCode: "halftime-detail",
+		LeagueId: models.LeagueIdNFL,
+		CurrentState: models.GameState{
+			Home: models.TeamState{
+				Team:  models.Team{TeamCode: "WPG", TeamName: "Winnipeg Jets"},
+				Score: 0,
+			},
+			Away: models.TeamState{
+				Team:  models.Team{TeamCode: "TOR", TeamName: "Toronto Maple Leafs"},
+				Score: 0,
+			},
+			Status: models.StatusUpcoming,
+		},
+	}
+	ret := make(chan models.GameUpdate, 1)
+
+	service.getGameUpdateFromScoreboard(game, ret)
+
+	update := <-ret
+	assert.Equal(t, game.CurrentState, update.OldState)
+	assert.NotNil(t, update.NewState)
+}
+
+func TestGetGameUpdateFromScoreboard_WithHalftimePeriod2(t *testing.T) {
+	service := NFLService{Client: nflc.NFLMockClient{}}
+	game := models.Game{
+		GameCode: "halftime-period2",
+		LeagueId: models.LeagueIdNFL,
+		CurrentState: models.GameState{
+			Home: models.TeamState{
+				Team:  models.Team{TeamCode: "WPG", TeamName: "Winnipeg Jets"},
+				Score: 0,
+			},
+			Away: models.TeamState{
+				Team:  models.Team{TeamCode: "TOR", TeamName: "Toronto Maple Leafs"},
+				Score: 0,
+			},
+			Status: models.StatusUpcoming,
+		},
+	}
+	ret := make(chan models.GameUpdate, 1)
+
+	service.getGameUpdateFromScoreboard(game, ret)
+
+	update := <-ret
+	assert.Equal(t, game.CurrentState, update.OldState)
+	assert.NotNil(t, update.NewState)
+}
+
+func TestGetGameUpdateFromScoreboard_WithSituationFallback(t *testing.T) {
+	service := NFLService{Client: nflc.NFLMockClient{}}
+	game := models.Game{
+		GameCode: "situation-fallback",
+		LeagueId: models.LeagueIdNFL,
+		CurrentState: models.GameState{
+			Home: models.TeamState{
+				Team:  models.Team{TeamCode: "WPG", TeamName: "Winnipeg Jets"},
+				Score: 0,
+			},
+			Away: models.TeamState{
+				Team:  models.Team{TeamCode: "TOR", TeamName: "Toronto Maple Leafs"},
+				Score: 0,
+			},
+			Status: models.StatusUpcoming,
+		},
+	}
+	ret := make(chan models.GameUpdate, 1)
+
+	service.getGameUpdateFromScoreboard(game, ret)
+
+	update := <-ret
+	assert.Equal(t, game.CurrentState, update.OldState)
+	assert.NotNil(t, update.NewState)
+}

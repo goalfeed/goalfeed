@@ -1,0 +1,77 @@
+---
+title: Test-Driven Development and 95% Coverage
+description: Require TDD (red-green-refactor) and >=95% code coverage for all changes in this repository.
+type: auto_attached
+alwaysApply: true
+---
+
+## Test-Driven Development (TDD)
+
+- Write tests first for any new behavior or bug fix (Red-Green-Refactor).
+- Do not add production code without a failing test that justifies it.
+- Keep tests deterministic, isolated, and fast. Prefer unit tests; add integration tests when behavior spans modules.
+- For UI, cover React components with React Testing Library and mock external I/O.
+
+## Coverage Requirements
+
+- Maintain at least 95% coverage for lines, branches, functions, and statements across affected packages.
+- Enforce the threshold in the test runner configuration. Example configurations:
+
+```ts
+// Vitest (preferred)
+// web/vitest.config.ts
+import { defineConfig } from 'vitest/config';
+
+export default defineConfig({
+  test: {
+    environment: 'jsdom',
+    coverage: {
+      enabled: true,
+      provider: 'v8',
+      all: true,
+      thresholds: { lines: 95, functions: 95, branches: 95, statements: 95 },
+      reportsDirectory: './coverage',
+    },
+    include: ['src/**/*.{ts,tsx}'],
+    exclude: ['node_modules', '.next', 'dist'],
+  },
+});
+```
+
+```ts
+// Jest
+// web/jest.config.ts
+import type { Config } from 'jest';
+
+const config: Config = {
+  testEnvironment: 'jsdom',
+  collectCoverage: true,
+  coverageDirectory: 'coverage',
+  coverageThreshold: {
+    global: { lines: 95, functions: 95, branches: 95, statements: 95 },
+  },
+  collectCoverageFrom: ['src/**/*.{ts,tsx}', '!**/node_modules/**', '!**/.next/**'],
+};
+
+export default config;
+```
+
+## Project Conventions
+
+- Place tests alongside sources or under `__tests__` using `*.test.ts` / `*.test.tsx`.
+- For `web/` (Next.js + TypeScript):
+  - Unit-test utilities in `web/src/lib/**`.
+  - Component tests with React Testing Library for `web/src/components/**`.
+  - Avoid relying on Next.js internals; mock router, fetch, and Supabase clients.
+- For `supabase/functions/**`: write unit tests for `*.ts` logic (e.g., input validation, transformation). Integration tests may stub network.
+
+## Automation
+
+- Ensure `npm test` (or `pnpm test`) runs the suite with coverage and fails if thresholds are not met.
+- Gate merges on green tests and >=95% coverage.
+
+## Definition of Done (enforced by this rule)
+
+- A failing test exists before implementation.
+- Implementation makes tests pass without lowering coverage beneath 95%.
+- Refactor step performed with tests remaining green.

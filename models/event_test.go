@@ -68,3 +68,23 @@ func TestGameStatusJSON(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, "\"unknown\"", string(b))
 }
+
+func TestGameStatusMarshalJSON_AllCases(t *testing.T) {
+	// Test all GameStatus values for MarshalJSON
+	testCases := []struct {
+		status   GameStatus
+		expected string
+	}{
+		{StatusUpcoming, "\"upcoming\""},
+		{StatusActive, "\"active\""},
+		{StatusDelayed, "\"delayed\""},
+		{StatusEnded, "\"ended\""},
+		{GameStatus(999), "\"unknown\""}, // Default case
+	}
+
+	for _, tc := range testCases {
+		data, err := json.Marshal(tc.status)
+		assert.NoError(t, err)
+		assert.Equal(t, tc.expected, string(data))
+	}
+}

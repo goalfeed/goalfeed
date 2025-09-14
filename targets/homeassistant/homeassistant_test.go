@@ -8,6 +8,8 @@ import (
 	"testing"
 
 	"goalfeed/models"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func setupTestServer(t *testing.T) (*httptest.Server, *int) {
@@ -127,4 +129,58 @@ func TestPublishBaselineForMonitoredTeams(t *testing.T) {
 	os.Setenv("GOALFEED_WATCH_CFL", "WPG")
 	os.Setenv("GOALFEED_WATCH_NFL", "BUF")
 	PublishBaselineForMonitoredTeams()
+}
+
+func TestSendEvent_InsideHA(t *testing.T) {
+	// Test SendEvent when running inside Home Assistant add-on environment
+	os.Setenv("SUPERVISOR_API", "http://supervisor")
+	os.Setenv("SUPERVISOR_TOKEN", "test-token")
+	defer func() {
+		os.Unsetenv("SUPERVISOR_API")
+		os.Unsetenv("SUPERVISOR_TOKEN")
+	}()
+
+	event := models.Event{
+		Type:        "GOAL",
+		Description: "Test goal",
+		TeamCode:    "WPG",
+		LeagueId:    models.LeagueIdNHL,
+		LeagueName:  "NHL",
+		Id:          "test-id",
+	}
+
+	// Test that SendEvent runs without error
+	assert.NotPanics(t, func() {
+		SendEvent(event)
+	})
+}
+
+func TestSendEvent_OutsideHA(t *testing.T) {
+	// Test SendEvent when not running inside Home Assistant
+	os.Unsetenv("SUPERVISOR_API")
+	os.Unsetenv("SUPERVISOR_TOKEN")
+
+	event := models.Event{
+		Type:        "GOAL",
+		Description: "Test goal",
+		TeamCode:    "WPG",
+		LeagueId:    models.LeagueIdNHL,
+		LeagueName:  "NHL",
+		Id:          "test-id",
+	}
+
+	// Test that SendEvent runs without error
+	assert.NotPanics(t, func() {
+		SendEvent(event)
+	})
+}
+
+func TestSendEvent_EmptyEvent(t *testing.T) {
+	// Test SendEvent with empty event
+	event := models.Event{}
+
+	// Test that SendEvent runs without error
+	assert.NotPanics(t, func() {
+		SendEvent(event)
+	})
 }

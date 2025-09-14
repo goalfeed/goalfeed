@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"goalfeed/models"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func withHAServer(t *testing.T) *httptest.Server {
@@ -171,4 +173,131 @@ func TestPublishEntityNoHAConfigured(t *testing.T) {
 	if ok {
 		t.Fatalf("expected no send when HA not configured")
 	}
+}
+
+func TestPublishGameSummary(t *testing.T) {
+	// Test that PublishGameSummary runs without error (it's disabled/empty)
+	game := models.Game{
+		LeagueId: models.LeagueIdNHL,
+		CurrentState: models.GameState{
+			Home: models.TeamState{
+				Team:  models.Team{TeamCode: "TOR", TeamName: "Toronto Maple Leafs"},
+				Score: 3,
+			},
+			Away: models.TeamState{
+				Team:  models.Team{TeamCode: "MTL", TeamName: "Montreal Canadiens"},
+				Score: 2,
+			},
+			Status: models.StatusEnded,
+		},
+	}
+
+	// Should not panic or error
+	assert.NotPanics(t, func() {
+		PublishGameSummary(game)
+	})
+}
+
+func TestPublishEndOfGameReset_NHL(t *testing.T) {
+	// Test NHL end of game reset
+	game := models.Game{
+		LeagueId: models.LeagueIdNHL,
+		CurrentState: models.GameState{
+			Home: models.TeamState{
+				Team:  models.Team{TeamCode: "TOR", TeamName: "Toronto Maple Leafs"},
+				Score: 3,
+			},
+			Away: models.TeamState{
+				Team:  models.Team{TeamCode: "MTL", TeamName: "Montreal Canadiens"},
+				Score: 2,
+			},
+			Status: models.StatusEnded,
+		},
+		GameDetails: models.GameDetails{
+			GameDate: time.Now(),
+		},
+	}
+
+	// Should not panic or error
+	assert.NotPanics(t, func() {
+		PublishEndOfGameReset(game)
+	})
+}
+
+func TestPublishEndOfGameReset_MLB(t *testing.T) {
+	// Test MLB end of game reset
+	game := models.Game{
+		LeagueId: models.LeagueIdMLB,
+		CurrentState: models.GameState{
+			Home: models.TeamState{
+				Team:  models.Team{TeamCode: "TOR", TeamName: "Toronto Blue Jays"},
+				Score: 5,
+			},
+			Away: models.TeamState{
+				Team:  models.Team{TeamCode: "NYY", TeamName: "New York Yankees"},
+				Score: 3,
+			},
+			Status: models.StatusEnded,
+		},
+		GameDetails: models.GameDetails{
+			GameDate: time.Now(),
+		},
+	}
+
+	// Should not panic or error
+	assert.NotPanics(t, func() {
+		PublishEndOfGameReset(game)
+	})
+}
+
+func TestPublishEndOfGameReset_NFL(t *testing.T) {
+	// Test NFL end of game reset
+	game := models.Game{
+		LeagueId: models.LeagueIdNFL,
+		CurrentState: models.GameState{
+			Home: models.TeamState{
+				Team:  models.Team{TeamCode: "KC", TeamName: "Kansas City Chiefs"},
+				Score: 24,
+			},
+			Away: models.TeamState{
+				Team:  models.Team{TeamCode: "BUF", TeamName: "Buffalo Bills"},
+				Score: 21,
+			},
+			Status: models.StatusEnded,
+		},
+		GameDetails: models.GameDetails{
+			GameDate: time.Now(),
+		},
+	}
+
+	// Should not panic or error
+	assert.NotPanics(t, func() {
+		PublishEndOfGameReset(game)
+	})
+}
+
+func TestPublishEndOfGameReset_CFL(t *testing.T) {
+	// Test CFL end of game reset
+	game := models.Game{
+		LeagueId: models.LeagueIdCFL,
+		CurrentState: models.GameState{
+			Home: models.TeamState{
+				Team:  models.Team{TeamCode: "WPG", TeamName: "Winnipeg Blue Bombers"},
+				Score: 28,
+			},
+			Away: models.TeamState{
+				Team:  models.Team{TeamCode: "SSK", TeamName: "Saskatchewan Roughriders"},
+				Score: 21,
+			},
+			Status: models.StatusEnded,
+		},
+		GameDetails: models.GameDetails{
+			GameDate: time.Now(),
+		},
+	}
+
+	// Should not panic or error
+	assert.NotPanics(t, func() {
+		PublishEndOfGameReset(game)
+	})
 }
