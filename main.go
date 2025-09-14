@@ -51,6 +51,69 @@ var (
 	eventSender    func(models.Event) = homeassistant.SendEvent // Allow this to be replaced in tests
 )
 
+// TickerConfig holds configuration for a ticker
+type TickerConfig struct {
+	Duration time.Duration
+	Task     func()
+}
+
+// TickerManager handles the complex logic of managing multiple tickers
+type TickerManager struct {
+	tickers []TickerConfig
+	wg      sync.WaitGroup
+}
+
+// NewTickerManager creates a new TickerManager instance
+func NewTickerManager() *TickerManager {
+	return &TickerManager{
+		tickers: []TickerConfig{
+			{1 * time.Minute, checkLeaguesForActiveGames},
+			{1 * time.Second, watchActiveGames},
+			{1 * time.Minute, sendTestGoal},
+			{10 * time.Minute, publishSchedules},
+			{5 * time.Second, func() {
+				if needRefresh {
+					checkLeaguesForActiveGames()
+					needRefresh = false
+				}
+			}},
+		},
+	}
+}
+
+// AddTicker adds a new ticker configuration
+func (tm *TickerManager) AddTicker(duration time.Duration, task func()) {
+	tm.tickers = append(tm.tickers, TickerConfig{
+		Duration: duration,
+		Task:     task,
+	})
+}
+
+// StartTicker starts a single ticker with the given configuration
+func (tm *TickerManager) StartTicker(config TickerConfig) {
+	tm.wg.Add(1)
+	go func(duration time.Duration, task func()) {
+		defer tm.wg.Done()
+		ticker := time.NewTicker(duration)
+		defer ticker.Stop()
+		for range ticker.C {
+			go task()
+		}
+	}(config.Duration, config.Task)
+}
+
+// StartAllTickers starts all configured tickers
+func (tm *TickerManager) StartAllTickers() {
+	for _, config := range tm.tickers {
+		tm.StartTicker(config)
+	}
+}
+
+// WaitForCompletion waits for all tickers to complete
+func (tm *TickerManager) WaitForCompletion() {
+	tm.wg.Wait()
+}
+
 func init() {
 	_ = godotenv.Load()
 	rootCmd.PersistentFlags().StringSlice("nhl", []string{}, "NHL teams to watch")
@@ -81,35 +144,9 @@ func main() {
 }
 
 func runTickers() {
-	var wg sync.WaitGroup
-	tickers := []struct {
-		duration time.Duration
-		task     func()
-	}{
-		{1 * time.Minute, checkLeaguesForActiveGames},
-		{1 * time.Second, watchActiveGames},
-		{1 * time.Minute, sendTestGoal},
-		{10 * time.Minute, publishSchedules},
-		{5 * time.Second, func() {
-			if needRefresh {
-				checkLeaguesForActiveGames()
-				needRefresh = false
-			}
-		}},
-	}
-
-	for _, t := range tickers {
-		wg.Add(1)
-		go func(duration time.Duration, task func()) {
-			defer wg.Done()
-			ticker := time.NewTicker(duration)
-			for range ticker.C {
-				go task()
-			}
-		}(t.duration, t.task)
-	}
-
-	wg.Wait()
+	tm := NewTickerManager()
+	tm.StartAllTickers()
+	tm.WaitForCompletion()
 }
 
 func runWebMode() {
@@ -184,8 +221,39 @@ func watchActiveGames() {
 }
 
 func checkGame(gameKey string) {
-	// Use the refactored version for better testability
-	CheckGameRefactored(gameKey)
+	game, err := memoryStore.GetGameByGameKey(gameKey)
+	if err != nil {
+		return
+	}
+
+	service := leagueServices[int(game.LeagueId)]
+	if service == nil {
+		return
+	}
+
+	updateChan := make(chan models.GameUpdate)
+	go service.GetGameUpdate(game, updateChan)
+	gameUpdate := <-updateChan
+
+	if gameUpdate.NewState.Period != gameUpdate.OldState.Period {
+		logger.Info(fmt.Sprintf("Period change detected for %s game %s: %d -> %d", service.GetLeagueName(), game.GameCode, gameUpdate.OldState.Period, gameUpdate.NewState.Period))
+
+		// Fire period change event
+		event := models.Event{
+			TeamCode:    "",
+			TeamName:    "",
+			LeagueId:    int(game.LeagueId),
+			LeagueName:  service.GetLeagueName(),
+			Type:        models.EventTypePeriodStart,
+			Description: fmt.Sprintf("Period %d started", gameUpdate.NewState.Period),
+		}
+		eventSender(event)
+	}
+
+	// Update the game with new state
+	updatedGame := game
+	updatedGame.CurrentState = gameUpdate.NewState
+	memoryStore.SetGame(updatedGame)
 }
 
 func fireGoalEvents(events chan []models.Event, game models.Game) {

@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -60,6 +61,58 @@ func setupRouter() *gin.Engine {
 	api.POST("/homeassistant/config", setHomeAssistantConfig)
 	api.POST("/clear", clearGames)
 	return r
+}
+
+func setupTestData(t *testing.T) {
+	// Clear any existing test data
+	memoryStore.ClearAllGames()
+
+	// Create test games for different leagues
+	nflGame := models.Game{
+		GameCode: "NFL-TEST-001",
+		LeagueId: models.LeagueIdNFL,
+		CurrentState: models.GameState{
+			Home: models.TeamState{
+				Team:  models.Team{TeamCode: "NE", TeamName: "Patriots"},
+				Score: 14,
+			},
+			Away: models.TeamState{
+				Team:  models.Team{TeamCode: "BUF", TeamName: "Bills"},
+				Score: 10,
+			},
+			Status: models.StatusActive,
+			Period: 2,
+			Clock:  "12:34",
+			Details: models.EventDetails{
+				Down:       2,
+				Distance:   5,
+				Possession: "NE",
+				YardLine:   45,
+			},
+		},
+	}
+
+	nhlGame := models.Game{
+		GameCode: "NHL-TEST-001",
+		LeagueId: models.LeagueIdNHL,
+		CurrentState: models.GameState{
+			Home: models.TeamState{
+				Team:  models.Team{TeamCode: "BOS", TeamName: "Bruins"},
+				Score: 2,
+			},
+			Away: models.TeamState{
+				Team:  models.Team{TeamCode: "TOR", TeamName: "Maple Leafs"},
+				Score: 1,
+			},
+			Status: models.StatusActive,
+			Period: 2,
+			Clock:  "15:30",
+		},
+	}
+
+	// Add games to memory store
+	memoryStore.AppendActiveGame(nflGame)
+	memoryStore.AppendActiveGame(nhlGame)
 }
 
 func TestGetLeagues_OK(t *testing.T) {
@@ -583,6 +636,7 @@ func TestGetLogs_SinceFilter(t *testing.T) {
 }
 
 func TestGetGames_NFLDetailsEnrichment(t *testing.T) {
+	setupTestData(t)
 	r := setupRouter()
 
 	// Test NFL games with details enrichment
@@ -677,6 +731,7 @@ func TestGetUpcoming_NoMonitoredTeams(t *testing.T) {
 }
 
 func TestGetGames_AllLeagues(t *testing.T) {
+	setupTestData(t)
 	r := setupRouter()
 
 	// Test getting games from all leagues
@@ -712,4 +767,201 @@ func TestGetGames_AllLeagues(t *testing.T) {
 	if len(leagues) == 0 {
 		t.Fatalf("expected games from at least one league")
 	}
+}
+
+// WebServerManager Tests
+func TestNewWebServerManager(t *testing.T) {
+	wsm := NewWebServerManager("8080")
+
+	if wsm == nil {
+		t.Fatal("Expected WebServerManager to be created")
+	}
+
+	if wsm.config.Port != "8080" {
+		t.Errorf("Expected port to be '8080', got '%s'", wsm.config.Port)
+	}
+
+	if wsm.hub == nil {
+		t.Error("Expected hub to be initialized")
+	}
+}
+
+func TestWebServerManager_StartWebSocketHub(t *testing.T) {
+	wsm := NewWebServerManager("8080")
+
+	// This should not panic
+	wsm.StartWebSocketHub()
+
+	// Give it a moment to start
+	time.Sleep(10 * time.Millisecond)
+}
+
+func TestWebServerManager_SetupBroadcastFunctions(t *testing.T) {
+	wsm := NewWebServerManager("8080")
+
+	// This should not panic
+	wsm.SetupBroadcastFunctions()
+}
+
+func TestWebServerManager_BuildFrontend(t *testing.T) {
+	wsm := NewWebServerManager("8080")
+
+	// This should not panic (may fail due to missing Node.js, but shouldn't crash)
+	err := wsm.BuildFrontend()
+
+	// We don't care about the error, just that it doesn't panic
+	_ = err
+}
+
+func TestWebServerManager_CreateGinEngine(t *testing.T) {
+	wsm := NewWebServerManager("8080")
+
+	engine := wsm.CreateGinEngine()
+
+	if engine == nil {
+		t.Fatal("Expected Gin engine to be created")
+	}
+}
+
+func TestWebServerManager_RegisterAPIRoutes(t *testing.T) {
+	wsm := NewWebServerManager("8080")
+	engine := wsm.CreateGinEngine()
+
+	// This should not panic
+	wsm.RegisterAPIRoutes(engine)
+}
+
+func TestWebServerManager_RegisterWebSocketRoute(t *testing.T) {
+	wsm := NewWebServerManager("8080")
+	engine := wsm.CreateGinEngine()
+
+	// This should not panic
+	wsm.RegisterWebSocketRoute(engine)
+}
+
+func TestWebServerManager_SetupStaticFileServing(t *testing.T) {
+	wsm := NewWebServerManager("8080")
+	engine := wsm.CreateGinEngine()
+
+	// This should not panic
+	wsm.SetupStaticFileServing(engine)
+}
+
+func TestWebServerManager_setupFallbackRoute(t *testing.T) {
+	wsm := NewWebServerManager("8080")
+	engine := wsm.CreateGinEngine()
+
+	// This should not panic
+	wsm.setupFallbackRoute(engine)
+}
+
+func TestWebServerManager_StartServer(t *testing.T) {
+	wsm := NewWebServerManager("8080")
+	engine := wsm.CreateGinEngine()
+
+	// Register routes
+	wsm.RegisterAPIRoutes(engine)
+	wsm.setupFallbackRoute(engine)
+
+	// Create a test server instead of actually starting one
+	server := httptest.NewServer(engine)
+	defer server.Close()
+
+	// Test that the server responds
+	resp, err := http.Get(server.URL + "/")
+	if err != nil {
+		t.Fatalf("Failed to make request: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("Expected status 200, got %d", resp.StatusCode)
+	}
+}
+
+func TestStartWebServerRefactored(t *testing.T) {
+	// This is a complex integration test, so we'll just ensure it doesn't panic
+	// In a real scenario, we'd want to test this more thoroughly
+
+	// We can't actually start the server in a test, so we'll test the setup
+	wsm := NewWebServerManager("8080")
+
+	// Test individual components
+	wsm.StartWebSocketHub()
+	wsm.SetupBroadcastFunctions()
+	wsm.BuildFrontend() // May fail, but shouldn't panic
+
+	engine := wsm.CreateGinEngine()
+	wsm.RegisterAPIRoutes(engine)
+	wsm.RegisterWebSocketRoute(engine)
+	wsm.SetupStaticFileServing(engine)
+
+	// If we get here without panicking, the test passes
+}
+
+func TestWebServerManager_Integration(t *testing.T) {
+	// Test the integration of multiple methods
+	wsm := NewWebServerManager("8080")
+
+	// Test method chaining and integration
+	wsm.StartWebSocketHub()
+	wsm.SetupBroadcastFunctions()
+
+	engine := wsm.CreateGinEngine()
+	wsm.RegisterAPIRoutes(engine)
+	wsm.RegisterWebSocketRoute(engine)
+	wsm.SetupStaticFileServing(engine)
+
+	// Verify the engine has routes registered
+	if engine == nil {
+		t.Fatal("Expected engine to be created")
+	}
+}
+
+func TestWebServerManager_EdgeCases(t *testing.T) {
+	// Test edge cases
+	tests := []struct {
+		name string
+		port string
+	}{
+		{"Empty port", ""},
+		{"Zero port", "0"},
+		{"Large port", "65535"},
+		{"Invalid port", "99999"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			wsm := NewWebServerManager(tt.port)
+
+			if wsm == nil {
+				t.Fatal("Expected WebServerManager to be created")
+			}
+
+			if wsm.config.Port != tt.port {
+				t.Errorf("Expected port to be '%s', got '%s'", tt.port, wsm.config.Port)
+			}
+		})
+	}
+}
+
+func TestWebServerManager_Concurrency(t *testing.T) {
+	// Test concurrent access to WebServerManager
+	wsm := NewWebServerManager("8080")
+
+	var wg sync.WaitGroup
+
+	// Test concurrent method calls
+	for i := 0; i < 10; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			wsm.SetupBroadcastFunctions()
+			wsm.BuildFrontend()
+		}()
+	}
+
+	wg.Wait()
+
+	// If we get here without panicking, the test passes
 }

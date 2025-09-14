@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -678,4 +679,162 @@ func TestCheckForNewActiveGames_GameAlreadyMonitored(t *testing.T) {
 	assert.NotPanics(t, func() {
 		checkForNewActiveGames(mockService)
 	})
+}
+
+// TickerManager Tests
+func TestNewTickerManager(t *testing.T) {
+	tm := NewTickerManager()
+
+	assert.NotNil(t, tm)
+	assert.NotNil(t, tm.tickers)
+	assert.Len(t, tm.tickers, 5) // Should have 5 default tickers
+
+	// Verify default ticker configurations
+	assert.Equal(t, 1*time.Minute, tm.tickers[0].Duration)
+	assert.Equal(t, 1*time.Second, tm.tickers[1].Duration)
+	assert.Equal(t, 1*time.Minute, tm.tickers[2].Duration)
+	assert.Equal(t, 10*time.Minute, tm.tickers[3].Duration)
+	assert.Equal(t, 5*time.Second, tm.tickers[4].Duration)
+}
+
+func TestTickerManager_AddTicker(t *testing.T) {
+	tm := NewTickerManager()
+	initialCount := len(tm.tickers)
+
+	// Add a new ticker
+	testTask := func() {}
+	tm.AddTicker(30*time.Second, testTask)
+
+	assert.Len(t, tm.tickers, initialCount+1)
+	assert.Equal(t, 30*time.Second, tm.tickers[len(tm.tickers)-1].Duration)
+	assert.NotNil(t, tm.tickers[len(tm.tickers)-1].Task)
+}
+
+func TestTickerManager_StartTicker(t *testing.T) {
+	tm := NewTickerManager()
+
+	// Create a test ticker with a very short duration
+	testTask := func() {}
+	config := TickerConfig{
+		Duration: 10 * time.Millisecond,
+		Task:     testTask,
+	}
+
+	// This test verifies the function doesn't panic
+	assert.NotPanics(t, func() {
+		tm.StartTicker(config)
+	})
+}
+
+func TestTickerManager_StartAllTickers(t *testing.T) {
+	tm := NewTickerManager()
+
+	// This test verifies the function doesn't panic
+	assert.NotPanics(t, func() {
+		tm.StartAllTickers()
+	})
+}
+
+func TestTickerManager_WaitForCompletion(t *testing.T) {
+	tm := NewTickerManager()
+
+	// This test verifies the function doesn't panic
+	assert.NotPanics(t, func() {
+		tm.WaitForCompletion()
+	})
+}
+
+func TestTickerManager_EdgeCases(t *testing.T) {
+	tests := []struct {
+		name     string
+		duration time.Duration
+		task     func()
+	}{
+		{"Zero duration", 0, func() {}},
+		{"Very short duration", 1 * time.Nanosecond, func() {}},
+		{"Very long duration", 24 * time.Hour, func() {}},
+		{"Nil task", 1 * time.Second, nil},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tm := NewTickerManager()
+
+			// Test adding ticker with edge case values
+			assert.NotPanics(t, func() {
+				tm.AddTicker(tt.duration, tt.task)
+			})
+
+			// Verify the ticker was added
+			assert.Len(t, tm.tickers, 6) // 5 default + 1 added
+		})
+	}
+}
+
+func TestTickerManager_Concurrency(t *testing.T) {
+	tm := NewTickerManager()
+
+	// Test concurrent access to the ticker manager
+	var wg sync.WaitGroup
+
+	// Add multiple tickers concurrently
+	for i := 0; i < 10; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			tm.AddTicker(time.Duration(i+1)*time.Second, func() {})
+		}(i)
+	}
+
+	wg.Wait()
+
+	// Should have 5 default + 10 added = 15 tickers
+	assert.Len(t, tm.tickers, 15)
+}
+
+func TestTickerManager_Integration(t *testing.T) {
+	// Test the integration of multiple methods
+	tm := NewTickerManager()
+
+	// Add a custom ticker
+	customTask := func() {}
+	tm.AddTicker(100*time.Millisecond, customTask)
+
+	// Verify the ticker was added
+	assert.Len(t, tm.tickers, 6)
+	assert.Equal(t, 100*time.Millisecond, tm.tickers[5].Duration)
+	assert.NotNil(t, tm.tickers[5].Task)
+}
+
+func TestTickerManager_MethodChaining(t *testing.T) {
+	// Test that methods can be called in sequence
+	tm := NewTickerManager()
+
+	// Test method chaining
+	assert.NotPanics(t, func() {
+		tm.AddTicker(1*time.Second, func() {})
+		tm.AddTicker(2*time.Second, func() {})
+		tm.AddTicker(3*time.Second, func() {})
+	})
+
+	// Verify all tickers were added
+	assert.Len(t, tm.tickers, 8) // 5 default + 3 added
+}
+
+func TestTickerManager_DefaultTickers(t *testing.T) {
+	tm := NewTickerManager()
+
+	// Verify all default tickers are present
+	expectedDurations := []time.Duration{
+		1 * time.Minute,  // checkLeaguesForActiveGames
+		1 * time.Second,  // watchActiveGames
+		1 * time.Minute,  // sendTestGoal
+		10 * time.Minute, // publishSchedules
+		5 * time.Second,  // refresh ticker
+	}
+
+	for i, expectedDuration := range expectedDurations {
+		assert.Equal(t, expectedDuration, tm.tickers[i].Duration)
+		assert.NotNil(t, tm.tickers[i].Task)
+	}
 }
