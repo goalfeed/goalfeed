@@ -1,10 +1,20 @@
 package utils
 
-import "go.uber.org/zap"
+import (
+	"sync"
+
+	"go.uber.org/zap"
+)
+
+var (
+	logger *zap.SugaredLogger
+	once   sync.Once
+)
 
 func GetLogger() *zap.SugaredLogger {
-	logger, _ := zap.NewProduction()
-	defer logger.Sync() // flushes buffer, if any
-	sugar := logger.Sugar()
-	return sugar
+	once.Do(func() {
+		zapLogger, _ := zap.NewProduction()
+		logger = zapLogger.Sugar()
+	})
+	return logger
 }

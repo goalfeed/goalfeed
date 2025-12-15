@@ -90,3 +90,21 @@ func TestMockMLBApiClient_SetScores(t *testing.T) {
 		client.SetAwayScore(3)
 	})
 }
+
+func TestMLBApiClient_GetAllTeams(t *testing.T) {
+	client := MLBApiClient{}
+
+	// Test that the method exists and doesn't panic
+	assert.NotPanics(t, func() {
+		_ = client.GetAllTeams()
+	})
+}
+
+func TestMockMLBApiClient_GetAllTeams(t *testing.T) {
+	client := MockMLBApiClient{}
+
+	response := client.GetAllTeams()
+
+	// Verify the response is valid
+	assert.NotNil(t, response)
+}

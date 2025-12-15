@@ -62,6 +62,9 @@ type MLBGameResponseTeam struct {
 	Name            string   `json:"name"`
 	Link            string   `json:"link"`
 	Runs            int      `json:"runs"`
+	Hits            int      `json:"hits"`
+	Errors          int      `json:"errors"`
+	LeftOnBase      int      `json:"leftOnBase"`
 	Season          int      `json:"season"`
 	Venue           Venue    `json:"venue"`
 	Teamcode        string   `json:"teamCode"`
@@ -152,17 +155,90 @@ type Linescore struct {
 	Balls                int                        `json:"balls"`
 	Strikes              int                        `json:"strikes"`
 	Outs                 int                        `json:"outs"`
+	Offense              Offense                    `json:"offense"`
 }
 type Info struct {
 	Label string `json:"label"`
 	Value string `json:"value,omitempty"`
 }
 type Boxscore struct {
-	Teams         MLBScoreboardResponseTeams `json:"teams"`
-	Info          []Info                     `json:"info"`
-	Pitchingnotes []interface{}              `json:"pitchingNotes"`
+	Teams         BoxscoreTeams `json:"teams"`
+	Info          []Info        `json:"info"`
+	Pitchingnotes []interface{} `json:"pitchingNotes"`
 }
 type LiveData struct {
 	Linescore Linescore `json:"linescore"`
 	Boxscore  Boxscore  `json:"boxscore"`
+}
+
+// Offense describes the current offense context including runners on base
+type Offense struct {
+	Batter  *OffenseRunner `json:"batter,omitempty"`
+	OnDeck  *OffenseRunner `json:"onDeck,omitempty"`
+	InHole  *OffenseRunner `json:"inHole,omitempty"`
+	Pitcher *OffenseRunner `json:"pitcher,omitempty"`
+	First   *OffenseRunner `json:"first,omitempty"`
+	Second  *OffenseRunner `json:"second,omitempty"`
+	Third   *OffenseRunner `json:"third,omitempty"`
+}
+
+type OffenseRunner struct {
+	ID       int    `json:"id"`
+	FullName string `json:"fullName"`
+	Link     string `json:"link"`
+}
+
+// Player information structures
+type Player struct {
+	Person       Person      `json:"person"`
+	JerseyNumber string      `json:"jerseyNumber"`
+	Position     Position    `json:"position"`
+	Status       Status      `json:"status"`
+	ParentTeamID int         `json:"parentTeamId"`
+	Stats        PlayerStats `json:"stats"`
+	SeasonStats  PlayerStats `json:"seasonStats"`
+	GameStatus   GameStatus  `json:"gameStatus"`
+}
+
+type Person struct {
+	ID       int    `json:"id"`
+	FullName string `json:"fullName"`
+	Link     string `json:"link"`
+}
+
+type Position struct {
+	Code         string `json:"code"`
+	Name         string `json:"name"`
+	Type         string `json:"type"`
+	Abbreviation string `json:"abbreviation"`
+}
+
+type PlayerStats struct {
+	Batting  map[string]interface{} `json:"batting"`
+	Pitching map[string]interface{} `json:"pitching"`
+	Fielding map[string]interface{} `json:"fielding"`
+}
+
+type GameStatus struct {
+	IsCurrentBatter  bool `json:"isCurrentBatter"`
+	IsCurrentPitcher bool `json:"isCurrentPitcher"`
+	IsOnBench        bool `json:"isOnBench"`
+	IsSubstitute     bool `json:"isSubstitute"`
+}
+
+type TeamBoxscore struct {
+	Team         Team              `json:"team"`
+	Players      map[string]Player `json:"players"`
+	Batters      []int             `json:"batters"`
+	Pitchers     []int             `json:"pitchers"`
+	Bench        []int             `json:"bench"`
+	Bullpen      []int             `json:"bullpen"`
+	BattingOrder []int             `json:"battingOrder"`
+	Info         []Info            `json:"info"`
+	Note         []interface{}     `json:"note"`
+}
+
+type BoxscoreTeams struct {
+	Away TeamBoxscore `json:"away"`
+	Home TeamBoxscore `json:"home"`
 }

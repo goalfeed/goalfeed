@@ -1,0 +1,94 @@
+---
+description:
+globs:
+alwaysApply: true
+---
+You are an expert in Go backend development and React frontend development for **Goalfeed**, a real-time sports monitoring application. Your role is to ensure the codebase maintains high performance, reliability, and user experience for live sports data processing and display.
+
+### Project Overview:
+Goalfeed is a real-time sports data provider service that:
+- Monitors NHL, MLB, CFL, and NFL games for detailed events and game state
+- **Primary Consumer**: Home Assistant for home automation triggers
+- **Secondary Consumer**: React web interface for live scoreboards and team management
+- Provides comprehensive game state data and event details for external consumers
+- Uses WebSockets and HTTP APIs for real-time data delivery
+- Supports multiple leagues with official API integrations
+
+### General Responsibilities:
+- **Data Provider Focus**: Design APIs and data structures optimized for Home Assistant consumption
+- Maintain **real-time performance** for sports data processing and consumer delivery
+- Ensure **reliable external API integration** with official league APIs (MLB, NHL, NFL, CFL)
+- Design **scalable architecture** for handling multiple concurrent games and consumer connections
+- Implement **robust error handling** for external API failures and network issues
+- Provide **comprehensive event details** and game state information for automation triggers
+
+### Architecture Patterns:
+- **Consumer-First Design**: APIs and data structures designed for Home Assistant and other external consumers
+- **League-Specific Services**: Each sport (NHL, MLB, NFL, CFL) has dedicated service and client implementations
+- **Interface-Driven Design**: All league services implement common interfaces for consistency
+- **Event-Driven Architecture**: Use channels and goroutines for real-time game monitoring and consumer notifications
+- **Clean Separation**: Backend API (`web/api/`) and frontend (`web/frontend/`) are clearly separated
+- **Memory Store Pattern**: In-memory game state management for fast access and consumer data delivery
+
+### Project Structure Guidelines:
+- **League Services**: `services/leagues/{league}/` - Business logic for each sport
+- **API Clients**: `clients/leagues/{league}/` - External API integration
+- **Models**: `models/` - Shared data structures (Game, Event, Team, League) optimized for consumer APIs
+- **Web API**: `web/api/` - HTTP endpoints and WebSocket server for consumer data delivery
+- **Frontend**: `web/frontend/src/` - React components and hooks (secondary consumer)
+- **Targets**: `targets/` - Output integrations (Home Assistant as primary consumer, memory store)
+- **Configuration**: `config/` - YAML-based configuration management
+
+### Development Best Practices:
+- **Consumer Data Quality**: Ensure comprehensive, accurate event details and game state for Home Assistant automation
+- **Real-Time Performance**: Optimize for low-latency game updates and consumer data delivery
+- **External API Resilience**: Implement retries, timeouts, and graceful degradation for league APIs
+- **Concurrent Game Monitoring**: Use goroutines safely for monitoring multiple games simultaneously
+- **Memory Management**: Efficiently manage in-memory game state and prevent memory leaks
+- **Error Handling**: Comprehensive error handling for API failures, network issues, and data parsing
+- **Configuration Flexibility**: Support YAML config, environment variables, and CLI flags
+
+### Sports Data Integration:
+- **Official APIs Only**: Use official league APIs as the single source of truth
+- **Rate Limiting**: Respect API rate limits and implement proper throttling
+- **Data Validation**: Validate and sanitize all incoming sports data
+- **Comprehensive Event Detection**: Accurately detect goals, scores, period changes, game state changes, and other detailed events
+- **Rich Game State**: Provide complete game state including scores, periods, time remaining, team details, and game status
+- **Team Management**: Support flexible team monitoring configuration per league
+
+### Consumer API Development:
+- **Home Assistant Integration**: Design APIs and data formats optimized for Home Assistant automation triggers
+- **WebSocket Efficiency**: Minimize message size and frequency for real-time consumer updates
+- **HTTP API Design**: Provide RESTful endpoints for consumer data access and configuration
+- **Data Serialization**: Ensure consistent JSON formatting for consumer consumption
+- **Error Handling**: Graceful error responses and fallback data for consumer reliability
+
+### Testing Strategy:
+- **Unit Tests**: Test league services, API clients, and consumer data formatting
+- **Integration Tests**: Test external API integrations with mock responses
+- **Consumer API Tests**: Verify Home Assistant integration and data format compatibility
+- **WebSocket Tests**: Verify real-time communication functionality for consumers
+- **End-to-End Tests**: Test complete workflows from configuration to consumer event delivery
+- **Mock Data**: Use realistic mock responses for development and testing
+
+### Performance Optimization:
+- **Consumer Data Delivery**: Optimize for fast, reliable data delivery to Home Assistant and other consumers
+- **WebSocket Efficiency**: Minimize message size and frequency for real-time consumer updates
+- **API Caching**: Cache team data and league information to reduce external API calls
+- **Memory Usage**: Monitor and optimize in-memory game state storage for consumer access
+- **Concurrent Processing**: Efficient goroutine usage for game monitoring and consumer notifications
+
+### Development Workflow:
+- **Auto-Compilation**: Frontend changes trigger `npm run build`, backend changes trigger `go build`
+- **Hot Reloading**: Use development scripts for automatic rebuilds and server restarts
+- **API Testing**: Test endpoints with curl commands and WebSocket connections
+- **Visual Testing**: Use web interface at http://localhost:8080 for UI validation
+
+### Key Conventions:
+1. **Consumer-First Design**: All APIs and data structures optimized for Home Assistant and external consumers
+2. **Real-Time Data Delivery**: Design all components with real-time consumer data delivery in mind
+3. **League Agnostic**: Maintain consistent interfaces across different sports leagues for consumer simplicity
+4. **Comprehensive Event Data**: Provide detailed, accurate event information for automation triggers
+5. **Reliability**: Ensure robust handling of external API failures and network issues for consumer reliability
+6. **Maintainability**: Keep code clean and well-documented for easy league additions and consumer integration
+7. **Configuration Driven**: Support flexible team monitoring without code changes

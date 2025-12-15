@@ -6,3 +6,6 @@ watch:
     - WPG
   mlb:
     - TOR
+  cfl:
+    - BC
+    - OTT

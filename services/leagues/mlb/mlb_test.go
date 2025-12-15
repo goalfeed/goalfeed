@@ -6,6 +6,7 @@ import (
 	"goalfeed/models"
 	"goalfeed/services/leagues"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -30,6 +31,11 @@ func (c MockMLBApiClientWithError) GetTeam(sLink string) mlb.MLBTeamResponse {
 
 func (c MockMLBApiClientWithError) GetDiffPatch(gameId string, timestamp string) (mlb.MLBDiffPatch, error) {
 	return mlb.MLBDiffPatch{}, errors.New("mock error for testing")
+}
+
+func (c MockMLBApiClientWithError) GetAllTeams() mlb.MLBTeamResponse {
+	var mockClient = mlb.MockMLBApiClient{}
+	return mockClient.GetAllTeams()
 }
 
 func TestGetEvents(t *testing.T) {
@@ -84,6 +90,23 @@ func TestGetActiveGames(t *testing.T) {
 	go service.GetActiveGames(gamesChan)
 	activeGames := <-gamesChan
 	assert.Equal(t, len(activeGames), 1)
+}
+
+func TestGetUpcomingGames_Count(t *testing.T) {
+	var gamesChan chan []models.Game = make(chan []models.Game)
+	var mockClient = mlb.MockMLBApiClient{}
+	service := getMockService(mockClient)
+	go service.GetUpcomingGames(gamesChan)
+	upcoming := <-gamesChan
+	if len(upcoming) == 0 {
+		t.Fatalf("expected upcoming games > 0")
+	}
+	// Should be marked upcoming
+	for _, g := range upcoming {
+		if g.CurrentState.Status != models.StatusUpcoming {
+			t.Fatalf("expected upcoming status")
+		}
+	}
 }
 
 func getActiveGame(service leagues.ILeagueService) models.Game {
@@ -222,4 +245,138 @@ func TestGameStatusFromScheduleGame(t *testing.T) {
 		},
 	}
 	assert.Equal(t, models.GameStatus(models.StatusActive), gameStatusFromScheduleGame(unknownGame))
+}
+
+func TestGetTeamCodeFromNameFallbacks(t *testing.T) {
+	svc := MLBService{}
+	if svc.getTeamCodeFromName("Some New Team") != "SOM" {
+		t.Fatalf("expected first 3 uppercase fallback")
+	}
+}
+
+func TestGetMLBLogoURL(t *testing.T) {
+	if getMLBLogoURL("TOR") != "https://a.espncdn.com/i/teamlogos/mlb/500/tor.png" {
+		t.Fatalf("unexpected logo url")
+	}
+}
+
+func TestGameFromScheduleFormatting(t *testing.T) {
+	service := MLBService{Client: mlb.MockMLBApiClient{}}
+	// Active game sample
+	active := mlb.MLBScheduleResponseGame{
+		GamePk: 2020020001,
+		Status: mlb.Status{AbstractGameState: "Live", DetailedState: "Live", StatusCode: "1"},
+		Teams: mlb.Teams{
+			Home: mlb.MLBScheduleTeam{Team: mlb.TeamInfo{Name: "Philadelphia Phillies"}},
+			Away: mlb.MLBScheduleTeam{Team: mlb.TeamInfo{Name: "Pittsburgh Pirates"}},
+		},
+	}
+	gActive := service.gameFromSchedule(active)
+	if gActive.CurrentState.PeriodType != "INNING" {
+		t.Fatalf("expected inning period type for active")
+	}
+	// Upcoming game sample
+	upcoming := mlb.MLBScheduleResponseGame{
+		GamePk:   2020020003,
+		Gamedate: time.Now().Add(24 * time.Hour),
+		Status:   mlb.Status{AbstractGameState: "Preview", DetailedState: "Scheduled", StatusCode: "1"},
+		Venue:    mlb.Venue{ID: 0, Name: "Some Park"},
+		Teams: mlb.Teams{
+			Home: mlb.MLBScheduleTeam{Team: mlb.TeamInfo{Name: "Toronto Blue Jays"}},
+			Away: mlb.MLBScheduleTeam{Team: mlb.TeamInfo{Name: "New York Yankees"}},
+		},
+	}
+	gUpcoming := service.gameFromSchedule(upcoming)
+	if gUpcoming.CurrentState.Status != models.StatusUpcoming || gUpcoming.CurrentState.Clock == "" {
+		t.Fatalf("expected upcoming with non-empty display time")
+	}
+}
+
+func TestGameStatusFromScheduleGame_StatusCodeCases(t *testing.T) {
+	testCases := []struct {
+		name           string
+		statusCode     string
+		detailedState  string
+		expectedStatus models.GameStatus
+	}{
+		{"Final game", "F", "Final", models.StatusEnded},
+		{"Scheduled game", "S", "Scheduled", models.StatusUpcoming},
+		{"Live game", "L", "Live", models.StatusActive},
+		{"Unknown status code", "X", "Unknown", models.StatusActive}, // Default case
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			game := mlb.MLBScheduleResponseGame{
+				GamePk: 12345,
+				Status: mlb.Status{
+					StatusCode:        tc.statusCode,
+					DetailedState:     tc.detailedState,
+					AbstractGameState: "Test",
+				},
+			}
+
+			result := gameStatusFromScheduleGame(game)
+			assert.Equal(t, tc.expectedStatus, result)
+		})
+	}
+}
+
+func TestGameStatusFromScheduleGame_DelayCases(t *testing.T) {
+	testCases := []struct {
+		name           string
+		statusCode     string
+		detailedState  string
+		expectedStatus models.GameStatus
+	}{
+		{"Rain delay", "IR", "Delayed: Rain", models.StatusDelayed},
+		{"General delay", "IR", "Delayed", models.StatusDelayed},
+		{"IR status code", "IR", "In Progress", models.StatusDelayed},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			game := mlb.MLBScheduleResponseGame{
+				GamePk: 12345,
+				Status: mlb.Status{
+					StatusCode:        tc.statusCode,
+					DetailedState:     tc.detailedState,
+					AbstractGameState: "Test",
+				},
+			}
+
+			result := gameStatusFromScheduleGame(game)
+			assert.Equal(t, tc.expectedStatus, result)
+		})
+	}
+}
+
+func TestGameStatusFromScheduleGame_FallbackCases(t *testing.T) {
+	testCases := []struct {
+		name              string
+		statusCode        string
+		abstractGameState string
+		expectedStatus    models.GameStatus
+	}{
+		{"Fallback Final", "X", "Final", models.StatusEnded},
+		{"Fallback Upcoming", "X", "Preview", models.StatusUpcoming},
+		{"Fallback Active", "X", "Live", models.StatusActive},
+		{"Fallback Default", "X", "Unknown", models.StatusActive},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			game := mlb.MLBScheduleResponseGame{
+				GamePk: 12345,
+				Status: mlb.Status{
+					StatusCode:        tc.statusCode,
+					DetailedState:     "Test",
+					AbstractGameState: tc.abstractGameState,
+				},
+			}
+
+			result := gameStatusFromScheduleGame(game)
+			assert.Equal(t, tc.expectedStatus, result)
+		})
+	}
 }

@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Goalfeed - API Only Mode</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2563eb;
+            margin-bottom: 20px;
+        }
+        .status {
+            background: #f0f9ff;
+            border: 1px solid #0ea5e9;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+        }
+        .endpoint {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+        .games {
+            margin-top: 20px;
+        }
+        .game {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 6px;
+        }
+        button {
+            background: #2563eb;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #1d4ed8;
+        }
+        .error {
+            color: #dc2626;
+            background: #fef2f2;
+            border: 1px solid #fca5a5;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏒 Goalfeed</h1>
+        
+        <div class="status">
+            <strong>Status:</strong> API Server Running<br>
+            <strong>Note:</strong> Frontend not available - install Node.js/npm and rebuild to enable full web interface
+        </div>
+
+        <h2>API Endpoints</h2>
+        <div class="endpoint">GET /api/games - Get all active games</div>
+        <div class="endpoint">GET /api/leagues - Get league configurations</div>
+        <div class="endpoint">POST /api/leagues - Update league team configurations</div>
+        <div class="endpoint">GET /api/events - Get recent events</div>
+        <div class="endpoint">WebSocket /ws - Real-time updates</div>
+
+        <h2>Active Games</h2>
+        <button onclick="loadGames()">Refresh Games</button>
+        <div id="games" class="games">
+            <div>Loading games...</div>
+        </div>
+
+        <h2>Recent Events</h2>
+        <button onclick="loadEvents()">Refresh Events</button>
+        <div id="events" class="games">
+            <div>Loading events...</div>
+        </div>
+    </div>
+
+    <script>
+        async function loadGames() {
+            try {
+                const response = await fetch('/api/games');
+                const data = await response.json();
+                
+                const gamesDiv = document.getElementById('games');
+                if (data.success && data.data.length > 0) {
+                    gamesDiv.innerHTML = data.data.map(game => `
+                        <div class="game">
+                            <strong>${game.currentState.away.team.teamName} @ ${game.currentState.home.team.teamName}</strong><br>
+                            Score: ${game.currentState.away.team.teamCode} ${game.currentState.away.score} - ${game.currentState.home.score} ${game.currentState.home.team.teamCode}<br>
+                            League: ${game.leagueName} | Status: ${game.currentState.status}
+                        </div>
+                    `).join('');
+                } else {
+                    gamesDiv.innerHTML = '<div>No active games</div>';
+                }
+            } catch (error) {
+                document.getElementById('games').innerHTML = `<div class="error">Error loading games: ${error.message}</div>`;
+            }
+        }
+
+        async function loadEvents() {
+            try {
+                const response = await fetch('/api/events');
+                const data = await response.json();
+                
+                const eventsDiv = document.getElementById('events');
+                if (data.success && data.data.length > 0) {
+                    eventsDiv.innerHTML = data.data.map(event => `
+                        <div class="game">
+                            <strong>${event.teamName} scored!</strong><br>
+                            vs ${event.opponentName} in ${event.leagueName}
+                        </div>
+                    `).join('');
+                } else {
+                    eventsDiv.innerHTML = '<div>No recent events</div>';
+                }
+            } catch (error) {
+                document.getElementById('events').innerHTML = `<div class="error">Error loading events: ${error.message}</div>`;
+            }
+        }
+
+        // Load data on page load
+        loadGames();
+        loadEvents();
+
+        // Auto-refresh every 30 seconds
+        setInterval(() => {
+            loadGames();
+            loadEvents();
+        }, 30000);
+    </script>
+</body>
+</html>
+
