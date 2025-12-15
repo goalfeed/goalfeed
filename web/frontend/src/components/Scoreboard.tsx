@@ -167,28 +167,7 @@ const Scoreboard: React.FC<ScoreboardProps> = ({ games }) => {
 
   return (
     <div className="space-y-6">
-      {/* Debug information for CFL games */}
-      {games.filter(game => game.leagueId === 5).length > 0 && (
-        <div className="bg-yellow-500/20 border border-yellow-500/30 rounded-lg p-4">
-          <h3 className="text-yellow-300 font-bold mb-2">CFL Debug Info</h3>
-          {games.filter(game => game.leagueId === 5).map(game => (
-            <div key={game.gameCode} className="text-sm text-yellow-200">
-              <div>Game: {game.gameCode}</div>
-              <div>Status: {game.currentState.status}</div>
-              <div>Period: {game.currentState.period}</div>
-              <div>PeriodType: {game.currentState.periodType}</div>
-              <div>Clock: {game.currentState.clock}</div>
-              <div>Football Details:</div>
-              <div className="ml-4">
-                <div>Down: {game.currentState.details?.down || 'N/A'}</div>
-                <div>Distance: {game.currentState.details?.distance || 'N/A'}</div>
-                <div>Yard Line: {game.currentState.details?.yardLine || 'N/A'}</div>
-                <div>Possession: {game.currentState.details?.possession || 'N/A'}</div>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+      
 
       {/* Debug information for MLB games */}
       {games.filter(game => game.leagueId === 2).length > 0 && (
