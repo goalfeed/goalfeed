@@ -2,7 +2,7 @@ before:
   hooks:
     - go mod tidy
     - go generate ./...
-    - cd web/frontend && npm ci && npm run build
+    - sh -c "cd web/frontend && npm ci && npm run build"
 
 builds:
   - id: goalfeed
