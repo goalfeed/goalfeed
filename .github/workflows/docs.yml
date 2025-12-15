@@ -1,0 +1,103 @@
+name: Update API Documentation
+
+on:
+  pull_request:
+    paths:
+      - 'web/api/**'
+      - 'models/**'
+      - 'docs/**'
+    branches:
+      - main
+      - master
+  push:
+    paths:
+      - 'web/api/**'
+      - 'models/**'
+      - 'docs/**'
+    branches:
+      - main
+      - master
+
+jobs:
+  update-docs:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+
+      - name: Install swag
+        run: go install github.com/swaggo/swag/cmd/swag@latest
+
+      - name: Generate Swagger documentation
+        run: |
+          export PATH=$PATH:$(go env GOPATH)/bin
+          swag init -g web/api/server.go -o docs --parseDependency --parseInternal
+
+      - name: Check for changes
+        id: verify-changed-files
+        run: |
+          if [ -n "$(git status --porcelain docs/)" ]; then
+            echo "changed=true" >> $GITHUB_OUTPUT
+          else
+            echo "changed=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Commit and push changes
+        if: steps.verify-changed-files.outputs.changed == 'true' && github.event_name == 'push'
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add docs/
+          git commit -m "docs: auto-update API documentation [skip ci]" || exit 0
+          git push
+
+      - name: Create PR comment
+        if: steps.verify-changed-files.outputs.changed == 'true' && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const changedFiles = fs.readdirSync('docs').filter(f => f.endsWith('.json') || f.endsWith('.yaml') || f.endsWith('.go'));
+            
+            let comment = '## 📚 API Documentation Updated\n\n';
+            comment += 'The API documentation has been automatically updated based on your changes.\n\n';
+            comment += '### Changed Files:\n';
+            changedFiles.forEach(file => {
+              comment += `- \`docs/${file}\`\n`;
+            });
+            comment += '\n### View Documentation\n';
+            comment += 'Once merged, view the interactive API documentation at:\n';
+            comment += `- Swagger UI: \`/swagger/index.html\`\n`;
+            comment += `- OpenAPI JSON: \`/docs/swagger.json\`\n`;
+            comment += `- OpenAPI YAML: \`/docs/swagger.yaml\`\n`;
+            comment += '\n### Next Steps\n';
+            comment += '1. Review the generated documentation\n';
+            comment += '2. Ensure all endpoints are properly documented\n';
+            comment += '3. Merge this PR to update the live documentation\n';
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+
+      - name: Upload documentation artifacts
+        if: steps.verify-changed-files.outputs.changed == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-documentation
+          path: docs/
+          retention-days: 30
+

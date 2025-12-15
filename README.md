@@ -111,3 +111,41 @@ Goalfeed will pick up the environment variables and use them for configuration.
 ### Configuring Home Assistant Integration
 
 Goalfeed sends goal events to Home Assistant. To configure this integration, you'll need to provide the necessary details for Home Assistant, such as the endpoint and authentication details. This configuration might be in another part of the codebase or might require a separate configuration file.
+
+## API Documentation
+
+Goalfeed provides a self-documenting REST API with interactive Swagger UI documentation.
+
+### Viewing API Documentation
+
+When the web server is running, access the interactive API documentation at:
+
+- **Swagger UI**: http://localhost:8080/swagger/index.html
+- **OpenAPI JSON**: http://localhost:8080/docs/swagger.json
+- **OpenAPI YAML**: http://localhost:8080/docs/swagger.yaml
+
+### API Endpoints
+
+The API provides endpoints for:
+
+- **Games**: Get active games, upcoming games, refresh games
+- **Leagues**: Get and update league configurations
+- **Events**: Query game events with filters
+- **Teams**: Get team lists for each league
+- **Logs**: Access application logs
+- **Home Assistant**: Manage Home Assistant integration
+
+### WebSocket API
+
+For real-time updates, connect to the WebSocket endpoint at `ws://localhost:8080/ws`.
+
+See [docs/WEBSOCKET.md](docs/WEBSOCKET.md) for complete WebSocket API documentation.
+
+### Documentation Updates
+
+API documentation is automatically generated and updated:
+- When API endpoints are modified
+- On every pull request (via GitHub Actions)
+- Documentation is regenerated from code annotations
+
+For more details, see [docs/README.md](docs/README.md).

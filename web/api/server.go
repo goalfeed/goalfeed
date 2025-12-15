@@ -1,3 +1,20 @@
+// @title           Goalfeed API
+// @version         1.0
+// @description     Real-time sports monitoring API for NHL, MLB, NFL, CFL, and IIHF games.
+// @description     Provides game state, events, and team management for Home Assistant integration and web consumers.
+// @termsOfService  http://swagger.io/terms/
+
+// @contact.name   API Support
+// @contact.url    https://github.com/yourusername/goalfeed/issues
+
+// @license.name  MIT
+// @license.url   https://opensource.org/licenses/MIT
+
+// @host      localhost:8080
+// @BasePath  /api
+
+// @schemes   http https
+
 package webApi
 
 import (
@@ -35,6 +52,10 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 	"github.com/spf13/viper"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
+
+	_ "goalfeed/docs" // Swagger documentation
 )
 
 var upgrader = websocket.Upgrader{
@@ -175,6 +196,9 @@ func (wsm *WebServerManager) RegisterAPIRoutes(r *gin.Engine) {
 		api.POST("/homeassistant/config", setHomeAssistantConfig)
 		api.POST("/clear", clearGames)
 	}
+
+	// Swagger documentation
+	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 }
 
 // RegisterWebSocketRoute registers the WebSocket endpoint
@@ -344,12 +368,31 @@ func refreshActiveGamesInternal() {
 	log.Println("Refresh active games - placeholder implementation")
 }
 
+// refreshActiveGames godoc
+// @Summary      Refresh active games
+// @Description  Triggers a refresh of all active games from external APIs
+// @Tags         games
+// @Accept       json
+// @Produce      json
+// @Success      200  {object}  ApiResponse
+// @Failure      500  {object}  ApiResponse
+// @Router       /refresh [post]
 func refreshActiveGames(c *gin.Context) {
 	go refreshActiveGamesInternal()
 	c.JSON(http.StatusOK, ApiResponse{Success: true, Message: "Refresh started"})
 }
 
-// DEBUG: Force-add an NFL game by ESPN event ID
+// addNFLGame godoc
+// @Summary      Add NFL game (Debug)
+// @Description  Force-adds an NFL game by ESPN event ID. Debug endpoint for testing.
+// @Tags         debug
+// @Accept       json
+// @Produce      json
+// @Param        event  query     string  true  "ESPN event ID"
+// @Success      200    {object}  ApiResponse{data=models.Game}
+// @Failure      400    {object}  ApiResponse
+// @Failure      404    {object}  ApiResponse
+// @Router       /debug/nfl/add [post]
 func addNFLGame(c *gin.Context) {
 	eventID := c.Query("event")
 	if eventID == "" {
@@ -389,6 +432,15 @@ func handleWebSocket(c *gin.Context) {
 	}
 }
 
+// getGames godoc
+// @Summary      Get all active games
+// @Description  Returns a list of all currently active games across all monitored leagues
+// @Tags         games
+// @Accept       json
+// @Produce      json
+// @Success      200  {object}  ApiResponse{data=[]models.Game}
+// @Failure      500  {object}  ApiResponse
+// @Router       /games [get]
 func getGames(c *gin.Context) {
 	games := normalizeGamesData(memoryStore.GetAllGames())
 	// Enrich NFL games missing situation details
@@ -427,6 +479,15 @@ func getGames(c *gin.Context) {
 	})
 }
 
+// getUpcomingGames godoc
+// @Summary      Get upcoming games
+// @Description  Returns a list of upcoming games for monitored teams within the next 7 days
+// @Tags         games
+// @Accept       json
+// @Produce      json
+// @Success      200  {object}  ApiResponse{data=[]models.Game}
+// @Failure      500  {object}  ApiResponse
+// @Router       /upcoming [get]
 func getUpcomingGames(c *gin.Context) {
 	// Get all league services
 	var allUpcomingGames []models.Game
@@ -518,6 +579,15 @@ func getUpcomingGames(c *gin.Context) {
 	})
 }
 
+// getLeagues godoc
+// @Summary      Get league configurations
+// @Description  Returns the list of all supported leagues and their monitored teams
+// @Tags         leagues
+// @Accept       json
+// @Produce      json
+// @Success      200  {object}  ApiResponse{data=[]object}
+// @Failure      500  {object}  ApiResponse
+// @Router       /leagues [get]
 func getLeagues(c *gin.Context) {
 	leagues := []map[string]interface{}{
 		{"leagueId": 1, "leagueName": "NHL", "teams": config.GetStringSlice("watch.nhl")},
@@ -531,10 +601,21 @@ func getLeagues(c *gin.Context) {
 	})
 }
 
+// updateLeagueConfig godoc
+// @Summary      Update league configuration
+// @Description  Updates the list of monitored teams for a specific league
+// @Tags         leagues
+// @Accept       json
+// @Produce      json
+// @Param        body  body      object{leagueId=int,teams=[]string}  true  "League configuration"
+// @Success      200   {object}  ApiResponse
+// @Failure      400   {object}  ApiResponse
+// @Failure      500   {object}  ApiResponse
+// @Router       /leagues [post]
 func updateLeagueConfig(c *gin.Context) {
 	var config struct {
-		LeagueId int      `json:"leagueId"`
-		Teams    []string `json:"teams"`
+		LeagueId int      `json:"leagueId" example:"1"` // 1=NHL, 2=MLB, 5=CFL, 6=NFL
+		Teams    []string `json:"teams" example:"TOR,MTL"`
 	}
 	if err := c.ShouldBindJSON(&config); err != nil {
 		c.JSON(http.StatusBadRequest, ApiResponse{
@@ -587,6 +668,20 @@ func updateLeagueConfig(c *gin.Context) {
 	})
 }
 
+// getEvents godoc
+// @Summary      Get events
+// @Description  Returns a filtered list of game events (goals, scores, etc.) with optional filters
+// @Tags         events
+// @Accept       json
+// @Produce      json
+// @Param        leagueId  query     int     false  "Filter by league ID (1=NHL, 2=MLB, 5=CFL, 6=NFL)"
+// @Param        team      query     string  false  "Filter by team code"
+// @Param        since     query     string  false  "Filter events since timestamp (RFC3339)"
+// @Param        limit     query     int     false  "Maximum number of events to return (default: 50)"
+// @Success      200       {object}  ApiResponse{data=[]object}
+// @Failure      400       {object}  ApiResponse
+// @Failure      500       {object}  ApiResponse
+// @Router       /events [get]
 func getEvents(c *gin.Context) {
 	// Optional filters
 	leagueIdStr := c.Query("leagueId")
@@ -654,6 +749,20 @@ func getEvents(c *gin.Context) {
 	})
 }
 
+// getLogs godoc
+// @Summary      Get application logs
+// @Description  Returns application logs with optional filters for debugging and monitoring
+// @Tags         logs
+// @Accept       json
+// @Produce      json
+// @Param        leagueId  query     int     false  "Filter by league ID"
+// @Param        team      query     string  false  "Filter by team code"
+// @Param        since     query     string  false  "Filter logs since timestamp (RFC3339)"
+// @Param        limit     query     int     false  "Maximum number of log entries to return (0 = all)"
+// @Success      200       {object}  ApiResponse{data=[]models.AppLogEntry}
+// @Failure      400       {object}  ApiResponse
+// @Failure      500       {object}  ApiResponse
+// @Router       /logs [get]
 func getLogs(c *gin.Context) {
 	leagueIdStr := c.Query("leagueId")
 	teamCode := c.Query("team")
@@ -693,6 +802,15 @@ func getLogs(c *gin.Context) {
 	})
 }
 
+// clearGames godoc
+// @Summary      Clear all games
+// @Description  Clears all games from the memory store. Useful for testing and resetting state.
+// @Tags         games
+// @Accept       json
+// @Produce      json
+// @Success      200  {object}  ApiResponse
+// @Failure      500  {object}  ApiResponse
+// @Router       /clear [post]
 func clearGames(c *gin.Context) {
 	memoryStore.ClearAllGames()
 	c.JSON(http.StatusOK, ApiResponse{
@@ -701,6 +819,17 @@ func clearGames(c *gin.Context) {
 	})
 }
 
+// getAllTeams godoc
+// @Summary      Get all teams for a league
+// @Description  Returns a list of all teams for a specific league with logos and metadata
+// @Tags         teams
+// @Accept       json
+// @Produce      json
+// @Param        leagueId  query     int     true  "League ID (1=NHL, 2=MLB, 5=CFL, 6=NFL)"
+// @Success      200       {object}  ApiResponse{data=[]object}
+// @Failure      400       {object}  ApiResponse
+// @Failure      500       {object}  ApiResponse
+// @Router       /teams [get]
 func getAllTeams(c *gin.Context) {
 	leagueIdStr := c.Query("leagueId")
 	if leagueIdStr == "" {
@@ -899,6 +1028,16 @@ func getAllTeams(c *gin.Context) {
 }
 
 // --- Home Assistant integration handlers ---
+
+// getHomeAssistantStatus godoc
+// @Summary      Get Home Assistant connection status
+// @Description  Checks the connection status to Home Assistant and returns configuration details
+// @Tags         homeassistant
+// @Accept       json
+// @Produce      json
+// @Success      200  {object}  ApiResponse{data=object}
+// @Failure      500  {object}  ApiResponse
+// @Router       /homeassistant/status [get]
 func getHomeAssistantStatus(c *gin.Context) {
 	connected, source, message := homeassistant.CheckConnection(3 * time.Second)
 	url, token, _ := homeassistant.ResolveHA()
@@ -914,6 +1053,15 @@ func getHomeAssistantStatus(c *gin.Context) {
 	})
 }
 
+// getHomeAssistantConfig godoc
+// @Summary      Get Home Assistant configuration
+// @Description  Returns the current Home Assistant configuration (URL and token status)
+// @Tags         homeassistant
+// @Accept       json
+// @Produce      json
+// @Success      200  {object}  ApiResponse{data=object}
+// @Failure      500  {object}  ApiResponse
+// @Router       /homeassistant/config [get]
 func getHomeAssistantConfig(c *gin.Context) {
 	// Show what is configured in viper (not necessarily active if env overrides)
 	configuredURL := config.GetString("home_assistant.url")
@@ -930,11 +1078,22 @@ func getHomeAssistantConfig(c *gin.Context) {
 }
 
 type haConfigBody struct {
-	URL         string `json:"url"`
-	AccessToken string `json:"accessToken"`
-	ClearToken  bool   `json:"clearToken"`
+	URL         string `json:"url" example:"http://homeassistant.local:8123"`
+	AccessToken string `json:"accessToken" example:"your-long-lived-access-token"`
+	ClearToken  bool   `json:"clearToken" example:"false"`
 }
 
+// setHomeAssistantConfig godoc
+// @Summary      Update Home Assistant configuration
+// @Description  Updates the Home Assistant URL and access token for integration
+// @Tags         homeassistant
+// @Accept       json
+// @Produce      json
+// @Param        body  body      haConfigBody  true  "Home Assistant configuration"
+// @Success      200   {object}  ApiResponse
+// @Failure      400   {object}  ApiResponse
+// @Failure      500   {object}  ApiResponse
+// @Router       /homeassistant/config [post]
 func setHomeAssistantConfig(c *gin.Context) {
 	var body haConfigBody
 	if err := c.ShouldBindJSON(&body); err != nil {
