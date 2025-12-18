@@ -1,0 +1,13 @@
+homeassistant:
+  name: Goalfeed Dev HA
+  latitude: 0
+  longitude: 0
+  elevation: 0
+  unit_system: metric
+
+logger:
+  default: info
+
+http:
+  server_port: 8123
+
