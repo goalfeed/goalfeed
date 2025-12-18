@@ -251,7 +251,11 @@ func publishTeamCommon(game models.Game, team models.TeamState, opponent models.
 	}
 	if game.CurrentState.Period > 0 {
 		// Use sport-agnostic name; HA users can alias
-		publishSensor(league, teamCode, "team.period", game.CurrentState.Period, nil)
+		attrs := map[string]interface{}{}
+		if game.CurrentState.PeriodType != "" {
+			attrs["period_type"] = game.CurrentState.PeriodType
+		}
+		publishSensor(league, teamCode, "team.period", game.CurrentState.Period, attrs)
 	}
 }
 
@@ -309,9 +313,8 @@ func publishNHLTeam(game models.Game, team models.TeamState, opponent models.Tea
 	league := game.LeagueId
 	teamCode := team.Team.TeamCode
 
-	if team.Statistics.Shots > 0 {
-		publishSensor(league, teamCode, "team.shots", team.Statistics.Shots, nil)
-	}
+	// Always publish shots on goal (even when 0) for consistent tracking
+	publishSensor(league, teamCode, "team.shots", team.Statistics.Shots, nil)
 	if team.Statistics.Penalties >= 0 {
 		publishSensor(league, teamCode, "team.penalties", team.Statistics.Penalties, nil)
 	}
@@ -447,7 +450,7 @@ func PublishBaselineForMonitoredTeams() {
 			publishSensor(lc.id, t, "team.home_away", "unknown", nil)
 			publishSensor(lc.id, t, "team.next_game_date", "unknown", nil)
 			publishSensor(lc.id, t, "team.clock", "unknown", nil)
-			publishSensor(lc.id, t, "team.period", 0, nil)
+			publishSensor(lc.id, t, "team.period", 0, map[string]interface{}{"period_type": "unknown"})
 
 			// League-specific baseline entities
 			switch lc.id {
@@ -489,7 +492,7 @@ func PublishEndOfGameReset(game models.Game) {
 		publishBinarySensor(league, teamCode, "team.has_active_game", false, nil)
 		publishBinarySensor(league, teamCode, "team.has_game_today", isToday(game.GameDetails.GameDate), nil)
 		publishSensor(league, teamCode, "team.clock", "", nil)
-		publishSensor(league, teamCode, "team.period", 0, nil)
+		publishSensor(league, teamCode, "team.period", 0, map[string]interface{}{"period_type": ""})
 		// League-specific resets
 		switch league {
 		case models.LeagueIdMLB:

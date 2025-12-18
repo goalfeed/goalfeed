@@ -51,10 +51,11 @@ func (s CFLService) GetActiveGames(ret chan []models.Game) {
 		logger.Infof("CFL GetActiveGames: Processing round %d (%s) with %d tournaments", round.ID, round.Name, len(round.Tournaments))
 		for _, game := range round.Tournaments {
 			gameStatus := gameStatusFromCFLGame(game)
-			logger.Infof("CFL GetActiveGames: Game %d (%s vs %s) - Status: %s, Clock: %s, GameStatus: %d",
-				game.ID, game.AwaySquad.ShortName, game.HomeSquad.ShortName, game.Status, game.Clock, gameStatus)
-
+			
+			// Only log details for games that might be active (reduce noise from completed games)
 			if gameStatus == models.StatusActive {
+				logger.Infof("CFL GetActiveGames: Game %d (%s vs %s) - Status: %s, Clock: %s, GameStatus: %d",
+					game.ID, game.AwaySquad.ShortName, game.HomeSquad.ShortName, game.Status, game.Clock, gameStatus)
 				logger.Infof("CFL GetActiveGames: Adding active game %d to active games list", game.ID)
 				activeGames = append(activeGames, s.gameFromCFLGame(game))
 			}
@@ -347,25 +348,18 @@ func (s CFLService) gameFromCFLGame(cflGame cfl.CFLGame) models.Game {
 }
 
 func gameStatusFromCFLGame(cflGame cfl.CFLGame) models.GameStatus {
-	logger.Infof("CFL Game Status Check: ID=%d, Status='%s', Clock='%s'", cflGame.ID, cflGame.Status, cflGame.Clock)
-
 	switch strings.ToLower(cflGame.Status) {
 	case STATUS_COMPLETE:
-		logger.Infof("CFL Game %d: Status COMPLETE -> StatusEnded", cflGame.ID)
 		return models.StatusEnded
 	case STATUS_SCHEDULED:
-		logger.Infof("CFL Game %d: Status SCHEDULED -> StatusUpcoming", cflGame.ID)
 		return models.StatusUpcoming
 	case STATUS_LIVE, STATUS_ACTIVE, STATUS_PLAYING:
-		logger.Infof("CFL Game %d: Status LIVE -> StatusActive", cflGame.ID)
 		return models.StatusActive
 	default:
 		// Check if game is currently live based on clock and other indicators
 		if cflGame.Clock != "" && cflGame.Clock != "00:00" {
-			logger.Infof("CFL Game %d: Default case with clock '%s' -> StatusActive", cflGame.ID, cflGame.Clock)
 			return models.StatusActive
 		}
-		logger.Infof("CFL Game %d: Default case -> StatusUpcoming", cflGame.ID)
 		return models.StatusUpcoming
 	}
 }

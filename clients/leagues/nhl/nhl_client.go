@@ -9,10 +9,13 @@ import (
 type NHLApiClient struct {
 }
 
+// fetchers for testability
+var fetchByte = utils.GetByte
+
 func (c NHLApiClient) GetNHLScoreBoard(gameId string) NHLScoreboardResponse {
 	var body chan []byte = make(chan []byte)
 	url := fmt.Sprintf("https://api-web.nhle.com/v1/gamecenter/%s/landing", gameId) // Updated URL
-	go utils.GetByte(url, body)
+	go fetchByte(url, body)
 
 	bodyByte := <-body
 	var response NHLScoreboardResponse
@@ -23,7 +26,7 @@ func (c NHLApiClient) GetNHLScoreBoard(gameId string) NHLScoreboardResponse {
 func (c NHLApiClient) GetNHLSchedule() NHLScheduleResponse {
 	var body chan []byte = make(chan []byte)
 	url := "https://api-web.nhle.com/v1/schedule/now" // Updated URL
-	go utils.GetByte(url, body)
+	go fetchByte(url, body)
 
 	bodyByte := <-body
 	var response NHLScheduleResponse
@@ -34,7 +37,7 @@ func (c NHLApiClient) GetNHLSchedule() NHLScheduleResponse {
 func (c NHLApiClient) GetTeam(teamAbbr string) NHLTeamResponse {
 	var body chan []byte = make(chan []byte)
 	url := fmt.Sprintf("https://api-web.nhle.com/v1/club-schedule-season/%s/now", teamAbbr) // Updated URL
-	go utils.GetByte(url, body)
+	go fetchByte(url, body)
 
 	bodyByte := <-body
 	var response NHLTeamResponse
@@ -45,7 +48,7 @@ func (c NHLApiClient) GetTeam(teamAbbr string) NHLTeamResponse {
 func (c NHLApiClient) GetDiffPatch(gameId string, timestamp string) (NHLDiffPatch, error) {
 	var body chan []byte = make(chan []byte)
 	url := fmt.Sprintf("https://api-web.nhle.com/v1/game/%s/feed/live/diffPatch?site=en_nhl&startTimecode=%s", gameId, timestamp) // Updated URL
-	go utils.GetByte(url, body)
+	go fetchByte(url, body)
 
 	bodyByte := <-body
 	var response NHLDiffPatch
@@ -56,7 +59,7 @@ func (c NHLApiClient) GetDiffPatch(gameId string, timestamp string) (NHLDiffPatc
 func (c NHLApiClient) GetAllTeams() NHLTeamResponse {
 	var body chan []byte = make(chan []byte)
 	url := "https://api-web.nhle.com/v1/teams"
-	go utils.GetByte(url, body)
+	go fetchByte(url, body)
 
 	bodyByte := <-body
 	var response NHLTeamResponse

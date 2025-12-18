@@ -5,6 +5,30 @@ interface FootballGameDetailsProps {
   game: Game;
 }
 
+const formatPeriodDisplay = (period: number | undefined, periodType: string | undefined): string => {
+  const periodNum = period || 1;
+  
+  // For regular periods 1-4 (quarters), just show the number
+  if (periodType === 'REGULAR' && periodNum <= 4) {
+    return periodNum.toString();
+  }
+  
+  // For overtime periods, show OT1, OT2, etc.
+  if (periodType === 'OVERTIME') {
+    // Overtime periods typically start at 5 (OT1), 6 (OT2), etc.
+    const otNumber = periodNum > 4 ? periodNum - 4 : periodNum;
+    return `OT${otNumber}`;
+  }
+  
+  // For other period types, show periodType and period
+  if (periodType && periodType !== 'REGULAR') {
+    return `${periodType} ${periodNum}`;
+  }
+  
+  // Default: just show the period number
+  return periodNum.toString();
+};
+
 const FootballGameDetails: React.FC<FootballGameDetailsProps> = ({ game }) => {
   const { currentState } = game;
   
@@ -13,7 +37,7 @@ const FootballGameDetails: React.FC<FootballGameDetailsProps> = ({ game }) => {
       {/* Quarter and Time */}
       <div className="text-center">
         <div className="text-lg font-bold text-white">
-          {currentState.periodType} {currentState.period || 1}
+          {formatPeriodDisplay(currentState.period, currentState.periodType)}
         </div>
         {currentState.clock && (
           <div className="text-sm text-gray-300">

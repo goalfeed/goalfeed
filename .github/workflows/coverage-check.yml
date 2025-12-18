@@ -27,7 +27,7 @@ jobs:
           
           # Run tests and get coverage for main branch
           go test -coverprofile=baseline_coverage.out ./models ./targets/homeassistant ./targets/memoryStore ./services/leagues/nhl ./services/leagues/mlb ./services/leagues/iihf ./utils ./config ./clients/... || true
-          go test -coverprofile=baseline_main_coverage.out -v -run="TestTeamIsMonitored|TestGameIsMonitored|TestSendTestGoal|TestFireGoalEvents" . || true
+          go test -coverprofile=baseline_main_coverage.out -v -run="TestTeamIsMonitored|TestGameIsMonitored|TestSendTestGoal|TestFireGoalEvents|TestTickerManager_WaitForCompletion" . || true
           
           # Combine baseline coverage files
           echo "mode: set" > baseline_combined_coverage.out
@@ -46,7 +46,7 @@ jobs:
         run: |
           # Run tests and get coverage for current PR
           go test -coverprofile=current_coverage.out ./models ./targets/homeassistant ./targets/memoryStore ./services/leagues/nhl ./services/leagues/mlb ./services/leagues/iihf ./utils ./config ./clients/... || true
-          go test -coverprofile=current_main_coverage.out -v -run="TestTeamIsMonitored|TestGameIsMonitored|TestSendTestGoal|TestFireGoalEvents" . || true
+          go test -coverprofile=current_main_coverage.out -v -run="TestTeamIsMonitored|TestGameIsMonitored|TestSendTestGoal|TestFireGoalEvents|TestTickerManager_WaitForCompletion" . || true
           
           # Combine current coverage files
           echo "mode: set" > current_combined_coverage.out

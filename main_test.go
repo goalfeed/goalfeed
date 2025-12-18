@@ -738,10 +738,33 @@ func TestTickerManager_StartAllTickers(t *testing.T) {
 func TestTickerManager_WaitForCompletion(t *testing.T) {
 	tm := NewTickerManager()
 
-	// This test verifies the function doesn't panic
-	assert.NotPanics(t, func() {
-		tm.WaitForCompletion()
+	// Add a ticker that will complete quickly
+	done := make(chan bool)
+	tm.AddTicker(10*time.Millisecond, func() {
+		done <- true
 	})
+	tm.StartAllTickers()
+
+	// Wait a bit for the ticker to start
+	time.Sleep(20 * time.Millisecond)
+
+	// WaitForCompletion should not block indefinitely if no active tickers
+	// Since we started tickers, we should be able to wait
+	// Use a timeout to prevent hanging
+	waitDone := make(chan bool)
+	go func() {
+		tm.WaitForCompletion()
+		waitDone <- true
+	}()
+
+	// Wait for either completion or timeout
+	select {
+	case <-waitDone:
+		// Success - WaitForCompletion completed
+	case <-time.After(100 * time.Millisecond):
+		// Timeout - this is expected since tickers run indefinitely
+		// The test verifies WaitForCompletion doesn't panic
+	}
 }
 
 func TestTickerManager_EdgeCases(t *testing.T) {
@@ -837,4 +860,30 @@ func TestTickerManager_DefaultTickers(t *testing.T) {
 		assert.Equal(t, expectedDuration, tm.tickers[i].Duration)
 		assert.NotNil(t, tm.tickers[i].Task)
 	}
+}
+
+func TestTickerManager_RefreshTicker(t *testing.T) {
+	setupTest(t)
+	
+	// Test the refresh ticker functionality
+	// The 5th ticker (index 4) is the refresh ticker
+	tm := NewTickerManager()
+	refreshTicker := tm.tickers[4]
+	
+	// Set needRefresh to true to test the refresh path
+	needRefresh = true
+	
+	// Execute the refresh ticker task
+	assert.NotPanics(t, func() {
+		refreshTicker.Task()
+	})
+	
+	// Verify needRefresh was reset
+	assert.False(t, needRefresh)
+	
+	// Test when needRefresh is false (should not call checkLeaguesForActiveGames)
+	needRefresh = false
+	assert.NotPanics(t, func() {
+		refreshTicker.Task()
+	})
 }
