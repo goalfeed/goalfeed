@@ -193,3 +193,43 @@ func TestCFLClient_Schedule_EmptyResponseRetry(t *testing.T) {
 		t.Fatalf("unexpected schedule resp after empty response retry: %+v", resp)
 	}
 }
+
+func TestCFLClient_Schedule_RetryFails(t *testing.T) {
+	// Test the case where primary fails and retry also fails (empty body)
+	oldB := fetchByte
+	oldBH := fetchByteWithHeaders
+	defer func() { fetchByte = oldB; fetchByteWithHeaders = oldBH }()
+
+	fetchByteWithHeaders = func(url string, ret chan []byte, headers map[string]string) {
+		ret <- []byte(`invalid json`) // First call fails with invalid JSON
+	}
+	fetchByte = func(url string, ret chan []byte) {
+		ret <- []byte{} // Retry also fails with empty body
+	}
+
+	c := CFLApiClient{}
+	resp := c.GetCFLSchedule()
+	if len(resp) != 0 {
+		t.Fatalf("expected empty response when retry fails, got: %+v", resp)
+	}
+}
+
+func TestCFLClient_Schedule_RetryUnmarshalFails(t *testing.T) {
+	// Test the case where primary fails and retry unmarshal fails
+	oldB := fetchByte
+	oldBH := fetchByteWithHeaders
+	defer func() { fetchByte = oldB; fetchByteWithHeaders = oldBH }()
+
+	fetchByteWithHeaders = func(url string, ret chan []byte, headers map[string]string) {
+		ret <- []byte(`invalid json`) // First call fails with invalid JSON
+	}
+	fetchByte = func(url string, ret chan []byte) {
+		ret <- []byte(`invalid json`) // Retry also fails with invalid JSON
+	}
+
+	c := CFLApiClient{}
+	resp := c.GetCFLSchedule()
+	if len(resp) != 0 {
+		t.Fatalf("expected empty response when retry unmarshal fails, got: %+v", resp)
+	}
+}
