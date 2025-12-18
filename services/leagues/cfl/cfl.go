@@ -27,6 +27,12 @@ func (s CFLService) GetLeagueName() string {
 	return "CFL"
 }
 
+func (s CFLService) GetGamesByDate(date string, ret chan []models.Game) {
+	// CFL API doesn't support date-based queries yet
+	// Return empty for now
+	ret <- []models.Game{}
+}
+
 func (s CFLService) getSchedule() cfl.CFLScheduleResponse {
 	// Use the actual CFL API to get schedule data
 	logger.Info("Fetching CFL schedule data from official API")

@@ -182,6 +182,7 @@ func (wsm *WebServerManager) RegisterAPIRoutes(r *gin.Engine) {
 	api := r.Group("/api")
 	{
 		api.GET("/games", getGames)
+		api.GET("/games/history", getGamesByDate)
 		api.GET("/upcoming", getUpcomingGames)
 		api.GET("/leagues", getLeagues)
 		api.POST("/leagues", updateLeagueConfig)
@@ -476,6 +477,116 @@ func getGames(c *gin.Context) {
 	c.JSON(http.StatusOK, ApiResponse{
 		Success: true,
 		Data:    games,
+	})
+}
+
+// getGamesByDate godoc
+// @Summary      Get games by date
+// @Description  Returns a list of completed and active games for a specific date (YYYY-MM-DD format)
+// @Tags         games
+// @Accept       json
+// @Produce      json
+// @Param        date  query     string  true  "Date in YYYY-MM-DD format"
+// @Success      200   {object}  ApiResponse{data=[]models.Game}
+// @Failure      400   {object}  ApiResponse
+// @Failure      500   {object}  ApiResponse
+// @Router       /games/history [get]
+func getGamesByDate(c *gin.Context) {
+	dateStr := c.Query("date")
+	if dateStr == "" {
+		c.JSON(http.StatusBadRequest, ApiResponse{
+			Success: false,
+			Message: "date parameter is required (format: YYYY-MM-DD)",
+		})
+		return
+	}
+
+	// Validate date format
+	_, err := time.Parse("2006-01-02", dateStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ApiResponse{
+			Success: false,
+			Message: "Invalid date format. Use YYYY-MM-DD",
+		})
+		return
+	}
+
+	// Get all league services
+	var allGames []models.Game
+
+	// Define league configurations
+	leagueConfigs := []struct {
+		leagueId   models.League
+		leagueName string
+	}{
+		{models.LeagueIdNHL, "nhl"},
+		{models.LeagueIdMLB, "mlb"},
+		{models.LeagueIdCFL, "cfl"},
+		{models.LeagueIdIIHF, "iihf"},
+		{models.LeagueIdNFL, "nfl"},
+	}
+
+	for _, leagueConfig := range leagueConfigs {
+		// Get monitored teams for this league
+		monitoredTeams := config.GetStringSlice("watch." + leagueConfig.leagueName)
+		if len(monitoredTeams) == 0 {
+			continue
+		}
+
+		// Get the league service for this league
+		var leagueService leagues.ILeagueService
+		switch leagueConfig.leagueId {
+		case models.LeagueIdNHL:
+			leagueService = nhlServices.NHLService{Client: nhlClients.NHLApiClient{}}
+		case models.LeagueIdMLB:
+			leagueService = mlbServices.MLBService{Client: mlbClients.MLBApiClient{}}
+		case models.LeagueIdCFL:
+			leagueService = cflServices.CFLService{Client: cflClients.CFLApiClient{}}
+		case models.LeagueIdIIHF:
+			leagueService = iihfServices.IIHFService{}
+		case models.LeagueIdNFL:
+			leagueService = nflServices.NFLService{Client: nflClients.NFLAPIClient{}}
+		default:
+			continue
+		}
+
+		// Get games for this date
+		gamesChan := make(chan []models.Game)
+		go leagueService.GetGamesByDate(dateStr, gamesChan)
+		games := <-gamesChan
+
+		// Filter to only include games with monitored teams
+		for _, game := range games {
+			isMonitored := false
+			for _, teamCode := range monitoredTeams {
+				// Handle wildcard "*" to include all teams
+				if teamCode == "*" {
+					isMonitored = true
+					break
+				}
+				if game.CurrentState.Away.Team.TeamCode == teamCode || game.CurrentState.Home.Team.TeamCode == teamCode {
+					isMonitored = true
+					break
+				}
+			}
+
+			if isMonitored {
+				allGames = append(allGames, game)
+			}
+		}
+	}
+
+	// Sort games by time
+	sort.Slice(allGames, func(i, j int) bool {
+		if allGames[i].GameDetails.GameDate.IsZero() || allGames[j].GameDetails.GameDate.IsZero() {
+			return false
+		}
+		return allGames[i].GameDetails.GameDate.Before(allGames[j].GameDetails.GameDate)
+	})
+
+	c.JSON(http.StatusOK, ApiResponse{
+		Success: true,
+		Data:    allGames,
 	})
 }
 

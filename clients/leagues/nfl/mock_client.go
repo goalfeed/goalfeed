@@ -5,6 +5,11 @@ import "time"
 type NFLMockClient struct {
 }
 
+func (c NFLMockClient) GetNFLScheduleByDate(date string) NFLScheduleResponse {
+	// Return same mock data for date-based queries
+	return c.GetNFLSchedule()
+}
+
 func (c NFLMockClient) GetNFLSchedule() NFLScheduleResponse {
 	return NFLScheduleResponse{
 		Events: []NFLScheduleEvent{

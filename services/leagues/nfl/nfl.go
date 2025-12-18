@@ -30,6 +30,12 @@ func (s NFLService) getSchedule() nfl.NFLScheduleResponse {
 	return s.Client.GetNFLSchedule()
 }
 
+func (s NFLService) getScheduleByDate(date string) nfl.NFLScheduleResponse {
+	// Convert YYYY-MM-DD to YYYYMMDD for NFL API
+	dateFormatted := strings.ReplaceAll(date, "-", "")
+	return s.Client.GetNFLScheduleByDate(dateFormatted)
+}
+
 func (s NFLService) GetActiveGames(ret chan []models.Game) {
 	schedule := s.getSchedule()
 	var activeGames []models.Game
@@ -87,6 +93,25 @@ func (s NFLService) GetUpcomingGames(ret chan []models.Game) {
 		}
 	}
 	ret <- upcomingGames
+}
+
+func (s NFLService) GetGamesByDate(date string, ret chan []models.Game) {
+	schedule := s.getScheduleByDate(date)
+	var games []models.Game
+
+	for _, event := range schedule.Events {
+		// Include all games for the specified date
+		gameModel := s.gameFromEvent(event)
+		// For completed games, try to get final score from scoreboard if available
+		if gameStatusFromEvent(event) == models.StatusEnded && event.ID != "" {
+			fresh := s.GameFromScoreboard(event.ID)
+			if fresh.GameCode != "" {
+				gameModel = fresh
+			}
+		}
+		games = append(games, gameModel)
+	}
+	ret <- games
 }
 
 func (s NFLService) GetGameUpdate(game models.Game, ret chan models.GameUpdate) {

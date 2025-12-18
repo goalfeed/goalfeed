@@ -27,6 +27,12 @@ func (s IIHFService) GetLeagueName() string {
 	return "IIHF"
 }
 
+func (s IIHFService) GetGamesByDate(date string, ret chan []models.Game) {
+	// IIHF API doesn't support date-based queries yet
+	// Return empty for now
+	ret <- []models.Game{}
+}
+
 // GetActiveGames Returns active IIHFGames
 func (s IIHFService) GetActiveGames(ret chan []models.Game) {
 	schedule := s.getSchedule()

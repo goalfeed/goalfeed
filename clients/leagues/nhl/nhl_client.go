@@ -34,6 +34,17 @@ func (c NHLApiClient) GetNHLSchedule() NHLScheduleResponse {
 	return response
 }
 
+func (c NHLApiClient) GetNHLScheduleByDate(date string) NHLScheduleResponse {
+	var body chan []byte = make(chan []byte)
+	url := fmt.Sprintf("https://api-web.nhle.com/v1/schedule/%s", date) // Format: YYYY-MM-DD
+	go fetchByte(url, body)
+
+	bodyByte := <-body
+	var response NHLScheduleResponse
+	json.Unmarshal(bodyByte, &response)
+	return response
+}
+
 func (c NHLApiClient) GetTeam(teamAbbr string) NHLTeamResponse {
 	var body chan []byte = make(chan []byte)
 	url := fmt.Sprintf("https://api-web.nhle.com/v1/club-schedule-season/%s/now", teamAbbr) // Updated URL

@@ -41,6 +41,18 @@ func (c MLBApiClient) GetMLBSchedule() MLBScheduleResponse {
 	return response
 }
 
+func (c MLBApiClient) GetMLBScheduleByDate(date string) MLBScheduleResponse {
+	var body chan []byte = make(chan []byte)
+	// Format: YYYY-MM-DD
+	url := fmt.Sprintf("https://statsapi.mlb.com/api/v1/schedule?language=en&sportId=1&startDate=%s&endDate=%s", date, date)
+	go fetchByte(url, body)
+
+	bodyByte := <-body
+	var response MLBScheduleResponse
+	json.Unmarshal(bodyByte, &response)
+	return response
+}
+
 func (c MLBApiClient) GetTeam(sLink string) MLBTeamResponse {
 	var body chan []byte = make(chan []byte)
 	url := fmt.Sprintf("https://statsapi.mlb.com%s", sLink)

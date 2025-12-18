@@ -29,6 +29,10 @@ func (s MLBService) getSchedule() mlb.MLBScheduleResponse {
 	//todo support some method of determining active events programmatically
 	return s.Client.GetMLBSchedule()
 }
+
+func (s MLBService) getScheduleByDate(date string) mlb.MLBScheduleResponse {
+	return s.Client.GetMLBScheduleByDate(date)
+}
 func (s MLBService) GetLeagueName() string {
 	return "MLB"
 }
@@ -64,6 +68,20 @@ func (s MLBService) GetUpcomingGames(ret chan []models.Game) {
 		}
 	}
 	ret <- upcomingGames
+}
+
+// GetGamesByDate Returns all MLB games for a specific date
+func (s MLBService) GetGamesByDate(date string, ret chan []models.Game) {
+	schedule := s.getScheduleByDate(date)
+	var games []models.Game
+
+	for _, dateGroup := range schedule.Dates {
+		for _, game := range dateGroup.Games {
+			// Include all games for the specified date
+			games = append(games, s.gameFromSchedule(game))
+		}
+	}
+	ret <- games
 }
 
 // GetActiveGames Returns a GameUpdate

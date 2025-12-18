@@ -29,6 +29,13 @@ func (c MockNHLApiClient) GetNHLSchedule() NHLScheduleResponse {
 	json.Unmarshal([]byte(UpcomingGamesSchedule), &response)
 	return response
 }
+
+func (c MockNHLApiClient) GetNHLScheduleByDate(date string) NHLScheduleResponse {
+	var response NHLScheduleResponse
+	c.GetNHLScheduleCalls++
+	json.Unmarshal([]byte(UpcomingGamesSchedule), &response)
+	return response
+}
 func (c MockNHLApiClient) GetNHLScoreBoard(sGameId string) NHLScoreboardResponse {
 	var response NHLScoreboardResponse
 	c.GetNHLScoreBoardCalls++

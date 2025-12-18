@@ -33,6 +33,10 @@ func (m *MockLeagueService) GetUpcomingGames(ch chan []models.Game) {
 	ch <- m.games
 }
 
+func (m *MockLeagueService) GetGamesByDate(date string, ch chan []models.Game) {
+	ch <- m.games
+}
+
 func (m *MockLeagueService) GetGameUpdate(game models.Game, ch chan models.GameUpdate) {
 	ch <- models.GameUpdate{
 		OldState: game.CurrentState,

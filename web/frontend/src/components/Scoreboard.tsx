@@ -28,7 +28,11 @@ interface UpcomingGame {
 const Scoreboard: React.FC<ScoreboardProps> = ({ games }) => {
   const [upcomingGames, setUpcomingGames] = useState<UpcomingGame[]>([]);
   const [todaysGames, setTodaysGames] = useState<UpcomingGame[]>([]);
+  const [historicalGames, setHistoricalGames] = useState<Game[]>([]);
+  const [selectedDate, setSelectedDate] = useState<string>('');
   const [showUpcoming, setShowUpcoming] = useState(false);
+  const [showHistorical, setShowHistorical] = useState(false);
+  const [isLoadingHistorical, setIsLoadingHistorical] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const gamesPerPage = 5;
 
@@ -61,6 +65,38 @@ const Scoreboard: React.FC<ScoreboardProps> = ({ games }) => {
 
     fetchUpcomingGames();
   }, []);
+
+  const fetchHistoricalGames = async (date: string) => {
+    if (!date) {
+      setHistoricalGames([]);
+      return;
+    }
+
+    setIsLoadingHistorical(true);
+    try {
+      const response = await apiClient.get(`/api/games/history?date=${date}`);
+      if (response.data.success) {
+        setHistoricalGames(response.data.data || []);
+      }
+    } catch (error) {
+      console.error('Failed to fetch historical games:', error);
+      setHistoricalGames([]);
+    } finally {
+      setIsLoadingHistorical(false);
+    }
+  };
+
+  const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const date = e.target.value;
+    setSelectedDate(date);
+    if (date) {
+      fetchHistoricalGames(date);
+      setShowHistorical(true);
+    } else {
+      setShowHistorical(false);
+      setHistoricalGames([]);
+    }
+  };
 
   const getLeagueIcon = (leagueId: number) => {
     switch (leagueId) {
@@ -167,7 +203,57 @@ const Scoreboard: React.FC<ScoreboardProps> = ({ games }) => {
 
   return (
     <div className="space-y-6">
-      
+      {/* Date Picker for Historical Games */}
+      <div className="bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 p-4">
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-lg font-bold text-white">Look Up Completed Games</h3>
+          {selectedDate && (
+            <button
+              onClick={() => {
+                setSelectedDate('');
+                setShowHistorical(false);
+                setHistoricalGames([]);
+              }}
+              className="text-sm text-gray-400 hover:text-white"
+            >
+              Clear
+            </button>
+          )}
+        </div>
+        <div className="flex items-center space-x-3">
+          <input
+            type="date"
+            value={selectedDate}
+            onChange={handleDateChange}
+            max={new Date().toISOString().split('T')[0]} // Don't allow future dates
+            className="px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          {isLoadingHistorical && (
+            <span className="text-sm text-gray-400">Loading...</span>
+          )}
+        </div>
+      </div>
+
+      {/* Historical Games */}
+      {showHistorical && historicalGames.length > 0 && (
+        <div className="mt-4">
+          <h3 className="text-xl font-bold text-white mb-4">
+            Games on {selectedDate ? new Date(selectedDate).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) : ''}
+          </h3>
+          <div className="space-y-3">
+            {historicalGames.map((game) => (
+              <GameCard key={game.gameCode} game={game} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {showHistorical && !isLoadingHistorical && historicalGames.length === 0 && selectedDate && (
+        <div className="text-center py-8 bg-white/5 backdrop-blur-sm rounded-lg border border-white/10">
+          <div className="text-gray-400 text-lg mb-2">No games found</div>
+          <div className="text-gray-500 text-sm">No games were played on this date for your monitored teams</div>
+        </div>
+      )}
 
       {/* Debug information for MLB games */}
       {games.filter(game => game.leagueId === 2).length > 0 && (

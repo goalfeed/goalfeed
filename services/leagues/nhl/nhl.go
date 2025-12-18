@@ -32,6 +32,10 @@ func (s NHLService) getSchedule() nhl.NHLScheduleResponse {
 	return s.Client.GetNHLSchedule()
 }
 
+func (s NHLService) getScheduleByDate(date string) nhl.NHLScheduleResponse {
+	return s.Client.GetNHLScheduleByDate(date)
+}
+
 func (s NHLService) GetActiveGames(ret chan []models.Game) {
 	schedule := s.getSchedule()
 	var activeGames []models.Game
@@ -72,6 +76,28 @@ func (s NHLService) GetUpcomingGames(ret chan []models.Game) {
 		}
 	}
 	ret <- upcomingGames
+}
+
+func (s NHLService) GetGamesByDate(date string, ret chan []models.Game) {
+	schedule := s.getScheduleByDate(date)
+	var games []models.Game
+
+	for _, dateGroup := range schedule.GameWeek {
+		for _, game := range dateGroup.Games {
+			// Include all games (active, ended, upcoming) for the specified date
+			gameModel := s.gameFromSchedule(game)
+			// For completed games, try to get final score from scoreboard if available
+			if gameStatusFromScheduleGame(game) == models.StatusEnded {
+				// Try to get final score from scoreboard
+				fresh := s.gameFromScoreboard(strconv.Itoa(game.ID))
+				if fresh.GameCode != "" {
+					gameModel = fresh
+				}
+			}
+			games = append(games, gameModel)
+		}
+	}
+	ret <- games
 }
 
 func (s NHLService) GetGameUpdate(game models.Game, ret chan models.GameUpdate) {

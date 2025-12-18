@@ -22,6 +22,12 @@ func (c MockMLBApiClient) GetMLBSchedule() MLBScheduleResponse {
 	json.Unmarshal([]byte(UpcomingGamesSchedule), &response)
 	return response
 }
+
+func (c MockMLBApiClient) GetMLBScheduleByDate(date string) MLBScheduleResponse {
+	var response MLBScheduleResponse
+	json.Unmarshal([]byte(UpcomingGamesSchedule), &response)
+	return response
+}
 func (c MockMLBApiClient) GetMLBScoreBoard(sGameId string) MLBScoreboardResponse {
 	var response MLBScoreboardResponse
 	json.Unmarshal([]byte(ActiveGameScoreboard), &response)

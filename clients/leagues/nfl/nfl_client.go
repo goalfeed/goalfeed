@@ -23,6 +23,18 @@ func (c NFLAPIClient) GetNFLSchedule() NFLScheduleResponse {
 	return response
 }
 
+func (c NFLAPIClient) GetNFLScheduleByDate(date string) NFLScheduleResponse {
+	var body chan []byte = make(chan []byte)
+	// Format: YYYYMMDD
+	url := fmt.Sprintf("https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?dates=%s", date)
+	go fetchByte(url, body)
+
+	bodyByte := <-body
+	var response NFLScheduleResponse
+	json.Unmarshal(bodyByte, &response)
+	return response
+}
+
 func (c NFLAPIClient) GetNFLScoreBoard(gameId string) NFLScoreboardResponse {
 	var body chan []byte = make(chan []byte)
 	url := fmt.Sprintf("https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary?event=%s", gameId)

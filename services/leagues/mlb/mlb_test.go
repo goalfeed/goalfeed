@@ -19,6 +19,11 @@ func (c MockMLBApiClientWithError) GetMLBSchedule() mlb.MLBScheduleResponse {
 	return mockClient.GetMLBSchedule()
 }
 
+func (c MockMLBApiClientWithError) GetMLBScheduleByDate(date string) mlb.MLBScheduleResponse {
+	var mockClient = mlb.MockMLBApiClient{}
+	return mockClient.GetMLBScheduleByDate(date)
+}
+
 func (c MockMLBApiClientWithError) GetMLBScoreBoard(sGameId string) mlb.MLBScoreboardResponse {
 	var mockClient = mlb.MockMLBApiClient{}
 	return mockClient.GetMLBScoreBoard(sGameId)
