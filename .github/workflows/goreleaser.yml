@@ -121,7 +121,13 @@ jobs:
           
           # Debug: List directory structure
           echo "Repository structure:"
-          find . -type f -name "*.yaml" -o -name "*.yml" -o -name "Dockerfile" | head -20
+          find . -type f \( -name "*.yaml" -o -name "*.yml" -o -name "*.json" -o -name "Dockerfile" \) | head -20
+          
+          # Install jq if not available (for JSON manipulation)
+          if ! command -v jq &> /dev/null; then
+            echo "Installing jq for JSON manipulation..."
+            sudo apt-get update && sudo apt-get install -y jq
+          fi
           
           # Determine the correct path for goalfeed directory
           if [ -d "goalfeed" ]; then
@@ -143,23 +149,42 @@ jobs:
           VERSION_CONFIG="${{ steps.extract-version.outputs.version_config }}"
           VERSION_DOCKER="${{ steps.extract-version.outputs.version_docker }}"
           
+          FILES_UPDATED=0
+          
           if [ -f "config.yaml" ]; then
             sed -i "s/^version: .*/version: \"$VERSION_CONFIG\"/" config.yaml
             echo "Updated config.yaml"
+            FILES_UPDATED=1
           else
             echo "Warning: config.yaml not found in $GOALFEED_DIR"
+          fi
+          
+          if [ -f "config.json" ]; then
+            # Update version in config.json using jq if available, otherwise use sed
+            if command -v jq &> /dev/null; then
+              jq ".version = \"$VERSION_CONFIG\"" config.json > config.json.tmp && mv config.json.tmp config.json
+              echo "Updated config.json using jq"
+            else
+              # Fallback to sed for JSON (less reliable but works for simple cases)
+              sed -i "s/\"version\"[[:space:]]*:[[:space:]]*\"[^\"]*\"/\"version\": \"$VERSION_CONFIG\"/" config.json
+              echo "Updated config.json using sed"
+            fi
+            FILES_UPDATED=1
+          else
+            echo "Warning: config.json not found in $GOALFEED_DIR"
           fi
           
           if [ -f "Dockerfile" ]; then
             sed -i "s/ARG GOALFEED_VERSION=.*/ARG GOALFEED_VERSION=$VERSION_DOCKER/" Dockerfile
             echo "Updated Dockerfile"
+            FILES_UPDATED=1
           else
             echo "Warning: Dockerfile not found in $GOALFEED_DIR"
           fi
           
           # Only proceed if at least one file was modified
-          if [ ! -f "config.yaml" ] && [ ! -f "Dockerfile" ]; then
-            echo "Error: Neither config.yaml nor Dockerfile found. Cannot proceed."
+          if [ $FILES_UPDATED -eq 0 ]; then
+            echo "Error: None of config.yaml, config.json, or Dockerfile found. Cannot proceed."
             exit 1
           fi
           
