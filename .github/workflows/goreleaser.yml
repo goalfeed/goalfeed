@@ -103,8 +103,8 @@ jobs:
         run: |
           TAG=$(gh release list --limit 1 --repo goalfeed/goalfeed | awk '{print $1}')  # Get the latest release tag
           VERSION="${TAG#v}"  # Remove the 'v' prefix for config.yaml
-          echo "::set-output name=version_config::\"$VERSION\""  # Wrap in double quotes for config.yaml
-          echo "::set-output name=version_docker::$TAG"  # Keep 'v' prefix for Dockerfile
+          echo "version_config=\"$VERSION\"" >> $GITHUB_OUTPUT  # Wrap in double quotes for config.yaml
+          echo "version_docker=$TAG" >> $GITHUB_OUTPUT  # Keep 'v' prefix for Dockerfile
         shell: bash
 
       - name: Update target repository and create PR
@@ -117,17 +117,64 @@ jobs:
           
           # Clone the target repository
           git clone https://github.com/goalfeed/hassio-goalfeed-repository.git
-          cd hassio-goalfeed-repository/goalfeed
+          cd hassio-goalfeed-repository
           
-          # Modify the files using the extracted version
-          sed -i 's/^version: .*/version: ${{ steps.extract-version.outputs.version_config }}/' config.yaml
-          sed -i 's/ARG GOALFEED_VERSION=.*/ARG GOALFEED_VERSION=${{ steps.extract-version.outputs.version_docker }}/' Dockerfile
+          # Debug: List directory structure
+          echo "Repository structure:"
+          find . -type f -name "*.yaml" -o -name "*.yml" -o -name "Dockerfile" | head -20
+          
+          # Determine the correct path for goalfeed directory
+          if [ -d "goalfeed" ]; then
+            GOALFEED_DIR="goalfeed"
+          elif [ -d "repository/goalfeed" ]; then
+            GOALFEED_DIR="repository/goalfeed"
+          else
+            echo "Error: Could not find goalfeed directory. Available directories:"
+            ls -la
+            exit 1
+          fi
+          
+          cd "$GOALFEED_DIR"
+          echo "Working in directory: $(pwd)"
+          echo "Files in directory:"
+          ls -la
+          
+          # Check if files exist before modifying
+          VERSION_CONFIG="${{ steps.extract-version.outputs.version_config }}"
+          VERSION_DOCKER="${{ steps.extract-version.outputs.version_docker }}"
+          
+          if [ -f "config.yaml" ]; then
+            sed -i "s/^version: .*/version: \"$VERSION_CONFIG\"/" config.yaml
+            echo "Updated config.yaml"
+          else
+            echo "Warning: config.yaml not found in $GOALFEED_DIR"
+          fi
+          
+          if [ -f "Dockerfile" ]; then
+            sed -i "s/ARG GOALFEED_VERSION=.*/ARG GOALFEED_VERSION=$VERSION_DOCKER/" Dockerfile
+            echo "Updated Dockerfile"
+          else
+            echo "Warning: Dockerfile not found in $GOALFEED_DIR"
+          fi
+          
+          # Only proceed if at least one file was modified
+          if [ ! -f "config.yaml" ] && [ ! -f "Dockerfile" ]; then
+            echo "Error: Neither config.yaml nor Dockerfile found. Cannot proceed."
+            exit 1
+          fi
           
           # Commit changes
-          BRANCH_NAME="update-version-${{ steps.extract-version.outputs.version_config }}"
+          BRANCH_NAME="update-version-$VERSION_CONFIG"
           git checkout -b "$BRANCH_NAME"
           git add .
-          git commit -m "Update to version ${{ steps.extract-version.outputs.version_config }}"
+          
+          # Check if there are any changes to commit
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "No changes to commit. Files may already be up to date."
+            exit 0
+          fi
+          
+          git commit -m "Update to version $VERSION_CONFIG"
           
           # Set the remote URL to include the GITHUB_TOKEN for authentication
           git remote set-url origin https://x-access-token:${GH_TOKEN}@github.com/goalfeed/hassio-goalfeed-repository.git
@@ -136,4 +183,4 @@ jobs:
           git push origin "$BRANCH_NAME"
           
           # Create PR using GH CLI with the token directly
-          gh pr create --base main --head "$BRANCH_NAME" --title "Update to version ${{ steps.extract-version.outputs.version_config }}" --body "This PR updates the version to ${{ steps.extract-version.outputs.version_config }}." --repo goalfeed/hassio-goalfeed-repository
+          gh pr create --base main --head "$BRANCH_NAME" --title "Update to version $VERSION_CONFIG" --body "This PR updates the version to $VERSION_CONFIG." --repo goalfeed/hassio-goalfeed-repository
