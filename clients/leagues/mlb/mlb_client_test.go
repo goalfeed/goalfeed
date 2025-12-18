@@ -1,10 +1,24 @@
 package mlb
 
 import (
+	"encoding/json"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
+
+func withStubFetchMLB(t *testing.T, payload interface{}) func() {
+	oldB := fetchByte
+	b, _ := json.Marshal(payload)
+	fetchByte = func(url string, ret chan []byte) { ret <- b }
+	return func() { fetchByte = oldB }
+}
+
+func withStubFetchMLBError(t *testing.T) func() {
+	oldB := fetchByte
+	fetchByte = func(url string, ret chan []byte) { ret <- []byte{} }
+	return func() { fetchByte = oldB }
+}
 
 func TestMLBApiClient_GetMLBSchedule(t *testing.T) {
 	client := MLBApiClient{}
@@ -92,12 +106,23 @@ func TestMockMLBApiClient_SetScores(t *testing.T) {
 }
 
 func TestMLBApiClient_GetAllTeams(t *testing.T) {
+	restore := withStubFetchMLB(t, MLBTeamResponse{Teams: []MLBTeamsResponseTeam{{ID: "1", Name: "Test Team"}}})
+	defer restore()
 	client := MLBApiClient{}
+	resp := client.GetAllTeams()
+	if len(resp.Teams) != 1 || resp.Teams[0].ID != "1" {
+		t.Fatalf("unexpected all teams resp: %+v", resp)
+	}
+}
 
-	// Test that the method exists and doesn't panic
-	assert.NotPanics(t, func() {
-		_ = client.GetAllTeams()
-	})
+func TestMLBApiClient_GetAllTeams_EmptyResponse(t *testing.T) {
+	restore := withStubFetchMLBError(t)
+	defer restore()
+	client := MLBApiClient{}
+	resp := client.GetAllTeams()
+	if len(resp.Teams) != 0 {
+		t.Fatalf("expected empty response, got: %+v", resp)
+	}
 }
 
 func TestMockMLBApiClient_GetAllTeams(t *testing.T) {

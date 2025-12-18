@@ -1,10 +1,24 @@
 package nhl
 
 import (
+	"encoding/json"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
+
+func withStubFetchNHL(t *testing.T, payload interface{}) func() {
+	oldB := fetchByte
+	b, _ := json.Marshal(payload)
+	fetchByte = func(url string, ret chan []byte) { ret <- b }
+	return func() { fetchByte = oldB }
+}
+
+func withStubFetchNHLError(t *testing.T) func() {
+	oldB := fetchByte
+	fetchByte = func(url string, ret chan []byte) { ret <- []byte{} }
+	return func() { fetchByte = oldB }
+}
 
 func TestNHLApiClient_GetNHLSchedule(t *testing.T) {
 	client := NHLApiClient{}
@@ -94,12 +108,23 @@ func TestMockNHLApiClient_SetScores(t *testing.T) {
 }
 
 func TestNHLApiClient_GetAllTeams(t *testing.T) {
+	restore := withStubFetchNHL(t, NHLTeamResponse{Teams: []NHLTeamsResponseTeam{{ID: "1", Abbreviation: "TOR"}}})
+	defer restore()
 	client := NHLApiClient{}
+	resp := client.GetAllTeams()
+	if len(resp.Teams) != 1 || resp.Teams[0].ID != "1" {
+		t.Fatalf("unexpected all teams resp: %+v", resp)
+	}
+}
 
-	// Test that the method exists and doesn't panic
-	assert.NotPanics(t, func() {
-		_ = client.GetAllTeams()
-	})
+func TestNHLApiClient_GetAllTeams_EmptyResponse(t *testing.T) {
+	restore := withStubFetchNHLError(t)
+	defer restore()
+	client := NHLApiClient{}
+	resp := client.GetAllTeams()
+	if len(resp.Teams) != 0 {
+		t.Fatalf("expected empty response, got: %+v", resp)
+	}
 }
 
 func TestMockNHLApiClient_GetAllTeams(t *testing.T) {
