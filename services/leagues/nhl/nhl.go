@@ -39,7 +39,21 @@ func (s NHLService) GetActiveGames(ret chan []models.Game) {
 	for _, date := range schedule.GameWeek {
 		for _, game := range date.Games {
 			if gameStatusFromScheduleGame(game) == models.StatusActive {
-				activeGames = append(activeGames, s.gameFromSchedule(game))
+				// For live games, always fetch from scoreboard to get accurate data
+				if game.GameState == "LIVE" {
+					fresh := s.gameFromScoreboard(strconv.Itoa(game.ID))
+					// Validate scoreboard response has valid data (check ID matches)
+					if fresh.GameCode != "" && fresh.GameCode == strconv.Itoa(game.ID) {
+						// Use the complete game data from scoreboard
+						activeGames = append(activeGames, fresh)
+					} else {
+						// Fallback to schedule data if scoreboard fails
+						activeGames = append(activeGames, s.gameFromSchedule(game))
+					}
+				} else {
+					// For non-LIVE active games (e.g., FINAL), use schedule data
+					activeGames = append(activeGames, s.gameFromSchedule(game))
+				}
 			}
 		}
 	}
@@ -74,18 +88,123 @@ func fudgeTimestamp(extTimestamp string) string {
 
 }
 
-func (s NHLService) getGameUpdateFromScoreboard(game models.Game, ret chan models.GameUpdate) {
-	scoreboard := s.Client.GetNHLScoreBoard(game.GameCode)
+// gameFromScoreboard builds a complete Game model from the scoreboard endpoint
+func (s NHLService) gameFromScoreboard(gameId string) models.Game {
+	scoreboard := s.Client.GetNHLScoreBoard(gameId)
 
-	// Extract period information from game state
+	// Extract period information from periodDescriptor
 	var period int
 	var periodType string
 	var clock string
 
-	// For NHL, we can extract basic info from the game state
-	if scoreboard.GameState == "LIVE" {
-		period = 1 // Default to period 1 for live games
+	if scoreboard.PeriodDescriptor.Number > 0 {
+		period = scoreboard.PeriodDescriptor.Number
+		// Map period type: "REG" -> "REGULAR", "OT" -> "OVERTIME", etc.
+		switch scoreboard.PeriodDescriptor.PeriodType {
+		case "REG":
+			periodType = "REGULAR"
+		case "OT":
+			periodType = "OVERTIME"
+		case "SO":
+			periodType = "SHOOTOUT"
+		default:
+			periodType = "REGULAR"
+		}
+	} else if scoreboard.GameState == "LIVE" {
+		// Fallback to period 1 if periodDescriptor is missing but game is live
+		period = 1
 		periodType = "REGULAR"
+	}
+
+	// Extract clock time from clock object
+	if scoreboard.Clock.TimeRemaining != "" {
+		clock = scoreboard.Clock.TimeRemaining
+	} else if scoreboard.GameState == "LIVE" {
+		clock = "LIVE"
+	}
+
+	return models.Game{
+		CurrentState: models.GameState{
+			Home: models.TeamState{
+				Team: models.Team{
+					TeamName: scoreboard.HomeTeam.PlaceName.Default,
+					TeamCode: scoreboard.HomeTeam.Abbrev,
+					ExtID:    scoreboard.HomeTeam.Abbrev,
+					LeagueID: models.LeagueIdNHL,
+					LogoURL:  scoreboard.HomeTeam.Logo,
+				},
+				Score: scoreboard.HomeTeam.Score,
+				Statistics: models.TeamStats{
+					Shots: scoreboard.HomeTeam.Sog,
+				},
+			},
+			Away: models.TeamState{
+				Team: models.Team{
+					TeamName: scoreboard.AwayTeam.PlaceName.Default,
+					TeamCode: scoreboard.AwayTeam.Abbrev,
+					ExtID:    scoreboard.AwayTeam.Abbrev,
+					LeagueID: models.LeagueIdNHL,
+					LogoURL:  scoreboard.AwayTeam.Logo,
+				},
+				Score: scoreboard.AwayTeam.Score,
+				Statistics: models.TeamStats{
+					Shots: scoreboard.AwayTeam.Sog,
+				},
+			},
+			Status:        gameStatusFromGameState(scoreboard.GameState),
+			FetchedAt:     time.Now(),
+			Period:        period,
+			PeriodType:    periodType,
+			Clock:         clock,
+			TimeRemaining: clock, // Set both for frontend compatibility
+			Venue: models.Venue{
+				Name: scoreboard.Venue.Default,
+			},
+		},
+		GameCode: strconv.Itoa(scoreboard.ID),
+		LeagueId: models.LeagueIdNHL,
+		GameDetails: models.GameDetails{
+			GameId:     strconv.Itoa(scoreboard.ID),
+			Season:     strconv.Itoa(scoreboard.Season),
+			SeasonType: strconv.Itoa(scoreboard.GameType),
+			GameDate:   scoreboard.StartTimeUTC,
+			GameTime:   scoreboard.StartTimeUTC.Format("3:04 PM"),
+			Timezone:   "UTC",
+		},
+	}
+}
+
+func (s NHLService) getGameUpdateFromScoreboard(game models.Game, ret chan models.GameUpdate) {
+	scoreboard := s.Client.GetNHLScoreBoard(game.GameCode)
+
+	// Extract period information from periodDescriptor
+	var period int
+	var periodType string
+	var clock string
+
+	if scoreboard.PeriodDescriptor.Number > 0 {
+		period = scoreboard.PeriodDescriptor.Number
+		// Map period type: "REG" -> "REGULAR", "OT" -> "OVERTIME", etc.
+		switch scoreboard.PeriodDescriptor.PeriodType {
+		case "REG":
+			periodType = "REGULAR"
+		case "OT":
+			periodType = "OVERTIME"
+		case "SO":
+			periodType = "SHOOTOUT"
+		default:
+			periodType = "REGULAR"
+		}
+	} else if scoreboard.GameState == "LIVE" {
+		// Fallback to period 1 if periodDescriptor is missing but game is live
+		period = 1
+		periodType = "REGULAR"
+	}
+
+	// Extract clock time from clock object
+	if scoreboard.Clock.TimeRemaining != "" {
+		clock = scoreboard.Clock.TimeRemaining
+	} else if scoreboard.GameState == "LIVE" {
 		clock = "LIVE"
 	}
 
@@ -93,15 +212,22 @@ func (s NHLService) getGameUpdateFromScoreboard(game models.Game, ret chan model
 		Home: models.TeamState{
 			Team:  game.CurrentState.Home.Team,
 			Score: scoreboard.HomeTeam.Score,
+			Statistics: models.TeamStats{
+				Shots: scoreboard.HomeTeam.Sog,
+			},
 		},
 		Away: models.TeamState{
 			Team:  game.CurrentState.Away.Team,
 			Score: scoreboard.AwayTeam.Score,
+			Statistics: models.TeamStats{
+				Shots: scoreboard.AwayTeam.Sog,
+			},
 		},
-		Status:     gameStatusFromGameState(scoreboard.GameState),
-		Period:     period,
-		PeriodType: periodType,
-		Clock:      clock,
+		Status:        gameStatusFromGameState(scoreboard.GameState),
+		Period:        period,
+		PeriodType:    periodType,
+		Clock:         clock,
+		TimeRemaining: clock, // Set both for frontend compatibility
 		Venue: models.Venue{
 			Name: scoreboard.Venue.Default,
 		},
@@ -124,13 +250,27 @@ func (s NHLService) teamFromScheduleTeam(scheduleTeam nhl.NHLScheduleTeam) model
 }
 
 func (s NHLService) gameFromSchedule(scheduleGame nhl.NHLScheduleResponseGame) models.Game {
-	// Extract period information
+	// Extract period information from periodDescriptor
 	var period int
 	var periodType string
 	var clock string
 
-	if scheduleGame.GameState == "LIVE" {
-		period = 1 // Default to period 1 for live games
+	if scheduleGame.PeriodDescriptor.Number > 0 {
+		period = scheduleGame.PeriodDescriptor.Number
+		// Map period type: "REG" -> "REGULAR", "OT" -> "OVERTIME", etc.
+		switch scheduleGame.PeriodDescriptor.PeriodType {
+		case "REG":
+			periodType = "REGULAR"
+		case "OT":
+			periodType = "OVERTIME"
+		case "SO":
+			periodType = "SHOOTOUT"
+		default:
+			periodType = "REGULAR"
+		}
+	} else if scheduleGame.GameState == "LIVE" {
+		// Fallback to period 1 if periodDescriptor is missing but game is live
+		period = 1
 		periodType = "REGULAR"
 		clock = "LIVE"
 	}
@@ -143,7 +283,12 @@ func (s NHLService) gameFromSchedule(scheduleGame nhl.NHLScheduleResponseGame) m
 	if scheduleGame.GameState == "PRE" || scheduleGame.GameState == "FUT" || scheduleGame.GameState == "OFF" {
 		gameTimeDisplay = localTime.Format("Mon 3:04 PM")
 	} else {
-		gameTimeDisplay = clock
+		// For live games, use clock if available, otherwise use "LIVE"
+		if clock != "" {
+			gameTimeDisplay = clock
+		} else {
+			gameTimeDisplay = "LIVE"
+		}
 	}
 
 	return models.Game{
@@ -151,16 +296,23 @@ func (s NHLService) gameFromSchedule(scheduleGame nhl.NHLScheduleResponseGame) m
 			Home: models.TeamState{
 				Team:  s.teamFromScheduleTeam(scheduleGame.HomeTeam),
 				Score: scheduleGame.HomeTeam.Score,
+				Statistics: models.TeamStats{
+					Shots: scheduleGame.HomeTeam.Sog,
+				},
 			},
 			Away: models.TeamState{
 				Team:  s.teamFromScheduleTeam(scheduleGame.AwayTeam),
 				Score: scheduleGame.AwayTeam.Score,
+				Statistics: models.TeamStats{
+					Shots: scheduleGame.AwayTeam.Sog,
+				},
 			},
-			Status:     gameStatusFromScheduleGame(scheduleGame),
-			FetchedAt:  time.Now(),
-			Period:     period,
-			PeriodType: periodType,
-			Clock:      gameTimeDisplay,
+			Status:        gameStatusFromScheduleGame(scheduleGame),
+			FetchedAt:     time.Now(),
+			Period:        period,
+			PeriodType:    periodType,
+			Clock:         gameTimeDisplay,
+			TimeRemaining: gameTimeDisplay, // Set both for frontend compatibility
 			Venue: models.Venue{
 				Name: scheduleGame.Venue.Default,
 			},

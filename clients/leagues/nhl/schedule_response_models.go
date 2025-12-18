@@ -44,24 +44,26 @@ type NHLScheduleTeam struct {
 	RadioLink      string    `json:"radioLink,omitempty"`
 	Odds           []Odds    `json:"odds,omitempty"`
 	Score          int       `json:"score,omitempty"`
+	Sog            int       `json:"sog,omitempty"` // Shots on goal
 }
 type NHLScheduleResponseGame struct {
-	ID                int             `json:"id"`
-	Season            int             `json:"season"`
-	GameType          int             `json:"gameType"`
-	Venue             Venue           `json:"venue"`
-	NeutralSite       bool            `json:"neutralSite"`
-	StartTimeUTC      time.Time       `json:"startTimeUTC"`
-	EasternUTCOffset  string          `json:"easternUTCOffset"`
-	VenueUTCOffset    string          `json:"venueUTCOffset"`
-	VenueTimezone     string          `json:"venueTimezone"`
-	GameState         string          `json:"gameState"`
-	GameScheduleState string          `json:"gameScheduleState"`
-	TvBroadcasts      []TvBroadcasts  `json:"tvBroadcasts"`
-	AwayTeam          NHLScheduleTeam `json:"awayTeam,omitempty"`
-	HomeTeam          NHLScheduleTeam `json:"homeTeam,omitempty"`
-	GameCenterLink    string          `json:"gameCenterLink"`
-	TicketsLink       string          `json:"ticketsLink,omitempty"`
+	ID                int              `json:"id"`
+	Season            int              `json:"season"`
+	GameType          int              `json:"gameType"`
+	Venue             Venue            `json:"venue"`
+	NeutralSite       bool             `json:"neutralSite"`
+	StartTimeUTC      time.Time        `json:"startTimeUTC"`
+	EasternUTCOffset  string           `json:"easternUTCOffset"`
+	VenueUTCOffset    string           `json:"venueUTCOffset"`
+	VenueTimezone      string           `json:"venueTimezone"`
+	GameState         string            `json:"gameState"`
+	GameScheduleState string            `json:"gameScheduleState"`
+	TvBroadcasts      []TvBroadcasts    `json:"tvBroadcasts"`
+	AwayTeam          NHLScheduleTeam   `json:"awayTeam,omitempty"`
+	HomeTeam          NHLScheduleTeam   `json:"homeTeam,omitempty"`
+	GameCenterLink    string            `json:"gameCenterLink"`
+	TicketsLink       string            `json:"ticketsLink,omitempty"`
+	PeriodDescriptor  PeriodDescriptor `json:"periodDescriptor,omitempty"`
 }
 type GameWeek struct {
 	Date          string                    `json:"date"`

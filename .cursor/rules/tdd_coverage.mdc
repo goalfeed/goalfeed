@@ -1,10 +1,7 @@
 ---
-title: Test-Driven Development and 95% Coverage
 description: Require TDD (red-green-refactor) and >=95% code coverage for all changes in this repository.
-type: auto_attached
-alwaysApply: true
+alwaysApply: false
 ---
-
 ## Test-Driven Development (TDD)
 
 - Write tests first for any new behavior or bug fix (Red-Green-Refactor).

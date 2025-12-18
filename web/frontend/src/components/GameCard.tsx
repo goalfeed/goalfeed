@@ -99,6 +99,38 @@ const GameCard: React.FC<GameCardProps> = ({ game }) => {
     return '';
   };
 
+  const formatPeriodDisplay = (period: number | undefined, periodType: string | undefined): string => {
+    const periodNum = period || 1;
+    
+    // For regular periods 1-3 (hockey) or 1-4 (football), just show the number
+    // We'll be conservative and check for <= 4 to cover both cases
+    if (periodType === 'REGULAR' && periodNum <= 4) {
+      return periodNum.toString();
+    }
+    
+    // For overtime periods, show OT1, OT2, etc.
+    if (periodType === 'OVERTIME') {
+      // For hockey: OT starts at period 4 (OT1), 5 (OT2), etc.
+      // For football: OT starts at period 5 (OT1), 6 (OT2), etc.
+      // We'll use a simple approach: if period > 3, it's likely OT
+      const otNumber = periodNum > 3 ? periodNum - 3 : periodNum;
+      return `OT${otNumber}`;
+    }
+    
+    // For shootout
+    if (periodType === 'SHOOTOUT') {
+      return 'SO';
+    }
+    
+    // For other period types, show periodType and period
+    if (periodType && periodType !== 'REGULAR') {
+      return `${periodType} ${periodNum}`;
+    }
+    
+    // Default: just show the period number
+    return periodNum.toString();
+  };
+
   const renderTeamLogo = (team: { teamCode: string; teamName: string; logoUrl?: string }) => {
     if (team.logoUrl) {
       return (
@@ -263,10 +295,7 @@ const GameCard: React.FC<GameCardProps> = ({ game }) => {
           <div className="flex justify-between text-sm text-gray-400">
             {game.currentState.period && game.currentState.period > 0 && (
               <div>
-                <span className="font-medium">Period:</span> {game.currentState.period}
-                {game.currentState.periodType && (
-                  <span className="ml-1 text-xs">({game.currentState.periodType})</span>
-                )}
+                <span className="font-medium">Period:</span> {formatPeriodDisplay(game.currentState.period, game.currentState.periodType)}
               </div>
             )}
             {game.currentState.timeRemaining && (
@@ -275,6 +304,12 @@ const GameCard: React.FC<GameCardProps> = ({ game }) => {
               </div>
             )}
           </div>
+          {/* Shots on Goal for NHL games */}
+          {game.leagueId === 1 && (game.currentState.home.statistics?.shots !== undefined || game.currentState.away.statistics?.shots !== undefined) && (
+            <div className="mt-2 text-sm text-gray-400">
+              <span className="font-medium">Shots:</span> {game.currentState.home.statistics?.shots ?? 0} - {game.currentState.away.statistics?.shots ?? 0}
+            </div>
+          )}
         </div>
       )}
     </div>

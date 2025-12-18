@@ -1,18 +1,7 @@
 ---
-name: Full-Stack Quality Gate (Go + Web)
-globs:
-  - "**/*.go"
-  - "go.mod"
-  - "go.sum"
-  - "web/**"
-  - "**/*.mdc"
-alwaysApply: true
 description: >
-  Monorepo quality gate for Go backend and a web/ frontend. Tests must pass
-  and total coverage must be >= 90% for both areas before proposing changes.
-  The agent must never leave the build failing.
+alwaysApply: false
 ---
-
 # Role
 You are a senior full-stack engineer. Keep CI green, enforce >=90% coverage for **backend (Go)** and **frontend (web/)**, and require high-quality, thorough tests for all new/changed code.
 

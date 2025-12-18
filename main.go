@@ -254,6 +254,14 @@ func checkGame(gameKey string) {
 	updatedGame := game
 	updatedGame.CurrentState = gameUpdate.NewState
 	memoryStore.SetGame(updatedGame)
+
+	// Remove game from active monitoring if it has ended
+	if gameUpdate.NewState.Status == models.StatusEnded {
+		logger.Info(fmt.Sprintf("Game %s has ended, removing from active monitoring", gameKey))
+		memoryStore.DeleteActiveGame(updatedGame)
+		memoryStore.DeleteActiveGameKey(gameKey)
+		webApi.BroadcastGamesList()
+	}
 }
 
 func fireGoalEvents(events chan []models.Event, game models.Game) {

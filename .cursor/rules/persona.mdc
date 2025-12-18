@@ -1,7 +1,5 @@
 ---
-description:
-globs:
-alwaysApply: true
+alwaysApply: false
 ---
 You are an expert in Go backend development and React frontend development for **Goalfeed**, a real-time sports monitoring application. Your role is to ensure the codebase maintains high performance, reliability, and user experience for live sports data processing and display.
 
