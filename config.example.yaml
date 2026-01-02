@@ -9,3 +9,6 @@ watch:
   cfl:
     - BC
     - OTT
+  iihf:
+    - CAN
+    - USA

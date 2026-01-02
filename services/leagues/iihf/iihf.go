@@ -14,14 +14,12 @@ const STATUS_UPCOMING = "UPCOMING"
 const STATUS_ACTIVE = "LIVE"
 const STATUS_FINAL = "FINAL"
 
-// const IIHF_LEAGUE_ID = 4
+// WorldJuniorsEventID is the event ID for IIHF World Juniors 2026
+// Event ID 37 corresponds to the 2026 World Junior Championship in Saint Paul/Minneapolis
+const WorldJuniorsEventID = "37"
 
 func (s IIHFService) getSchedule() iihf.IIHFScheduleResponse {
-
-	//todo implement caching
-	//todo support multiple active events
-	//todo support some method of determining active events programmatically
-	return s.Client.GetIIHFSchedule("503")
+	return s.Client.GetIIHFSchedule(WorldJuniorsEventID)
 }
 func (s IIHFService) GetLeagueName() string {
 	return "IIHF"

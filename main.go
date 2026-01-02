@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	cflClients "goalfeed/clients/leagues/cfl"
+	iihfClients "goalfeed/clients/leagues/iihf"
 	mlbClients "goalfeed/clients/leagues/mlb"
 	nflClients "goalfeed/clients/leagues/nfl"
 	nhlClients "goalfeed/clients/leagues/nhl"
@@ -10,6 +11,7 @@ import (
 	"goalfeed/models"
 	"goalfeed/services/leagues"
 	"goalfeed/services/leagues/cfl"
+	"goalfeed/services/leagues/iihf"
 	"goalfeed/services/leagues/mlb"
 	"goalfeed/services/leagues/nfl"
 	"goalfeed/services/leagues/nhl"
@@ -166,6 +168,7 @@ func initialize() {
 	leagueServices[models.LeagueIdMLB] = mlb.MLBService{Client: mlbClients.MLBApiClient{}}
 	leagueServices[models.LeagueIdCFL] = cfl.CFLService{Client: cflClients.CFLApiClient{}}
 	leagueServices[models.LeagueIdNFL] = nfl.NFLService{Client: nflClients.NFLAPIClient{}}
+	leagueServices[models.LeagueIdIIHF] = iihf.IIHFService{Client: iihfClients.IIHFApiClient{}}
 
 	logger.Info("Initializing Active Games")
 	checkLeaguesForActiveGames()
@@ -328,6 +331,7 @@ func publishSchedules() {
 		{models.LeagueIdMLB, "mlb"},
 		{models.LeagueIdCFL, "cfl"},
 		{models.LeagueIdNFL, "nfl"},
+		{models.LeagueIdIIHF, "iihf"},
 	}
 
 	for _, lc := range leagueConfigs {
