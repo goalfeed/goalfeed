@@ -235,6 +235,11 @@ func checkGame(gameKey string) {
 	go service.GetGameUpdate(game, updateChan)
 	gameUpdate := <-updateChan
 
+	// Detect and fire goal events
+	eventChan := make(chan []models.Event)
+	go service.GetEvents(gameUpdate, eventChan)
+	go fireGoalEvents(eventChan, game)
+
 	if gameUpdate.NewState.Period != gameUpdate.OldState.Period {
 		logger.Info(fmt.Sprintf("Period change detected for %s game %s: %d -> %d", service.GetLeagueName(), game.GameCode, gameUpdate.OldState.Period, gameUpdate.NewState.Period))
 
