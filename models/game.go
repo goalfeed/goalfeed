@@ -9,6 +9,7 @@ import (
 type Game struct {
 	GameCode     string    `json:"gameCode"`
 	LeagueId     League    `json:"leagueId"`
+	LeagueName   string    `json:"leagueName,omitempty"` // Display name so UI can show e.g. "Olympic Women's Hockey"
 	CurrentState GameState `json:"currentState"`
 	IsFetching   bool      `json:"isFetching"`
 	ExtTimestamp string    `json:"extTimestamp"`

@@ -114,6 +114,10 @@ func publishEntity(domain, entity, friendly string, state interface{}, attrs map
 		stateLogger.Warn("Home Assistant not configured; cached state only")
 		return false, ""
 	}
+	if err := validateOutboundHAURL(haURL); err != nil {
+		stateLogger.Warn(fmt.Sprintf("HA state send refused: %v", err))
+		return false, ""
+	}
 
 	url := fmt.Sprintf("%s/api/states/%s.%s", haURL, domain, entity)
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(serialized))
@@ -158,6 +162,10 @@ func leagueSlug(league models.League) string {
 		return "cfl"
 	case models.LeagueIdNFL:
 		return "nfl"
+	case models.LeagueIdOlympicMensHockey:
+		return "olympic_men"
+	case models.LeagueIdOlympicWomensHockey:
+		return "olympic_women"
 	default:
 		return "misc"
 	}
@@ -181,7 +189,7 @@ func PublishTeamSensors(game models.Game) {
 	case models.LeagueIdNFL, models.LeagueIdCFL:
 		publishFootballTeam(game, game.CurrentState.Home, game.CurrentState.Away)
 		publishFootballTeam(game, game.CurrentState.Away, game.CurrentState.Home)
-	case models.LeagueIdNHL:
+	case models.LeagueIdNHL, models.LeagueIdOlympicMensHockey, models.LeagueIdOlympicWomensHockey:
 		publishNHLTeam(game, game.CurrentState.Home, game.CurrentState.Away)
 		publishNHLTeam(game, game.CurrentState.Away, game.CurrentState.Home)
 	}
@@ -431,6 +439,8 @@ func PublishBaselineForMonitoredTeams() {
 		{models.LeagueIdMLB, "mlb"},
 		{models.LeagueIdCFL, "cfl"},
 		{models.LeagueIdNFL, "nfl"},
+		{models.LeagueIdOlympicMensHockey, "olympic_men"},
+		{models.LeagueIdOlympicWomensHockey, "olympic_women"},
 	}
 	for _, lc := range leagues {
 		teams := config.GetStringSlice("watch." + lc.key)
@@ -468,7 +478,7 @@ func PublishBaselineForMonitoredTeams() {
 				publishSensor(lc.id, t, "team.distance", 0, nil)
 				publishSensor(lc.id, t, "team.yard_line", 0, nil)
 				publishBinarySensor(lc.id, t, "team.red_zone", false, nil)
-			case models.LeagueIdNHL:
+			case models.LeagueIdNHL, models.LeagueIdOlympicMensHockey, models.LeagueIdOlympicWomensHockey:
 				publishSensor(lc.id, t, "team.shots", 0, nil)
 				publishSensor(lc.id, t, "team.penalties", 0, nil)
 			}
@@ -509,7 +519,7 @@ func PublishEndOfGameReset(game models.Game) {
 			publishSensor(league, teamCode, "team.distance", 0, nil)
 			publishSensor(league, teamCode, "team.yard_line", 0, nil)
 			publishBinarySensor(league, teamCode, "team.red_zone", false, nil)
-		case models.LeagueIdNHL:
+		case models.LeagueIdNHL, models.LeagueIdOlympicMensHockey, models.LeagueIdOlympicWomensHockey:
 			// Keep shots/penalties as final numbers; nothing to reset
 		}
 	}

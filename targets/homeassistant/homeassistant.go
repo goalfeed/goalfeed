@@ -31,6 +31,13 @@ func SendEvent(event models.Event) {
 		accessToken = config.GetString("home_assistant.access_token")
 	}
 
+	if err := validateOutboundHAURL(homeAssistantURL); err != nil {
+		logger.Warn(err)
+		ok := false
+		applog.Append(models.AppLogEntry{Type: models.AppLogTypeEvent, LeagueId: models.League(event.LeagueId), LeagueName: event.LeagueName, TeamCode: event.TeamCode, Opponent: event.OpponentCode, GameCode: event.GameCode, Event: &event, Target: "ha:event:goal", Success: &ok, Error: err.Error(), CorrelationId: event.Id})
+		return
+	}
+
 	// Construct the URL for the Home Assistant event endpoint
 	url := homeAssistantURL + "/api/events/goal"
 
@@ -92,6 +99,13 @@ func SendGameUpdate(game models.Game) {
 	}
 	if accessToken == "" {
 		accessToken = config.GetString("home_assistant.access_token")
+	}
+
+	if err := validateOutboundHAURL(homeAssistantURL); err != nil {
+		logger.Warn(err)
+		ok := false
+		applog.Append(models.AppLogEntry{Type: models.AppLogTypeStateChange, LeagueId: game.LeagueId, LeagueName: getLeagueName(game.LeagueId), TeamCode: game.CurrentState.Home.Team.TeamCode, Opponent: game.CurrentState.Away.Team.TeamCode, GameCode: game.GameCode, Metric: "game_update", Success: &ok, Error: err.Error()})
+		return
 	}
 
 	url := homeAssistantURL + "/api/events/game_update"
@@ -173,6 +187,11 @@ func SendPeriodUpdate(game models.Game, eventType models.EventType) {
 		accessToken = config.GetString("home_assistant.access_token")
 	}
 
+	if err := validateOutboundHAURL(homeAssistantURL); err != nil {
+		logger.Warn(err)
+		return
+	}
+
 	url := homeAssistantURL + "/api/events/period_update"
 
 	periodUpdate := map[string]interface{}{
@@ -252,6 +271,10 @@ func getLeagueName(leagueId models.League) string {
 		return "CFL"
 	case models.LeagueIdNFL:
 		return "NFL"
+	case models.LeagueIdOlympicMensHockey:
+		return "Olympic Men's Hockey"
+	case models.LeagueIdOlympicWomensHockey:
+		return "Olympic Women's Hockey"
 	default:
 		return "Unknown"
 	}
@@ -269,6 +292,11 @@ func SendCustomEvent(eventType string, data map[string]interface{}) {
 	}
 	if accessToken == "" {
 		accessToken = config.GetString("home_assistant.access_token")
+	}
+
+	if err := validateOutboundHAURL(homeAssistantURL); err != nil {
+		logger.Warn(err)
+		return
 	}
 
 	url := fmt.Sprintf("%s/api/events/%s", homeAssistantURL, eventType)

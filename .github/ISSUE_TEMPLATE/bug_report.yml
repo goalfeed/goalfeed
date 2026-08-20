@@ -1,0 +1,97 @@
+name: Bug report
+description: Something in Goalfeed itself isn't working right (goal detection, the API, the web UI, config).
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for filing a bug. Before you do, a couple of quick checks:
+
+        - Add-on install/configuration issues belong in
+          [goalfeed/hassio-goalfeed-repository](https://github.com/goalfeed/hassio-goalfeed-repository/issues), not here.
+        - Website/docs issues belong in
+          [goalfeed/goalfeed.ca](https://github.com/goalfeed/goalfeed.ca/issues), not here.
+        - If this looks like a security vulnerability (e.g. credential exposure, auth bypass), please use a
+          [private security advisory](https://github.com/goalfeed/goalfeed/security/advisories/new) instead of this form.
+
+  - type: input
+    id: version
+    attributes:
+      label: Goalfeed version
+      description: From the release tarball name, `--version` if available, or the add-on's Configuration/Info tab.
+      placeholder: v1.0.36
+    validations:
+      required: true
+
+  - type: dropdown
+    id: run-mode
+    attributes:
+      label: How are you running Goalfeed?
+      options:
+        - Home Assistant add-on
+        - Docker (self-built)
+        - Prebuilt binary from GitHub Releases
+        - Built from source
+    validations:
+      required: true
+
+  - type: input
+    id: os-arch
+    attributes:
+      label: OS and architecture
+      description: e.g. Home Assistant OS on a Raspberry Pi 4 (aarch64), Ubuntu 22.04 amd64, macOS arm64, Windows 11 amd64.
+      placeholder: Home Assistant OS, aarch64 (Raspberry Pi 4)
+    validations:
+      required: true
+
+  - type: textarea
+    id: leagues-teams
+    attributes:
+      label: League(s) and team(s) configured
+      description: Which leagues/teams are you watching, and which one is affected? (NHL, MLB, CFL, NFL, or IIHF/Olympic if you're testing those via the API.)
+      placeholder: |
+        NHL: WPG, TOR
+        MLB: TOR
+    validations:
+      required: true
+
+  - type: textarea
+    id: config
+    attributes:
+      label: Relevant configuration
+      description: >
+        Your `config.yaml` (or the relevant `GOALFEED_*` env vars / add-on options), with anything sensitive redacted.
+        **Redact your `home_assistant.access_token` (or `SUPERVISOR_TOKEN`) before pasting — it's a long-lived
+        credential with full access to your Home Assistant instance.**
+      render: yaml
+      placeholder: |
+        home_assistant:
+          url: "http://homeassistant.local:8123"
+          access_token: "REDACTED"
+        watch:
+          nhl:
+            - WPG
+        web: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: >
+        Relevant lines from stdout/the add-on log, or from the JSONL app log (default `app.log.jsonl`, or wherever
+        `app_log.path` points). Redact tokens/URLs you consider sensitive.
+      render: shell
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true

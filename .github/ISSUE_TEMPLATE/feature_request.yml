@@ -1,0 +1,43 @@
+name: Feature request
+description: Suggest something new for Goalfeed — a league, an API capability, a UI improvement.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        For a new league specifically: read
+        [CONTRIBUTING.md's "Adding a new league" section](https://github.com/goalfeed/goalfeed/blob/main/CONTRIBUTING.md#adding-a-new-league)
+        first — it walks through what's actually involved (finding an unofficial upstream API, a client + service
+        package, wiring into `main.go`), which will help you scope the request or, if you're up for it, send the PR.
+
+        Add-on packaging requests (new install options, Supervisor UI changes) belong in
+        [goalfeed/hassio-goalfeed-repository](https://github.com/goalfeed/hassio-goalfeed-repository/issues).
+        Documentation-site requests belong in [goalfeed/goalfeed.ca](https://github.com/goalfeed/goalfeed.ca/issues).
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: What are you trying to do that Goalfeed doesn't support today?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: What would you like Goalfeed to do instead/additionally?
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Any workarounds you're using today, or other approaches you considered.
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Anything else — links to an upstream API you found, a screenshot, a related issue.

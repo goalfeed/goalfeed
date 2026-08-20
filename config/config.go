@@ -26,6 +26,11 @@ func init() {
 	viper.SetDefault("nfl.fastcast.pong_wait_sec", 60)
 	viper.SetDefault("nfl.fastcast.reconnect_base_ms", 2000)
 	viper.SetDefault("nfl.fastcast.reconnect_max_ms", 30000)
+	// Security defaults: reject remote (non-private) Home Assistant URLs and
+	// don't let the runtime API persist config changes to disk unless the
+	// operator opts in.
+	viper.SetDefault("home_assistant.allow_remote_url", false)
+	viper.SetDefault("web.allow_config_writes", false)
 	viper.ReadInConfig()
 }
 
@@ -35,4 +40,9 @@ func GetString(key string) string {
 }
 func GetStringSlice(key string) []string {
 	return viper.GetStringSlice(key)
+}
+
+// GetBool returns a configuration value as a bool.
+func GetBool(key string) bool {
+	return viper.GetBool(key)
 }

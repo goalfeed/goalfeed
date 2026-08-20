@@ -10,4 +10,3 @@ var BroadcastGamesList func()
 
 // BroadcastLog is set by the web API to forward app log entries to clients.
 var BroadcastLog func(models.AppLogEntry)
-

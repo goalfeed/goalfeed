@@ -57,7 +57,7 @@ func (s CFLService) GetActiveGames(ret chan []models.Game) {
 		logger.Infof("CFL GetActiveGames: Processing round %d (%s) with %d tournaments", round.ID, round.Name, len(round.Tournaments))
 		for _, game := range round.Tournaments {
 			gameStatus := gameStatusFromCFLGame(game)
-			
+
 			// Only log details for games that might be active (reduce noise from completed games)
 			if gameStatus == models.StatusActive {
 				logger.Infof("CFL GetActiveGames: Game %d (%s vs %s) - Status: %s, Clock: %s, GameStatus: %d",

@@ -55,14 +55,14 @@ type NHLScheduleResponseGame struct {
 	StartTimeUTC      time.Time        `json:"startTimeUTC"`
 	EasternUTCOffset  string           `json:"easternUTCOffset"`
 	VenueUTCOffset    string           `json:"venueUTCOffset"`
-	VenueTimezone      string           `json:"venueTimezone"`
-	GameState         string            `json:"gameState"`
-	GameScheduleState string            `json:"gameScheduleState"`
-	TvBroadcasts      []TvBroadcasts    `json:"tvBroadcasts"`
-	AwayTeam          NHLScheduleTeam   `json:"awayTeam,omitempty"`
-	HomeTeam          NHLScheduleTeam   `json:"homeTeam,omitempty"`
-	GameCenterLink    string            `json:"gameCenterLink"`
-	TicketsLink       string            `json:"ticketsLink,omitempty"`
+	VenueTimezone     string           `json:"venueTimezone"`
+	GameState         string           `json:"gameState"`
+	GameScheduleState string           `json:"gameScheduleState"`
+	TvBroadcasts      []TvBroadcasts   `json:"tvBroadcasts"`
+	AwayTeam          NHLScheduleTeam  `json:"awayTeam,omitempty"`
+	HomeTeam          NHLScheduleTeam  `json:"homeTeam,omitempty"`
+	GameCenterLink    string           `json:"gameCenterLink"`
+	TicketsLink       string           `json:"ticketsLink,omitempty"`
 	PeriodDescriptor  PeriodDescriptor `json:"periodDescriptor,omitempty"`
 }
 type GameWeek struct {

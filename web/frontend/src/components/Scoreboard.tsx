@@ -104,7 +104,21 @@ const Scoreboard: React.FC<ScoreboardProps> = ({ games }) => {
       case 2: return '⚾'; // MLB
       case 5: return '🏈'; // CFL
       case 6: return '🏈'; // NFL
+      case 7: return '🏒'; // Olympic Men's Hockey
+      case 8: return '🏒'; // Olympic Women's Hockey
       default: return '🏆';
+    }
+  };
+
+  const getLeagueName = (leagueId: number) => {
+    switch (leagueId) {
+      case 1: return 'NHL';
+      case 2: return 'MLB';
+      case 5: return 'CFL';
+      case 6: return 'NFL';
+      case 7: return "Olympic Men's Hockey";
+      case 8: return "Olympic Women's Hockey";
+      default: return 'Game';
     }
   };
 
@@ -298,7 +312,12 @@ const Scoreboard: React.FC<ScoreboardProps> = ({ games }) => {
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-3">
-                    <span className="text-lg">{getLeagueIcon(game.leagueId)}</span>
+                    <div className="flex items-center space-x-2">
+                      <span className="text-lg">{getLeagueIcon(game.leagueId)}</span>
+                      <span className="text-xs text-slate-400 max-w-[140px] truncate" title={game.leagueName || getLeagueName(game.leagueId)}>
+                        {game.leagueName || getLeagueName(game.leagueId)}
+                      </span>
+                    </div>
                     <div className="flex items-center space-x-2">
                       {renderTeamLogo(game.currentState.away.team)}
                       <span className="text-sm font-medium text-white">
@@ -352,7 +371,12 @@ const Scoreboard: React.FC<ScoreboardProps> = ({ games }) => {
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-3">
-                      <span className="text-lg">{getLeagueIcon(game.leagueId)}</span>
+                      <div className="flex items-center space-x-2">
+                        <span className="text-lg">{getLeagueIcon(game.leagueId)}</span>
+                        <span className="text-xs text-slate-400 max-w-[140px] truncate" title={game.leagueName || getLeagueName(game.leagueId)}>
+                          {game.leagueName || getLeagueName(game.leagueId)}
+                        </span>
+                      </div>
                       <div className="flex items-center space-x-2">
                         {renderTeamLogo(game.currentState.away.team)}
                         <span className="text-sm font-medium text-white">

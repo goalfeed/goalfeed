@@ -124,3 +124,41 @@ func TestNFLService_GameFromScoreboard_FallbackWhenEmpty(t *testing.T) {
 		// This asserts we don't panic on empty ids
 	}
 }
+
+// TestNFLService_GetEvents_SevenPointSwingEmitsSevenGoalEvents pins down the
+// README's documented behavior: NFL goal detection is a raw score diff, not a
+// play-by-play feed, so a touchdown-plus-conversion (7 points) fires seven
+// separate events in one tick rather than one "touchdown" event.
+func TestNFLService_GetEvents_SevenPointSwingEmitsSevenGoalEvents(t *testing.T) {
+	svc := NFLService{}
+	upd := models.GameUpdate{
+		OldState: models.GameState{
+			Home: models.TeamState{Team: models.Team{TeamCode: "BUF", TeamName: "Buffalo"}, Score: 14},
+			Away: models.TeamState{Team: models.Team{TeamCode: "MIA", TeamName: "Miami"}, Score: 7},
+		},
+		NewState: models.GameState{
+			Home: models.TeamState{Team: models.Team{TeamCode: "BUF", TeamName: "Buffalo"}, Score: 21},
+			Away: models.TeamState{Team: models.Team{TeamCode: "MIA", TeamName: "Miami"}, Score: 7},
+		},
+	}
+	ch := make(chan []models.Event)
+	go svc.GetEvents(upd, ch)
+	events := <-ch
+
+	if len(events) != 7 {
+		t.Fatalf("expected a 7-point score swing to emit 7 separate events, got %d", len(events))
+	}
+	for i, ev := range events {
+		if ev.TeamCode != "BUF" {
+			t.Fatalf("event %d: expected scoring team BUF, got %s", i, ev.TeamCode)
+		}
+		// NFL does not distinguish touchdown/field goal/safety: every event from
+		// the raw score diff leaves Type and Description unset.
+		if ev.Type != "" {
+			t.Fatalf("event %d: expected empty Type (NFL doesn't know what scored), got %q", i, ev.Type)
+		}
+		if ev.Description != "" {
+			t.Fatalf("event %d: expected empty Description, got %q", i, ev.Description)
+		}
+	}
+}

@@ -37,6 +37,9 @@ func CheckConnection(timeout time.Duration) (bool, string, string) {
 	if url == "" || token == "" {
 		return false, source, "Home Assistant URL or access token not set"
 	}
+	if err := validateOutboundHAURL(url); err != nil {
+		return false, source, fmt.Sprintf("refusing to check connection: %v", err)
+	}
 	client := &http.Client{Timeout: timeout}
 	req, err := http.NewRequest("GET", strings.TrimRight(url, "/")+"/api/", nil)
 	if err != nil {
@@ -53,4 +56,3 @@ func CheckConnection(timeout time.Duration) (bool, string, string) {
 	}
 	return false, source, fmt.Sprintf("HTTP %s", resp.Status)
 }
-

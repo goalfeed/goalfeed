@@ -13,6 +13,9 @@ const EventFeed: React.FC<EventFeedProps> = ({ events }) => {
       case 3: return '⚽'; // EPL
       case 4: return '🏒'; // IIHF
       case 5: return '🏈'; // CFL
+      case 6: return '🏈'; // NFL
+      case 7: return '🏒'; // Olympic Men's Hockey
+      case 8: return '🏒'; // Olympic Women's Hockey
       default: return '🏆';
     }
   };
@@ -24,6 +27,9 @@ const EventFeed: React.FC<EventFeedProps> = ({ events }) => {
       case 3: return 'from-green-500 to-green-600'; // EPL
       case 4: return 'from-purple-500 to-purple-600'; // IIHF
       case 5: return 'from-orange-500 to-orange-600'; // CFL
+      case 6: return 'from-indigo-500 to-indigo-600'; // NFL
+      case 7: return 'from-amber-500 to-amber-600'; // Olympic Men's Hockey
+      case 8: return 'from-rose-500 to-rose-600'; // Olympic Women's Hockey
       default: return 'from-gray-500 to-gray-600';
     }
   };

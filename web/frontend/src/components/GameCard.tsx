@@ -54,7 +54,21 @@ const GameCard: React.FC<GameCardProps> = ({ game }) => {
       case 2: return '⚾'; // MLB
       case 5: return '🏈'; // CFL
       case 6: return '🏈'; // NFL
+      case 7: return '🏒'; // Olympic Men's Hockey
+      case 8: return '🏒'; // Olympic Women's Hockey
       default: return '🏆';
+    }
+  };
+
+  const getLeagueName = (leagueId: number) => {
+    switch (leagueId) {
+      case 1: return 'NHL';
+      case 2: return 'MLB';
+      case 5: return 'CFL';
+      case 6: return 'NFL';
+      case 7: return "Olympic Men's Hockey";
+      case 8: return "Olympic Women's Hockey";
+      default: return 'Game';
     }
   };
 
@@ -165,7 +179,7 @@ const GameCard: React.FC<GameCardProps> = ({ game }) => {
       );
     } else if ((game.leagueId === 5 || game.leagueId === 6) && (game.currentState.status === 'active' || game.currentState.status === 'delayed')) {
       return <FootballGameDetails game={game} />;
-    } else if (game.leagueId === 1 && (game.currentState.status === 'active' || game.currentState.status === 'delayed')) {
+    } else if ((game.leagueId === 1 || game.leagueId === 7 || game.leagueId === 8) && (game.currentState.status === 'active' || game.currentState.status === 'delayed')) {
       return <HockeyGameDetails game={game} />;
     } else {
       return <div className="text-gray-400 text-lg font-medium">VS</div>;
@@ -179,6 +193,9 @@ const GameCard: React.FC<GameCardProps> = ({ game }) => {
         <div className="flex items-center space-x-3">
           <span className="text-2xl">{getLeagueIcon(game.leagueId)}</span>
           <div>
+            {(game.leagueName || getLeagueName(game.leagueId)) && (
+              <div className="text-xs text-slate-400 mb-0.5">{game.leagueName || getLeagueName(game.leagueId)}</div>
+            )}
             <div className="text-sm text-gray-300 uppercase tracking-wide">
               {game.currentState.venue?.city && game.currentState.venue?.name 
                 ? `${game.currentState.venue.city} - ${game.currentState.venue.name}`
@@ -305,7 +322,7 @@ const GameCard: React.FC<GameCardProps> = ({ game }) => {
             )}
           </div>
           {/* Shots on Goal for NHL games */}
-          {game.leagueId === 1 && (game.currentState.home.statistics?.shots !== undefined || game.currentState.away.statistics?.shots !== undefined) && (
+          {(game.leagueId === 1 || game.leagueId === 7 || game.leagueId === 8) && (game.currentState.home.statistics?.shots !== undefined || game.currentState.away.statistics?.shots !== undefined) && (
             <div className="mt-2 text-sm text-gray-400">
               <span className="font-medium">Shots:</span> {game.currentState.home.statistics?.shots ?? 0} - {game.currentState.away.statistics?.shots ?? 0}
             </div>

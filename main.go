@@ -59,6 +59,7 @@ type TickerConfig struct {
 
 // TickerManager handles the complex logic of managing multiple tickers
 type TickerManager struct {
+	mu      sync.Mutex
 	tickers []TickerConfig
 	wg      sync.WaitGroup
 }
@@ -83,6 +84,8 @@ func NewTickerManager() *TickerManager {
 
 // AddTicker adds a new ticker configuration
 func (tm *TickerManager) AddTicker(duration time.Duration, task func()) {
+	tm.mu.Lock()
+	defer tm.mu.Unlock()
 	tm.tickers = append(tm.tickers, TickerConfig{
 		Duration: duration,
 		Task:     task,
@@ -104,7 +107,12 @@ func (tm *TickerManager) StartTicker(config TickerConfig) {
 
 // StartAllTickers starts all configured tickers
 func (tm *TickerManager) StartAllTickers() {
-	for _, config := range tm.tickers {
+	tm.mu.Lock()
+	configs := make([]TickerConfig, len(tm.tickers))
+	copy(configs, tm.tickers)
+	tm.mu.Unlock()
+
+	for _, config := range configs {
 		tm.StartTicker(config)
 	}
 }
@@ -134,8 +142,6 @@ func init() {
 }
 
 func main() {
-	homeAssistantURL := os.Getenv("SUPERVISOR_API")
-	fmt.Println(homeAssistantURL)
 	rootCmd.Version = version
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println(err)
@@ -166,6 +172,9 @@ func initialize() {
 	leagueServices[models.LeagueIdMLB] = mlb.MLBService{Client: mlbClients.MLBApiClient{}}
 	leagueServices[models.LeagueIdCFL] = cfl.CFLService{Client: cflClients.CFLApiClient{}}
 	leagueServices[models.LeagueIdNFL] = nfl.NFLService{Client: nflClients.NFLAPIClient{}}
+	// OLYMPICS-DISABLED (standards pass v1.0.37): Olympic hockey support is
+	// implemented but not yet committed; re-enable by restoring the import and the
+	// service registration below. See CHANGELOG [Unreleased] -> Notes.
 
 	logger.Info("Initializing Active Games")
 	checkLeaguesForActiveGames()
@@ -283,11 +292,11 @@ func fireGoalEvents(events chan []models.Event, game models.Game) {
 	}
 }
 func teamIsMonitoredByLeague(teamCode, leagueName string) bool {
-	// Convert leagueName to lowercase for consistency
-	leagueName = strings.ToLower(leagueName)
+	// Convert leagueName to config key (lowercase, special mapping for Olympic hockey)
+	configKey := leagueNameToWatchConfigKey(leagueName)
 
 	// Get the teams to watch for the given league from the configuration
-	teamsToWatch := config.GetStringSlice("watch." + leagueName)
+	teamsToWatch := config.GetStringSlice("watch." + configKey)
 
 	// If "*" is in the watch list, monitor all teams for this league
 	for _, team := range teamsToWatch {
@@ -305,6 +314,20 @@ func teamIsMonitoredByLeague(teamCode, leagueName string) bool {
 
 	return false
 }
+
+// leagueNameToWatchConfigKey maps league display name to viper config key (watch.<key>)
+func leagueNameToWatchConfigKey(leagueName string) string {
+	lower := strings.ToLower(leagueName)
+	// Olympic Women's Hockey -> olympic_women (check "women" before "men" to avoid substring match)
+	if strings.Contains(lower, "olympic") && strings.Contains(lower, "women") {
+		return "olympic_women"
+	}
+	if strings.Contains(lower, "olympic") && strings.Contains(lower, "men") {
+		return "olympic_men"
+	}
+	return lower
+}
+
 func sendTestGoal() {
 	if !viper.GetBool("test-goals") {
 		logger.Info("Test goals are disabled. Skipping sending test goal.")
@@ -333,6 +356,8 @@ func publishSchedules() {
 		{models.LeagueIdMLB, "mlb"},
 		{models.LeagueIdCFL, "cfl"},
 		{models.LeagueIdNFL, "nfl"},
+		{models.LeagueIdOlympicMensHockey, "olympic_men"},
+		{models.LeagueIdOlympicWomensHockey, "olympic_women"},
 	}
 
 	for _, lc := range leagueConfigs {

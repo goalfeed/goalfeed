@@ -52,13 +52,13 @@ func TestGameFromScoreboard_Overtime(t *testing.T) {
 				Score:     2,
 				Sog:       20,
 			},
-			Venue: nhlClients.Venue{Default: "TD Garden"},
+			Venue:        nhlClients.Venue{Default: "TD Garden"},
 			StartTimeUTC: time.Now(),
 		},
 	}
 	service := NHLService{Client: mockClient}
 	game := service.gameFromScoreboard("2023020193")
-	
+
 	assert.Equal(t, 4, game.CurrentState.Period)
 	assert.Equal(t, "OVERTIME", game.CurrentState.PeriodType)
 	assert.Equal(t, "05:00", game.CurrentState.Clock)
@@ -93,13 +93,13 @@ func TestGameFromScoreboard_Shootout(t *testing.T) {
 				Score:     2,
 				Sog:       20,
 			},
-			Venue: nhlClients.Venue{Default: "TD Garden"},
+			Venue:        nhlClients.Venue{Default: "TD Garden"},
 			StartTimeUTC: time.Now(),
 		},
 	}
 	service := NHLService{Client: mockClient}
 	game := service.gameFromScoreboard("2023020193")
-	
+
 	assert.Equal(t, 5, game.CurrentState.Period)
 	assert.Equal(t, "SHOOTOUT", game.CurrentState.PeriodType)
 	assert.Equal(t, "LIVE", game.CurrentState.Clock) // Should fallback to LIVE when clock is empty
@@ -134,13 +134,13 @@ func TestGameFromScoreboard_NoPeriodDescriptor(t *testing.T) {
 				Score:     2,
 				Sog:       20,
 			},
-			Venue: nhlClients.Venue{Default: "TD Garden"},
+			Venue:        nhlClients.Venue{Default: "TD Garden"},
 			StartTimeUTC: time.Now(),
 		},
 	}
 	service := NHLService{Client: mockClient}
 	game := service.gameFromScoreboard("2023020193")
-	
+
 	assert.Equal(t, 1, game.CurrentState.Period) // Should fallback to period 1
 	assert.Equal(t, "REGULAR", game.CurrentState.PeriodType)
 	assert.Equal(t, "LIVE", game.CurrentState.Clock)
@@ -150,13 +150,13 @@ func TestGameFromSchedule_DifferentPeriodTypes(t *testing.T) {
 	// Test gameFromSchedule with different period types
 	mockClient := nhlClients.MockNHLApiClient{}
 	service := NHLService{Client: mockClient}
-	
+
 	// Get a game from schedule to modify
 	schedule := service.getSchedule()
 	if len(schedule.GameWeek) == 0 || len(schedule.GameWeek[0].Games) == 0 {
 		t.Skip("No games in schedule")
 	}
-	
+
 	// Test with OT period type
 	game := schedule.GameWeek[0].Games[0]
 	game.PeriodDescriptor.Number = 4
@@ -164,12 +164,12 @@ func TestGameFromSchedule_DifferentPeriodTypes(t *testing.T) {
 	result := service.gameFromSchedule(game)
 	assert.Equal(t, 4, result.CurrentState.Period)
 	assert.Equal(t, "OVERTIME", result.CurrentState.PeriodType)
-	
+
 	// Test with SO period type
 	game.PeriodDescriptor.PeriodType = "SO"
 	result = service.gameFromSchedule(game)
 	assert.Equal(t, "SHOOTOUT", result.CurrentState.PeriodType)
-	
+
 	// Test with default/unknown period type
 	game.PeriodDescriptor.PeriodType = "UNKNOWN"
 	result = service.gameFromSchedule(game)
@@ -180,25 +180,25 @@ func TestGameFromSchedule_UpcomingGameStates(t *testing.T) {
 	// Test gameFromSchedule with PRE, FUT, OFF game states
 	mockClient := nhlClients.MockNHLApiClient{}
 	service := NHLService{Client: mockClient}
-	
+
 	schedule := service.getSchedule()
 	if len(schedule.GameWeek) == 0 || len(schedule.GameWeek[0].Games) == 0 {
 		t.Skip("No games in schedule")
 	}
-	
+
 	game := schedule.GameWeek[0].Games[0]
-	
+
 	// Test PRE state
 	game.GameState = "PRE"
 	game.PeriodDescriptor.Number = 0
 	result := service.gameFromSchedule(game)
 	assert.Equal(t, models.GameStatus(models.StatusUpcoming), result.CurrentState.Status)
-	
+
 	// Test FUT state
 	game.GameState = "FUT"
 	result = service.gameFromSchedule(game)
 	assert.Equal(t, models.GameStatus(models.StatusUpcoming), result.CurrentState.Status)
-	
+
 	// Test OFF state
 	game.GameState = "OFF"
 	result = service.gameFromSchedule(game)
@@ -209,17 +209,17 @@ func TestGameFromSchedule_LiveWithNoPeriod(t *testing.T) {
 	// Test gameFromSchedule when LIVE but no period descriptor
 	mockClient := nhlClients.MockNHLApiClient{}
 	service := NHLService{Client: mockClient}
-	
+
 	schedule := service.getSchedule()
 	if len(schedule.GameWeek) == 0 || len(schedule.GameWeek[0].Games) == 0 {
 		t.Skip("No games in schedule")
 	}
-	
+
 	game := schedule.GameWeek[0].Games[0]
 	game.GameState = "LIVE"
 	game.PeriodDescriptor.Number = 0
 	game.PeriodDescriptor.PeriodType = ""
-	
+
 	result := service.gameFromSchedule(game)
 	assert.Equal(t, 1, result.CurrentState.Period) // Should fallback to period 1
 	assert.Equal(t, "REGULAR", result.CurrentState.PeriodType)
@@ -255,12 +255,12 @@ func TestGetActiveGames_ScoreboardFallback(t *testing.T) {
 				Score:     2,
 				Sog:       20,
 			},
-			Venue: nhlClients.Venue{Default: "TD Garden"},
+			Venue:        nhlClients.Venue{Default: "TD Garden"},
 			StartTimeUTC: time.Now(),
 		},
 	}
 	service := NHLService{Client: mockClient}
-	
+
 	// Get schedule to find a LIVE game
 	schedule := service.getSchedule()
 	var liveGameID int
@@ -275,17 +275,17 @@ func TestGetActiveGames_ScoreboardFallback(t *testing.T) {
 			break
 		}
 	}
-	
+
 	if liveGameID == 0 {
 		t.Skip("No LIVE games in schedule")
 	}
-	
+
 	// The scoreboard will return ID 999999, but schedule has different ID
 	// This should trigger the fallback to gameFromSchedule
 	gamesChan := make(chan []models.Game)
 	go service.GetActiveGames(gamesChan)
 	activeGames := <-gamesChan
-	
+
 	// Should still return games (using fallback)
 	assert.Greater(t, len(activeGames), 0)
 }
@@ -294,12 +294,12 @@ func TestGetActiveGames_NonLiveActiveGame(t *testing.T) {
 	// Test GetActiveGames with non-LIVE active game (FINAL state)
 	mockClient := nhlClients.MockNHLApiClient{}
 	service := NHLService{Client: mockClient}
-	
+
 	// This should use gameFromSchedule path for non-LIVE games
 	gamesChan := make(chan []models.Game)
 	go service.GetActiveGames(gamesChan)
 	activeGames := <-gamesChan
-	
+
 	// Should return active games
 	assert.Greater(t, len(activeGames), 0)
 }
@@ -333,12 +333,12 @@ func TestGetGameUpdateFromScoreboard_DifferentPeriodTypes(t *testing.T) {
 				Score:     3,
 				Sog:       25,
 			},
-			Venue: nhlClients.Venue{Default: "TD Garden"},
+			Venue:        nhlClients.Venue{Default: "TD Garden"},
 			StartTimeUTC: time.Now(),
 		},
 	}
 	service := NHLService{Client: mockClient}
-	
+
 	// Create a test game
 	game := models.Game{
 		GameCode: "2023020193",
@@ -353,11 +353,11 @@ func TestGetGameUpdateFromScoreboard_DifferentPeriodTypes(t *testing.T) {
 			},
 		},
 	}
-	
+
 	updateChan := make(chan models.GameUpdate)
 	go service.getGameUpdateFromScoreboard(game, updateChan)
 	update := <-updateChan
-	
+
 	assert.Equal(t, 3, update.NewState.Period)
 	assert.Equal(t, "OVERTIME", update.NewState.PeriodType)
 	assert.Equal(t, "03:00", update.NewState.Clock)
@@ -394,12 +394,12 @@ func TestGetGameUpdateFromScoreboard_NoPeriodDescriptor(t *testing.T) {
 				Score:     1,
 				Sog:       15,
 			},
-			Venue: nhlClients.Venue{Default: "TD Garden"},
+			Venue:        nhlClients.Venue{Default: "TD Garden"},
 			StartTimeUTC: time.Now(),
 		},
 	}
 	service := NHLService{Client: mockClient}
-	
+
 	game := models.Game{
 		GameCode: "2023020193",
 		CurrentState: models.GameState{
@@ -413,13 +413,12 @@ func TestGetGameUpdateFromScoreboard_NoPeriodDescriptor(t *testing.T) {
 			},
 		},
 	}
-	
+
 	updateChan := make(chan models.GameUpdate)
 	go service.getGameUpdateFromScoreboard(game, updateChan)
 	update := <-updateChan
-	
+
 	assert.Equal(t, 1, update.NewState.Period) // Should fallback to period 1
 	assert.Equal(t, "REGULAR", update.NewState.PeriodType)
 	assert.Equal(t, "LIVE", update.NewState.Clock)
 }
-

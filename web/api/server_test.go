@@ -364,11 +364,20 @@ func TestHomeAssistantStatus_EnvSource(t *testing.T) {
 	}
 }
 
+// TestHomeAssistantConfig_GET_SET originally asserted that POSTing a new HA
+// URL/token always persisted to config.yaml. That was the vulnerable default:
+// this unauthenticated endpoint could rewrite the on-disk config for any
+// caller. Persistence is now gated behind web.allow_config_writes (default
+// false), so this test deliberately opts in to exercise the "operator enabled
+// persistence" path; see TestSetHomeAssistantConfig_DoesNotPersistWhenConfigWritesDisabled
+// for the (now default) non-persisting behavior.
 func TestHomeAssistantConfig_GET_SET(t *testing.T) {
 	// Use temp config
 	dir := t.TempDir()
 	cfg := filepath.Join(dir, "config.yaml")
 	viper.SetConfigFile(cfg)
+	viper.Set("web.allow_config_writes", true)
+	defer viper.Set("web.allow_config_writes", false)
 	// GET initially
 	r := setupRouter()
 	w := httptest.NewRecorder()
@@ -388,7 +397,85 @@ func TestHomeAssistantConfig_GET_SET(t *testing.T) {
 	}
 	// Verify persisted config exists
 	if _, err := os.Stat(cfg); err != nil {
-		t.Fatalf("expected config file to be written: %v", err)
+		t.Fatalf("expected config file to be written when web.allow_config_writes is true: %v", err)
+	}
+}
+
+// TestSetHomeAssistantConfig_DoesNotPersistWhenConfigWritesDisabled locks in
+// the fixed, default-safe behavior: without an explicit operator opt-in via
+// web.allow_config_writes, POSTing to this unauthenticated endpoint updates
+// the running process's in-memory config only and never touches config.yaml
+// on disk.
+func TestSetHomeAssistantConfig_DoesNotPersistWhenConfigWritesDisabled(t *testing.T) {
+	dir := t.TempDir()
+	cfg := filepath.Join(dir, "config.yaml")
+	viper.SetConfigFile(cfg)
+	viper.Set("web.allow_config_writes", false)
+
+	r := setupRouter()
+	w := httptest.NewRecorder()
+	body := `{"url":"http://localhost:8123","accessToken":"abc"}`
+	req, _ := http.NewRequest("POST", "/api/homeassistant/config", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+	if _, err := os.Stat(cfg); err == nil {
+		t.Fatalf("expected config file NOT to be written when web.allow_config_writes is false, but it exists")
+	}
+	// The in-memory value should still reflect the update for this session.
+	if got := viper.GetString("home_assistant.url"); got != "http://localhost:8123" {
+		t.Fatalf("expected in-memory config to be updated for this session, got %q", got)
+	}
+}
+
+// TestSetHomeAssistantConfig_RejectsExternalURL locks in the primary fix for
+// the HA-access-token exfiltration vulnerability: this endpoint is
+// unauthenticated, so it must refuse a URL that isn't private/local before
+// ever calling viper.Set, rather than letting Goalfeed later attach its long
+// -lived HA token to an attacker-controlled host.
+func TestSetHomeAssistantConfig_RejectsExternalURL(t *testing.T) {
+	dir := t.TempDir()
+	cfg := filepath.Join(dir, "config.yaml")
+	viper.SetConfigFile(cfg)
+	viper.Set("home_assistant.url", "")
+	viper.Set("home_assistant.allow_remote_url", false)
+
+	r := setupRouter()
+	w := httptest.NewRecorder()
+	body := `{"url":"http://attacker.example:8123","accessToken":"abc"}`
+	req, _ := http.NewRequest("POST", "/api/homeassistant/config", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 for external url, got %d", w.Code)
+	}
+	if got := viper.GetString("home_assistant.url"); got != "" {
+		t.Fatalf("expected home_assistant.url to remain unset after a rejected request, got %q", got)
+	}
+	if _, err := os.Stat(cfg); err == nil {
+		t.Fatalf("expected no config file to be written for a rejected request")
+	}
+}
+
+// TestSetHomeAssistantConfig_RejectsNonHTTPScheme ensures a non-http(s) scheme
+// (e.g. file://) is rejected outright, regardless of home_assistant.allow_remote_url.
+func TestSetHomeAssistantConfig_RejectsNonHTTPScheme(t *testing.T) {
+	dir := t.TempDir()
+	cfg := filepath.Join(dir, "config.yaml")
+	viper.SetConfigFile(cfg)
+	viper.Set("home_assistant.allow_remote_url", true)
+	defer viper.Set("home_assistant.allow_remote_url", false)
+
+	r := setupRouter()
+	w := httptest.NewRecorder()
+	body := `{"url":"file:///etc/passwd","accessToken":"abc"}`
+	req, _ := http.NewRequest("POST", "/api/homeassistant/config", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 for non-http(s) scheme, got %d", w.Code)
 	}
 }
 
@@ -964,4 +1051,36 @@ func TestWebServerManager_Concurrency(t *testing.T) {
 	wg.Wait()
 
 	// If we get here without panicking, the test passes
+}
+
+// TestIsAllowedCORSOrigin_LocalDevOriginsOnly locks in the CORS tightening:
+// only localhost/127.0.0.1/[::1] origins (the React dev server, or a browser
+// tab hitting the API directly from the same machine) are allowed. Wide-open
+// "*" CORS combined with credentials is what let an attacker-controlled page
+// read this API's responses, including the Home Assistant config endpoints.
+func TestIsAllowedCORSOrigin_LocalDevOriginsOnly(t *testing.T) {
+	allowed := []string{
+		"http://localhost:3000",
+		"http://127.0.0.1:3000",
+		"http://127.0.0.1:8080",
+		"http://[::1]:3000",
+	}
+	for _, origin := range allowed {
+		if !isAllowedCORSOrigin(origin) {
+			t.Errorf("expected origin %q to be allowed", origin)
+		}
+	}
+
+	rejected := []string{
+		"https://attacker.example",
+		"http://evil.example:3000",
+		"null",
+		"",
+		"http://192.168.1.50:3000", // another LAN device, not this machine
+	}
+	for _, origin := range rejected {
+		if isAllowedCORSOrigin(origin) {
+			t.Errorf("expected origin %q to be rejected", origin)
+		}
+	}
 }

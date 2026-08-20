@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -165,16 +166,48 @@ func (wsm *WebServerManager) BuildFrontend() error {
 func (wsm *WebServerManager) CreateGinEngine() *gin.Engine {
 	r := gin.Default()
 
-	// CORS configuration
+	// CORS configuration.
+	//
+	// Goalfeed's own web UI is served from this same origin, so it never needs
+	// CORS at all. Home Assistant's ingress proxy also serves the API through
+	// HA's own origin (the browser's requests go to HA's host, which the
+	// supervisor proxies server-side), so ingress traffic is same-origin too
+	// and never hits this check. What's left - and what isAllowedCORSOrigin
+	// exists for - is local development (the React dev server, typically
+	// http://localhost:3000) and any browser tab hitting this API directly
+	// from the same machine. No credentials (cookies/auth headers) are needed
+	// for any of that, and "allow any origin" plus credentials is both an
+	// invalid combination per the CORS spec (browsers reject it) and, more to
+	// the point, exactly what let an arbitrary web page read this API's
+	// responses cross-origin - including the Home Assistant config endpoints.
 	r.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"*"},
+		AllowOriginFunc:  isAllowedCORSOrigin,
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"*"},
 		ExposeHeaders:    []string{"*"},
-		AllowCredentials: true,
+		AllowCredentials: false,
 	}))
 
 	return r
+}
+
+// isAllowedCORSOrigin reports whether a browser Origin is permitted to make a
+// cross-origin request to this API. It allows localhost/127.0.0.1/[::1] on
+// any port (the React dev server and any local tooling), and rejects
+// everything else - notably, it never allows "*"; wide-open CORS on an
+// unauthenticated API is what let an attacker-controlled page read responses
+// from the Home Assistant config endpoints in the first place.
+func isAllowedCORSOrigin(origin string) bool {
+	u, err := url.Parse(origin)
+	if err != nil || u.Host == "" {
+		return false
+	}
+	switch u.Hostname() {
+	case "localhost", "127.0.0.1", "::1":
+		return true
+	default:
+		return false
+	}
 }
 
 // RegisterAPIRoutes registers all API routes
@@ -296,6 +329,9 @@ func BroadcastGameUpdate(game models.Game) {
 			memoryStore.SetGame(game)
 		}
 	}
+	if game.LeagueName == "" {
+		game.LeagueName = leagueNameForID(game.LeagueId)
+	}
 	message := WebSocketMessage{
 		Type: "game_update",
 		Data: game,
@@ -325,6 +361,7 @@ func BroadcastEvent(event models.Event) {
 
 func BroadcastGamesList() {
 	games := normalizeGamesData(memoryStore.GetAllGames())
+	enrichGamesWithLeagueName(games)
 	message := WebSocketMessage{
 		Type: "games_list",
 		Data: games,
@@ -433,6 +470,36 @@ func handleWebSocket(c *gin.Context) {
 	}
 }
 
+// leagueNameForID returns display name for a league ID so the UI can show e.g. "Olympic Women's Hockey"
+func leagueNameForID(leagueId models.League) string {
+	switch leagueId {
+	case models.LeagueIdNHL:
+		return "NHL"
+	case models.LeagueIdMLB:
+		return "MLB"
+	case models.LeagueIdCFL:
+		return "CFL"
+	case models.LeagueIdIIHF:
+		return "IIHF"
+	case models.LeagueIdNFL:
+		return "NFL"
+	case models.LeagueIdOlympicMensHockey:
+		return "Olympic Men's Hockey"
+	case models.LeagueIdOlympicWomensHockey:
+		return "Olympic Women's Hockey"
+	default:
+		return "Game"
+	}
+}
+
+func enrichGamesWithLeagueName(games []models.Game) {
+	for i := range games {
+		if games[i].LeagueName == "" {
+			games[i].LeagueName = leagueNameForID(games[i].LeagueId)
+		}
+	}
+}
+
 // getGames godoc
 // @Summary      Get all active games
 // @Description  Returns a list of all currently active games across all monitored leagues
@@ -444,6 +511,7 @@ func handleWebSocket(c *gin.Context) {
 // @Router       /games [get]
 func getGames(c *gin.Context) {
 	games := normalizeGamesData(memoryStore.GetAllGames())
+	enrichGamesWithLeagueName(games)
 	// Enrich NFL games missing situation details
 	for i := range games {
 		g := &games[i]
@@ -474,6 +542,7 @@ func getGames(c *gin.Context) {
 			}
 		}
 	}
+	enrichGamesWithLeagueName(games)
 	c.JSON(http.StatusOK, ApiResponse{
 		Success: true,
 		Data:    games,
@@ -524,6 +593,8 @@ func getGamesByDate(c *gin.Context) {
 		{models.LeagueIdCFL, "cfl"},
 		{models.LeagueIdIIHF, "iihf"},
 		{models.LeagueIdNFL, "nfl"},
+		{models.LeagueIdOlympicMensHockey, "olympic_men"},
+		{models.LeagueIdOlympicWomensHockey, "olympic_women"},
 	}
 
 	for _, leagueConfig := range leagueConfigs {
@@ -613,6 +684,8 @@ func getUpcomingGames(c *gin.Context) {
 		{models.LeagueIdCFL, "cfl"},
 		{models.LeagueIdIIHF, "iihf"},
 		{models.LeagueIdNFL, "nfl"},
+		{models.LeagueIdOlympicMensHockey, "olympic_men"},
+		{models.LeagueIdOlympicWomensHockey, "olympic_women"},
 	}
 
 	// Get timeframe filter (default to next 7 days)
@@ -705,6 +778,8 @@ func getLeagues(c *gin.Context) {
 		{"leagueId": 2, "leagueName": "MLB", "teams": config.GetStringSlice("watch.mlb")},
 		{"leagueId": 5, "leagueName": "CFL", "teams": config.GetStringSlice("watch.cfl")},
 		{"leagueId": 6, "leagueName": "NFL", "teams": config.GetStringSlice("watch.nfl")},
+		{"leagueId": 7, "leagueName": "Olympic Men's Hockey", "teams": config.GetStringSlice("watch.olympic_men")},
+		{"leagueId": 8, "leagueName": "Olympic Women's Hockey", "teams": config.GetStringSlice("watch.olympic_women")},
 	}
 	c.JSON(http.StatusOK, ApiResponse{
 		Success: true,
@@ -725,7 +800,7 @@ func getLeagues(c *gin.Context) {
 // @Router       /leagues [post]
 func updateLeagueConfig(c *gin.Context) {
 	var config struct {
-		LeagueId int      `json:"leagueId" example:"1"` // 1=NHL, 2=MLB, 5=CFL, 6=NFL
+		LeagueId int      `json:"leagueId" example:"1"` // 1=NHL, 2=MLB, 5=CFL, 6=NFL, 7=Olympic Men's Hockey, 8=Olympic Women's Hockey
 		Teams    []string `json:"teams" example:"TOR,MTL"`
 	}
 	if err := c.ShouldBindJSON(&config); err != nil {
@@ -747,6 +822,10 @@ func updateLeagueConfig(c *gin.Context) {
 		leagueKey = "watch.cfl"
 	case 6:
 		leagueKey = "watch.nfl"
+	case 7:
+		leagueKey = "watch.olympic_men"
+	case 8:
+		leagueKey = "watch.olympic_women"
 	default:
 		c.JSON(http.StatusBadRequest, ApiResponse{
 			Success: false,
@@ -1130,6 +1209,36 @@ func getAllTeams(c *gin.Context) {
 				})
 			}
 		}
+	case models.LeagueIdOlympicMensHockey, models.LeagueIdOlympicWomensHockey:
+		// Olympic ice hockey: country codes (same list for men's and women's)
+		olympicTeams := []map[string]string{
+			{"code": "CAN", "name": "Canada", "location": ""},
+			{"code": "USA", "name": "United States", "location": ""},
+			{"code": "FIN", "name": "Finland", "location": ""},
+			{"code": "SWE", "name": "Sweden", "location": ""},
+			{"code": "SUI", "name": "Switzerland", "location": ""},
+			{"code": "CZE", "name": "Czech Republic", "location": ""},
+			{"code": "SVK", "name": "Slovakia", "location": ""},
+			{"code": "GER", "name": "Germany", "location": ""},
+			{"code": "LAT", "name": "Latvia", "location": ""},
+			{"code": "NOR", "name": "Norway", "location": ""},
+			{"code": "DEN", "name": "Denmark", "location": ""},
+			{"code": "ITA", "name": "Italy", "location": ""},
+			{"code": "CHN", "name": "China", "location": ""},
+			{"code": "JPN", "name": "Japan", "location": ""},
+			{"code": "AUT", "name": "Austria", "location": ""},
+			{"code": "KAZ", "name": "Kazakhstan", "location": ""},
+			{"code": "FRA", "name": "France", "location": ""},
+			{"code": "GBR", "name": "Great Britain", "location": ""},
+		}
+		for _, team := range olympicTeams {
+			teams = append(teams, map[string]interface{}{
+				"code":     team["code"],
+				"name":     team["name"],
+				"location": team["location"],
+				"logo":     "",
+			})
+		}
 	}
 
 	c.JSON(http.StatusOK, ApiResponse{
@@ -1211,24 +1320,50 @@ func setHomeAssistantConfig(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, ApiResponse{Success: false, Message: "Invalid JSON"})
 		return
 	}
+
+	// Validate the URL before touching any config state at all. This endpoint
+	// is unauthenticated, so this is the primary defense against it being used
+	// to point Goalfeed's Home Assistant access token at an attacker-controlled
+	// host; see utils.ValidateHomeAssistantURL for the exact rules.
+	trimmedURL := strings.TrimSpace(body.URL)
+	if trimmedURL != "" {
+		allowRemote := config.GetBool("home_assistant.allow_remote_url")
+		if err := utils.ValidateHomeAssistantURL(trimmedURL, allowRemote); err != nil {
+			c.JSON(http.StatusBadRequest, ApiResponse{
+				Success: false,
+				Message: fmt.Sprintf("Rejected Home Assistant url: %v. If this is a genuinely remote Home Assistant instance, set home_assistant.allow_remote_url: true in config.yaml.", err),
+			})
+			return
+		}
+	}
+
 	// Update viper values
-	if strings.TrimSpace(body.URL) != "" {
-		viper.Set("home_assistant.url", body.URL)
+	if trimmedURL != "" {
+		viper.Set("home_assistant.url", trimmedURL)
 	}
 	if body.ClearToken {
 		viper.Set("home_assistant.access_token", "")
 	} else if strings.TrimSpace(body.AccessToken) != "" {
 		viper.Set("home_assistant.access_token", body.AccessToken)
 	}
-	// Persist to config file if possible
-	if err := viper.WriteConfig(); err != nil {
-		log.Printf("Failed to write config: %v", err)
+
+	// Persisting to disk is opt-in: without it, a change made through this
+	// unauthenticated API applies only to the running process, and a restart
+	// reverts to whatever is on disk in config.yaml / the environment.
+	message := "Configuration updated"
+	if config.GetBool("web.allow_config_writes") {
+		if err := viper.WriteConfig(); err != nil {
+			log.Printf("Failed to write config: %v", err)
+		}
+	} else {
+		message = "Configuration updated for this session only (not persisted to disk). Set web.allow_config_writes: true in config.yaml to allow this API to write config.yaml."
 	}
+
 	// Log a line for visibility and trigger baseline/refresh
 	utils.GetLogger().Info("Home Assistant configuration updated via API")
 	go homeassistant.PublishBaselineForMonitoredTeams()
 	go refreshActiveGamesInternal()
-	c.JSON(http.StatusOK, ApiResponse{Success: true, Message: "Configuration updated"})
+	c.JSON(http.StatusOK, ApiResponse{Success: true, Message: message})
 }
 
 func buildFrontend() error {

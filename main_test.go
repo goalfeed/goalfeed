@@ -621,6 +621,28 @@ func TestTeamIsMonitoredByLeague2(t *testing.T) {
 	assert.False(t, teamIsMonitoredByLeague("WPG", "NHL"))
 }
 
+func TestLeagueNameToWatchConfigKey_OlympicHockey(t *testing.T) {
+	// Olympic Men's Hockey -> olympic_men
+	assert.Equal(t, "olympic_men", leagueNameToWatchConfigKey("Olympic Men's Hockey"))
+	assert.Equal(t, "olympic_men", leagueNameToWatchConfigKey("olympic men's hockey"))
+	// Olympic Women's Hockey -> olympic_women (check women before men)
+	assert.Equal(t, "olympic_women", leagueNameToWatchConfigKey("Olympic Women's Hockey"))
+	assert.Equal(t, "olympic_women", leagueNameToWatchConfigKey("olympic women's hockey"))
+	// Other leagues unchanged (lowercase)
+	assert.Equal(t, "nhl", leagueNameToWatchConfigKey("NHL"))
+}
+
+func TestTeamIsMonitoredByLeague_OlympicHockey(t *testing.T) {
+	setupTest(t)
+	viper.Set("watch.olympic_men", []string{"CAN", "USA"})
+	viper.Set("watch.olympic_women", []string{"CAN"})
+	assert.True(t, teamIsMonitoredByLeague("CAN", "Olympic Men's Hockey"))
+	assert.True(t, teamIsMonitoredByLeague("USA", "Olympic Men's Hockey"))
+	assert.False(t, teamIsMonitoredByLeague("SWE", "Olympic Men's Hockey"))
+	assert.True(t, teamIsMonitoredByLeague("CAN", "Olympic Women's Hockey"))
+	assert.False(t, teamIsMonitoredByLeague("USA", "Olympic Women's Hockey"))
+}
+
 func TestCheckForNewActiveGames_TeamsMonitored(t *testing.T) {
 	setupTest(t)
 

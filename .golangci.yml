@@ -1,0 +1,21 @@
+version: "2"
+
+# A sane, standard-library-adjacent lint set for the Goalfeed Go service.
+# Deliberately not exotic: govet/errcheck/staticcheck/unused are golangci-lint's
+# own defaults; ineffassign and misspell are added on top. staticcheck's ruleset
+# subsumes the old standalone "gosimple" linter in golangci-lint v2.
+linters:
+  enable:
+    - govet
+    - errcheck
+    - staticcheck
+    - unused
+    - ineffassign
+    - misspell
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
+run:
+  timeout: 5m

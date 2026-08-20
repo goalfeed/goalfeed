@@ -1,0 +1,14 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Home Assistant add-on issue
+    url: https://github.com/goalfeed/hassio-goalfeed-repository/issues
+    about: Problems installing, configuring, or updating the Home Assistant Supervisor add-on.
+  - name: Website / docs issue
+    url: https://github.com/goalfeed/goalfeed.ca/issues
+    about: Typos, broken links, or missing documentation on goalfeed.ca.
+  - name: Documentation
+    url: https://goalfeed.ca
+    about: Install guides, configuration reference, and Home Assistant automation examples.
+  - name: Security vulnerability
+    url: https://github.com/goalfeed/goalfeed/security/advisories/new
+    about: Please report vulnerabilities privately rather than as a public issue — see SECURITY.md.

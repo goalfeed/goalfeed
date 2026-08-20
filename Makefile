@@ -1,4 +1,4 @@
-.PHONY: frontend frontend-install backend build all clean
+.PHONY: frontend frontend-install backend build all clean dev
 
 FRONTEND_DIR := web/frontend
 BACKEND_BIN := goalfeed
@@ -17,6 +17,11 @@ backend:
 
 # Build both frontend and backend
 build: frontend backend
+
+# Run app with frontend and hot reloading (watches Go + React, rebuilds and restarts on change)
+# Requires: fswatch (brew install fswatch)
+dev:
+	bash dev.sh dev
 
 # Convenience target
 all: build
