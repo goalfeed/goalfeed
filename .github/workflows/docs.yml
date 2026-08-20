@@ -95,7 +95,7 @@ jobs:
 
       - name: Upload documentation artifacts
         if: steps.verify-changed-files.outputs.changed == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: api-documentation
           path: docs/
