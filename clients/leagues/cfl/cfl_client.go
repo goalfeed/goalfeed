@@ -77,11 +77,18 @@ func (c CFLApiClient) GetCFLLiveGame(fixtureId string) CFLLiveGameResponse {
 		return CFLLiveGameResponse{}
 	}
 
-	// Try to unmarshal the JSON
+	// Try to unmarshal the JSON. Note that Go's json.Unmarshal does not
+	// necessarily abort on the first type-mismatch error: it decodes as
+	// much of the struct as it can and returns the (last) error alongside
+	// a partially-populated response. Previously any error at all -- even
+	// a single stray field -- caused this function to discard the whole
+	// response and return a zero struct, which is exactly what made a
+	// score-stomping bug invisible in production (see FlexInt on
+	// SportID/CompetitionID). Log the error but still return whatever the
+	// decoder managed to populate; only a body that fails to parse at all
+	// (e.g. non-JSON/corrupted data) will actually come back zero-valued.
 	if err := json.Unmarshal(bodyByte, &response); err != nil {
-		// If unmarshaling fails, return empty response
-		// This handles cases where the API returns compressed or corrupted data
-		return CFLLiveGameResponse{}
+		logger.Warnf("CFL live game JSON unmarshal error for fixture %s: %v", fixtureId, err)
 	}
 
 	return response

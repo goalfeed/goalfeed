@@ -1,0 +1,115 @@
+{
+  "header": {
+    "id": "401873286",
+    "season": {
+      "year": 2026,
+      "current": true,
+      "type": 1
+    },
+    "competitions": [
+      {
+        "id": "401873286",
+        "uid": "s:20~l:28~e:401873286~c:401873286",
+        "date": "2026-08-21T00:00Z",
+        "neutralSite": false,
+        "conferenceCompetition": false,
+        "boxscoreAvailable": true,
+        "commentaryAvailable": false,
+        "liveAvailable": false,
+        "onWatchESPN": true,
+        "recent": false,
+        "wallclockAvailable": true,
+        "competitors": [
+          {
+            "id": "34",
+            "uid": "s:20~l:28~t:34",
+            "order": 0,
+            "homeAway": "home",
+            "winner": false,
+            "team": {
+              "id": "34",
+              "guid": "595690b3-2161-4913-a7a7-814af2fd2621",
+              "uid": "s:20~l:28~t:34",
+              "location": "Houston",
+              "name": "Texans",
+              "nickname": "Texans",
+              "abbreviation": "HOU",
+              "displayName": "Houston Texans",
+              "color": "021018",
+              "alternateColor": "eb0028"
+            },
+            "score": "20",
+            "linescores": [
+              {
+                "displayValue": "17"
+              },
+              {
+                "displayValue": "3"
+              },
+              {
+                "displayValue": "0"
+              },
+              {
+                "displayValue": "0"
+              }
+            ],
+            "possession": false
+          },
+          {
+            "id": "13",
+            "uid": "s:20~l:28~t:13",
+            "order": 1,
+            "homeAway": "away",
+            "winner": true,
+            "team": {
+              "id": "13",
+              "guid": "b18540eb-6f2b-534c-e7f9-9bd930518da9",
+              "uid": "s:20~l:28~t:13",
+              "location": "Las Vegas",
+              "name": "Raiders",
+              "nickname": "Raiders",
+              "abbreviation": "LV",
+              "displayName": "Las Vegas Raiders",
+              "color": "000000",
+              "alternateColor": "a5acaf"
+            },
+            "score": "22",
+            "linescores": [
+              {
+                "displayValue": "0"
+              },
+              {
+                "displayValue": "3"
+              },
+              {
+                "displayValue": "7"
+              },
+              {
+                "displayValue": "12"
+              }
+            ],
+            "possession": false
+          }
+        ],
+        "status": {
+          "type": {
+            "id": "3",
+            "name": "STATUS_FINAL",
+            "state": "post",
+            "completed": true,
+            "description": "Final",
+            "detail": "Final",
+            "shortDetail": "Final"
+          },
+          "isTBDFlex": false
+        }
+      }
+    ],
+    "week": 3
+  },
+  "gameInfo": {
+    "venue": {
+      "fullName": "Reliant Stadium"
+    }
+  }
+}

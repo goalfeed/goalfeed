@@ -8,10 +8,9 @@
 
 **Your team scores. Your house reacts.**
 
-Self-hosted goal detection for NHL, MLB, CFL and NFL (plus IIHF schedule/history data
-and work-in-progress Olympic hockey support) — fires a Home Assistant event within
-about a second of your watched team's score changing upstream, or streams the same
-thing over REST and WebSocket for anything else you want to build.
+Self-hosted goal detection for NHL, MLB, CFL and NFL — fires a Home Assistant event
+within about a second of your watched team's score changing upstream, or streams the
+same thing over REST and WebSocket for anything else you want to build.
 
 [![Build Status](https://github.com/goalfeed/goalfeed/workflows/PR%20Test/badge.svg)](https://github.com/goalfeed/goalfeed/actions/workflows/test.yml)
 [![codecov](https://codecov.io/gh/goalfeed/goalfeed/branch/main/graph/badge.svg)](https://codecov.io/gh/goalfeed/goalfeed)
@@ -109,10 +108,12 @@ what `home_assistant.allow_remote_url` opts out of — see
 |---|---|---|
 | NHL | `api-web.nhle.com` (undocumented NHL Edge API) | Stable — polled and live |
 | MLB | `statsapi.mlb.com` (unofficial MLB Stats API) | Stable — polled and live |
-| CFL | `cflscoreboard.cfl.ca` + a BetGenius live-tracker widget feed | Stable — polled and live |
-| NFL | ESPN's `site.api.espn.com`, plus an ESPN Fastcast WebSocket for push updates | Stable — polled and live |
-| IIHF | `realtime.iihf.com` | Client and service exist and are fully tested, and back the web API's schedule/history endpoints, but are **not wired into the live goal-detection loop** — no Home Assistant events fire for IIHF games today |
-| Olympic Men's / Women's Hockey | `olympics.com` WMR API (2026 Winter Games) | **Work in progress.** Wired into live goal detection in this working tree, but the code is currently untracked in git — not yet committed or released |
+
+CFL and NFL code exists in the repo but is **not listed as supported**. Live testing
+against real games on 2026-08-20 found that both leagues discover games correctly but
+fail to track the score afterwards, so no goal or touchdown event can fire. Fixes are in
+progress; neither league will be listed until it has been verified against a live game
+again. See [Status](#status).
 
 ### The detection loop
 
@@ -141,14 +142,13 @@ Assistant even though every score after that is caught within a second.
 
 Every event Goalfeed sends — goal detections, period-start notices, and test goals —
 arrives under the same Home Assistant event type, `goal`. Filter automations on the
-event's `teamCode` field, not on the payload's `type` field: `type` is populated only
-for Olympic hockey events today, and left empty for NHL/MLB/CFL/NFL (see
-[Status](#status)).
+event's `teamCode` field, not on the payload's `type` field: `type` (and
+`Event.Description`) are left empty for every league (see [Status](#status)).
 
-Goal/score detection itself is a raw score diff, not a play-by-play feed, for every
-league except Olympics: Goalfeed compares a watched team's last-seen score to its
-current one and fires one event per point of increase. For NHL/MLB that's one event per
-goal. For NFL/CFL, a 7-point touchdown-plus-conversion fires **seven separate `goal`
+Goal/score detection itself is a raw score diff, not a play-by-play feed: Goalfeed
+compares a watched team's last-seen score to its current one and fires one event per
+point of increase. For NHL/MLB that's one event per goal. For NFL/CFL, a 7-point
+touchdown-plus-conversion fires **seven separate `goal`
 events** in the same tick, not one "touchdown" event — plan automations accordingly
 (debounce, or only react to the first event in a burst).
 
@@ -215,8 +215,8 @@ already, with less to install, and is a better fit for some readers.
    mlb_teams: "TOR,NYY"
    test_goals: false
    ```
-   The add-on's configuration UI currently exposes NHL and MLB only. To watch CFL, NFL,
-   or Olympic hockey teams from the add-on, mount a `config.yaml` (see
+   The add-on's configuration UI currently exposes NHL and MLB only. To watch CFL or
+   NFL teams from the add-on, mount a `config.yaml` (see
    [Configuration](#configuration)) or set `GOALFEED_WATCH_*` environment variables on
    the container.
 4. Start the add-on. It runs in web mode on port 8080 with Home Assistant Supervisor
@@ -233,13 +233,13 @@ Linux, macOS and Windows (amd64/arm64/arm/386) built by GoReleaser, each bundled
 built web UI:
 
 ```bash
-curl -LO https://github.com/goalfeed/goalfeed/releases/latest/download/goalfeed_1.0.36_darwin_arm64.tar.gz
-tar xzf goalfeed_1.0.36_darwin_arm64.tar.gz
+curl -LO https://github.com/goalfeed/goalfeed/releases/latest/download/goalfeed_1.0.38_darwin_arm64.tar.gz
+tar xzf goalfeed_1.0.38_darwin_arm64.tar.gz
 ./goalfeed --nhl WPG --web
 ```
 
 Only a released binary reports a real version — `./goalfeed --version` on the archive
-above prints `goalfeed version 1.0.36`, stamped by GoReleaser's build. Neither `make
+above prints `goalfeed version 1.0.38`, stamped by GoReleaser's build. Neither `make
 build` nor a plain `go build`/`go install` stamps that value, and Cobra doesn't register
 a `--version` flag at all when it's unset — a source build genuinely has no `--version`
 flag, not a blank one; that's confirmed by running it, not assumed.
@@ -362,8 +362,6 @@ no `--config` flag to point at a file somewhere else; Goalfeed always looks for
 | `--mlb` | `watch.mlb` | `GOALFEED_WATCH_MLB` | string list | `[]` | MLB team codes to watch |
 | `--cfl` | `watch.cfl` | `GOALFEED_WATCH_CFL` | string list | `[]` | CFL team codes to watch |
 | — | `watch.nfl` | `GOALFEED_WATCH_NFL` | string list | `[]` | NFL team codes to watch — no CLI flag exists yet, use YAML or env |
-| — | `watch.olympic_men` | `GOALFEED_WATCH_OLYMPIC_MEN` | string list | `[]` | Olympic Men's Hockey team codes — no CLI flag, WIP league |
-| — | `watch.olympic_women` | `GOALFEED_WATCH_OLYMPIC_WOMEN` | string list | `[]` | Olympic Women's Hockey team codes — no CLI flag, WIP league |
 | — | `home_assistant.url` | `GOALFEED_HOME_ASSISTANT_URL` | string | `""` | Home Assistant base URL. Ignored (and auto-detected via Supervisor) when running as the HA add-on |
 | — | `home_assistant.access_token` | `GOALFEED_HOME_ASSISTANT_ACCESS_TOKEN` | string | `""` | Home Assistant long-lived access token |
 | — | `home_assistant.allow_remote_url` | `GOALFEED_HOME_ASSISTANT_ALLOW_REMOTE_URL` | bool | `false` | Allow `home_assistant.url` to be a public/remote address. By default it's rejected unless it's private/loopback/link-local or a clearly local hostname (`*.local`, `homeassistant`, `supervisor`, etc.) — this is a defense against the access token being sent to an attacker-controlled host |
@@ -398,7 +396,7 @@ watch:
   cfl:
     - BC
     - OTT
-  # nfl, olympic_men, olympic_women also read from here — no CLI flags for these yet
+  # nfl also reads from here — no CLI flag for it yet
 ```
 
 Notes that bite people:
@@ -464,40 +462,34 @@ the full walkthrough.
 
 Issues and pull requests are welcome. The most valuable contribution this project can
 take is a new league, and [CONTRIBUTING.md](CONTRIBUTING.md) walks through exactly what
-that involves end to end — including the step IIHF is still missing (see
-[Status](#status)) so it doesn't happen again by accident. It also covers which of
-Goalfeed's three repos an issue belongs in, the dev setup, the coverage gate, and code
-style.
+that involves end to end. It also covers which of Goalfeed's three repos an issue
+belongs in, the dev setup, the coverage gate, and code style.
 
 Questions and bug reports: [GitHub Issues](https://github.com/goalfeed/goalfeed/issues) —
 that's the only supported contact channel.
 
 ## Status
 
-Pre-1.0-in-spirit and honest about it, even past the 1.x version numbers: the latest
-tagged release is **v1.0.36** (2026-01-02) — roughly seven and a half months behind the
-`main` branch this README describes. If you install from a release rather than building
-from source, some of what's below may not be present yet; check
-[CHANGELOG.md](CHANGELOG.md) and the [release](https://github.com/goalfeed/goalfeed/releases/latest)
-notes for what actually shipped.
+Pre-1.0-in-spirit and honest about it, even past the 1.x version numbers. The latest
+release is **v1.0.38**, cut from current `main`, so what's described here is what
+shipped. Releases are tagged automatically on every push to `main`, which means the
+version number counts pushes rather than milestones — a bump does not imply a feature.
+Check [CHANGELOG.md](CHANGELOG.md) for what actually changed in each one.
 
 What's real and working today, and what isn't yet:
 
-- **NHL, MLB, CFL, and NFL are stable and live-polled.** These are the leagues to build
-  on.
-- **IIHF is implemented but not live.** Its client and service are complete and tested
-  and back the web API's schedule/history/team endpoints, but `main.go` never adds IIHF
-  to the set of leagues the pollers watch, so no Home Assistant event fires for an IIHF
-  goal today. This is a one-line fix that hasn't landed — see
-  [Adding a new league](CONTRIBUTING.md#adding-a-new-league) for exactly which line.
-- **Olympic hockey is new and untracked in git.** `clients/leagues/olympics/` and
-  `services/leagues/olympics/` are functional and wired into the live polling loop in
-  this working tree, but as of this README they are not part of any commit or release.
-  It's also hard-coded to the 2026 Winter Games schedule endpoint, so it needs a code
-  change for future Games rather than working generically.
-- **`Event.Type` / `Event.Description` are empty for NHL, MLB, NFL, and CFL** — only the
-  work-in-progress Olympics service populates them from real play-by-play data. Every
-  other league is a raw score diff (see [What actually reaches Home Assistant](#what-actually-reaches-home-assistant)).
+- **NHL and MLB are stable and live-polled.** These are the leagues to build on.
+- **CFL and NFL are unlisted, pending verification.** Tested against live games on
+  2026-08-20: both discover games correctly, but their live score-tracking is broken —
+  CFL's live feed sends `sportId`/`competitionId` as JSON strings while the Go struct
+  types them as `int`, so the whole payload is discarded on every poll; NFL parses
+  ESPN's `/summary?event=` expecting a top-level `events[]` array that response does not
+  contain. Both leave the score pinned or frozen, and since detection is a score diff,
+  no event can fire. Fixes are in progress. Neither league gets a support label until it
+  has been observed working against a live game.
+- **`Event.Type` / `Event.Description` are empty for every league** — goal/score
+  detection is a raw score diff, not a play-by-play feed (see
+  [What actually reaches Home Assistant](#what-actually-reaches-home-assistant)).
 - **`POST /api/refresh` is a stub** left over from a refactor — it returns success
   without refreshing anything. `POST /api/debug/nfl/add` is a real but explicitly
   debug-only endpoint, not part of the supported API surface.
