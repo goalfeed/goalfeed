@@ -230,30 +230,73 @@ already, with less to install, and is a better fit for some readers.
 Every push to `main` publishes a new
 [GitHub Release](https://github.com/goalfeed/goalfeed/releases/latest) with binaries for
 Linux, macOS and Windows (amd64/arm64/arm/386) built by GoReleaser, each bundled with the
-built web UI:
+built web UI.
+
+**Requires the [GitHub CLI](https://cli.github.com/) (`gh`).** Don't pin a version number
+next to a release asset filename — the moment a new version ships, that exact filename
+stops existing in "latest" and the download 404s. `gh release download` always resolves
+the *current* release for you instead of a filename you typed once; this is also the
+command [goalfeed.ca](https://goalfeed.ca/docs/install/) uses:
 
 ```bash
-curl -LO https://github.com/goalfeed/goalfeed/releases/latest/download/goalfeed_1.0.38_darwin_arm64.tar.gz
-tar xzf goalfeed_1.0.38_darwin_arm64.tar.gz
+gh release download --repo goalfeed/goalfeed --pattern "*_darwin_arm64.tar.gz"
+tar xzf goalfeed_*_darwin_arm64.tar.gz
 ./goalfeed --nhl WPG --web
 ```
 
-Only a released binary reports a real version — `./goalfeed --version` on the archive
-above prints `goalfeed version 1.0.38`, stamped by GoReleaser's build. Neither `make
-build` nor a plain `go build`/`go install` stamps that value, and Cobra doesn't register
-a `--version` flag at all when it's unset — a source build genuinely has no `--version`
-flag, not a blank one; that's confirmed by running it, not assumed.
+Swap `darwin_arm64` for your platform — `darwin_amd64`, `linux_amd64`, `linux_arm64`,
+`linux_386`, `linux_armv6`, `linux_armv7`, `windows_amd64`, `windows_arm64`,
+`windows_386`, `windows_armv6`, `windows_armv7` are all published for every release.
 
-### `go install`
+No `gh`, or would rather not install it? Resolve the tag first and pass `-f` to curl so
+a broken URL fails loudly instead of silently writing a 9-byte "Not Found" file that
+`tar` then chokes on with a useless error:
 
 ```bash
-go install github.com/goalfeed/goalfeed@latest
+TAG=$(curl -fsSL https://api.github.com/repos/goalfeed/goalfeed/releases/latest | grep -m1 '"tag_name"' | cut -d'"' -f4)
+curl -fLO "https://github.com/goalfeed/goalfeed/releases/download/${TAG}/goalfeed_${TAG#v}_darwin_arm64.tar.gz"
+tar xzf "goalfeed_${TAG#v}_darwin_arm64.tar.gz"
+./goalfeed --nhl WPG --web
 ```
 
-Builds the Go binary only — no bundled web UI, since `go install` never runs the
-`web/frontend` build step GoReleaser does. Use `--web` and Goalfeed will serve the
-REST/WebSocket API with a minimal JSON status page in place of the React UI. See the
-version caveat above.
+Either way, never hardcode a version number next to `/releases/latest/download/` in a
+command someone else will copy-paste — it is guaranteed to break at the next release.
+
+Only a released binary reports a real version — `./goalfeed --version` on a downloaded
+archive prints the real tag it was built from (e.g. `goalfeed version 1.0.39`), stamped
+by GoReleaser's build. Neither `make build` nor a plain `go build` stamps that value, and
+Cobra doesn't register a `--version` flag at all when it's unset — a source build
+genuinely has no `--version` flag, not a blank one; that's confirmed by running it, not
+assumed.
+
+**`go install github.com/goalfeed/goalfeed@latest` does not work, and isn't a supported
+install path today.** `go.mod` declares the module path as `goalfeed`, not
+`github.com/goalfeed/goalfeed`:
+
+```
+go: github.com/goalfeed/goalfeed@v1.0.39: parsing go.mod:
+	module declares its path as: goalfeed
+	        but was required as: github.com/goalfeed/goalfeed
+```
+
+Fixing it means renaming the module, which touches every import in the repo — that's
+filed as a task, not done here. Use one of the methods above, or [Build from
+source](#build-from-source), instead.
+
+#### macOS: "cannot be opened because the developer cannot be verified"
+
+The released binaries are **unsigned and not notarized** — `spctl --assess --type
+execute ./goalfeed` reports `rejected` (`TeamIdentifier=not set`), verified against a
+downloaded archive, not assumed. A `curl`/`gh` download in a terminal isn't quarantined,
+so `./goalfeed --version` above just works. A **browser** download is quarantined,
+though, and clicking the archive in a browser is the more common way people actually get
+this file — that download shows "`goalfeed` cannot be opened because the developer
+cannot be verified" the first time you try to run it. Nothing is wrong with the binary;
+nobody has paid Apple to notarize it. Clear the quarantine flag and it runs normally:
+
+```bash
+xattr -d com.apple.quarantine ./goalfeed
+```
 
 ### Docker
 
@@ -268,7 +311,7 @@ a current Go image first:
 ```bash
 git clone https://github.com/goalfeed/goalfeed.git
 cd goalfeed
-sed -i '' 's/golang:1.21/golang:1.24/' Dockerfile   # or edit by hand
+perl -pi -e 's/golang:1\.21/golang:1.24/' Dockerfile   # portable; or edit by hand
 docker build -t goalfeed .
 docker run -d --name goalfeed -p 8080:8080 \
   -e GOALFEED_WATCH_NHL=WPG \
@@ -276,6 +319,16 @@ docker run -d --name goalfeed -p 8080:8080 \
   -e GOALFEED_HOME_ASSISTANT_ACCESS_TOKEN=your-long-lived-token \
   goalfeed --web
 ```
+
+`your-long-lived-token` is the same Home Assistant long-lived access token described in
+[Quickstart](#quickstart), step 1 — created from your Home Assistant user profile, under
+**Security → Long-Lived Access Tokens**.
+
+The `perl -pi -e` form edits in place identically on macOS and Linux — that's where
+Docker actually runs. `sed -i` does not: BSD/macOS `sed` requires an explicit (empty)
+backup-extension argument (`sed -i '' 's/.../.../ ' Dockerfile`), while GNU `sed` (most
+Linux distros) takes no such argument and errors — or silently misbehaves — if you pass
+one, so a `sed -i` command copy-pasted from one platform routinely fails on the other.
 
 `docker-compose.yml` in this repo does **not** run Goalfeed — it only spins up a local
 Home Assistant instance for development (see [CONTRIBUTING.md](CONTRIBUTING.md)).
@@ -291,36 +344,61 @@ make build        # npm ci && npm run build in web/frontend, then go build -o go
 Requires Go 1.24+ and Node 20+. Full dev-loop instructions (hot reload, running the test
 suite) are in [CONTRIBUTING.md](CONTRIBUTING.md).
 
+### Upgrade and uninstall
+
+**Upgrade — tested, not assumed.** Going from v1.0.36 to v1.0.39 by downloading the new
+release and overwriting the old binary in place (same directory, same filename) works
+cleanly: `config.yaml` is left untouched, and `./goalfeed --version` reports the new
+version afterward. There's no migration step and no separate uninstall/reinstall dance —
+download the new archive, extract it over the old one (or into the same directory), and
+restart the process.
+
+**Uninstall.** A binary install (release archive, or `make build` from source) creates
+exactly four things, all inside the one directory you ran it from, and nothing outside
+it — no launchd/systemd unit, no shell profile edits, no cache elsewhere on the machine:
+
+- the `goalfeed` (or `goalfeed.exe`) binary itself
+- the bundled `web/` directory (the web UI's static files)
+- `config.yaml`, if you created one
+- `app.log.jsonl`, written at runtime once Goalfeed logs its first event
+
+To uninstall, delete that directory. If you're running the Home Assistant add-on
+instead, uninstall it from **Settings → Add-ons → Goalfeed → Uninstall** the normal way
+Home Assistant removes any add-on.
+
 ## Quickstart
 
 About five minutes if you already have the binary from Install, above, and it ends in a
 goal firing on demand rather than waiting for a real game.
 
-**1. Copy the example config (10 seconds).**
+**1. Write a `config.yaml` next to the binary (10 seconds).** Replace the URL and token
+with your real ones — long-lived access tokens are created from your Home Assistant user
+profile, under **Security → Long-Lived Access Tokens**:
 
 ```bash
-cp config.example.yaml config.yaml
-```
-
-**2. Turn on `test-goals` and point it at your Home Assistant (1–2 minutes).** The
-example config already has a `home_assistant:` block with placeholder values — replace
-them with your real URL and token, and add `test-goals: true` at the top level:
-
-```yaml
+cat > config.yaml <<'EOF'
 test-goals: true
 home_assistant:
   url: "http://homeassistant.local:8123"
   access_token: "your-long-lived-access-token"
+watch:
+  nhl:
+    - WPG
+EOF
 ```
 
-Long-lived access tokens are created from your Home Assistant user profile, under
-**Security → Long-Lived Access Tokens**.
+If you have a source checkout, or a release archive that includes
+`config.example.yaml` (added to the release archive after v1.0.39 — check whether it's
+sitting next to your binary), `cp config.example.yaml config.yaml` and edit that instead;
+it's the same file, just with every key annotated. **v1.0.39 and earlier release archives
+don't contain `config.example.yaml`**, so the heredoc above is the one that works
+regardless of which release you're on.
 
-**3. Add the one-line automation you're testing against (1 minute).** In Home Assistant,
+**2. Add the one-line automation you're testing against (1 minute).** In Home Assistant,
 **Settings → Automations → Create Automation → Skip** (edit in YAML), trigger
 `event_type: goal`, action whatever you want to prove works — a light, a notification.
 
-**4. Run it (a few seconds to start).**
+**3. Run it (a few seconds to start).**
 
 ```bash
 ./goalfeed
@@ -334,7 +412,7 @@ Expected output — a normal startup, no active real games required:
 {"level":"info","ts":...,"msg":"Updating Active Games"}
 ```
 
-**5. Wait up to 60 seconds.** `test-goals` fires once a minute — see
+**4. Wait up to 60 seconds.** `test-goals` fires once a minute — see
 [Seeing it fire](#seeing-it-fire) for exactly what that log line looks like and exactly
 how long the wait is, measured, not estimated. When it lands you'll see:
 
@@ -351,10 +429,12 @@ install never look the same. Turn `test-goals` off once you've confirmed it, nar
 ## Configuration
 
 Goalfeed reads configuration from three places, in increasing priority: a `config.yaml`
-file in the working directory, `GOALFEED_*` environment variables, and CLI flags. Copy
-[`config.example.yaml`](config.example.yaml) to `config.yaml` to get started — there is
-no `--config` flag to point at a file somewhere else; Goalfeed always looks for
-`./config.yaml`.
+file in the working directory, `GOALFEED_*` environment variables, and CLI flags. On a
+source checkout, copy [`config.example.yaml`](config.example.yaml) to `config.yaml` to
+get started. **Release archives at v1.0.39 and earlier don't include
+`config.example.yaml`** — see the [Quickstart](#quickstart) heredoc for a minimal
+`config.yaml` you can write by hand instead. There is no `--config` flag to point at a
+file somewhere else; Goalfeed always looks for `./config.yaml`.
 
 | CLI flag | YAML key | Env var | Type | Default | Description |
 |---|---|---|---|---|---|
@@ -471,8 +551,10 @@ that's the only supported contact channel.
 ## Status
 
 Pre-1.0-in-spirit and honest about it, even past the 1.x version numbers. The latest
-release is **v1.0.38**, cut from current `main`, so what's described here is what
-shipped. Releases are tagged automatically on every push to `main`, which means the
+release at time of writing is **v1.0.39**, cut from current `main`, so what's described
+here is what shipped — check the [releases page](https://github.com/goalfeed/goalfeed/releases/latest)
+for the actual current tag rather than trusting this number to stay current. Releases
+are tagged automatically on every push to `main`, which means the
 version number counts pushes rather than milestones — a bump does not imply a feature.
 Check [CHANGELOG.md](CHANGELOG.md) for what actually changed in each one.
 
