@@ -33,6 +33,10 @@ jobs:
         uses: codecov/codecov-action@v7
         with:
           files: ./combined_coverage.out
+          # v7 auto-searches the tree in addition to `files` and picked up
+          # .cursor/rules/tdd_coverage.mdc as a coverage report. Upload only
+          # the file we actually generated.
+          disable_search: true
           flags: unittests
           name: codecov-umbrella
           fail_ci_if_error: false
