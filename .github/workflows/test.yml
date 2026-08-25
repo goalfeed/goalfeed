@@ -13,7 +13,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v7
         with:
           go-version-file: 'go.mod'
 
@@ -42,7 +42,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v7
         with:
           go-version-file: 'go.mod'
 
@@ -51,7 +51,7 @@ jobs:
           go build ./...
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: '20'
           cache: 'npm'
@@ -76,9 +76,13 @@ jobs:
           grep -h -v "^mode:" coverage.out main_coverage.out >> combined_coverage.out || true
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v7
         with:
-          file: ./combined_coverage.out
+          files: ./combined_coverage.out
+          # v7 auto-searches the tree in addition to `files` and picked up
+          # .cursor/rules/tdd_coverage.mdc as a coverage report. Upload only
+          # the file we actually generated.
+          disable_search: true
           flags: unittests
           name: codecov-umbrella
           fail_ci_if_error: false

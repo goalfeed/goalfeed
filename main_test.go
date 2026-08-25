@@ -890,23 +890,23 @@ func TestTickerManager_DefaultTickers(t *testing.T) {
 
 func TestTickerManager_RefreshTicker(t *testing.T) {
 	setupTest(t)
-	
+
 	// Test the refresh ticker functionality
 	// The 5th ticker (index 4) is the refresh ticker
 	tm := NewTickerManager()
 	refreshTicker := tm.tickers[4]
-	
+
 	// Set needRefresh to true to test the refresh path
 	needRefresh = true
-	
+
 	// Execute the refresh ticker task
 	assert.NotPanics(t, func() {
 		refreshTicker.Task()
 	})
-	
+
 	// Verify needRefresh was reset
 	assert.False(t, needRefresh)
-	
+
 	// Test when needRefresh is false (should not call checkLeaguesForActiveGames)
 	needRefresh = false
 	assert.NotPanics(t, func() {

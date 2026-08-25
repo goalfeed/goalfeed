@@ -228,6 +228,65 @@ const docTemplate = `{
                 }
             }
         },
+        "/games/history": {
+            "get": {
+                "description": "Returns a list of completed and active games for a specific date (YYYY-MM-DD format)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "games"
+                ],
+                "summary": "Get games by date",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Date in YYYY-MM-DD format",
+                        "name": "date",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/webApi.ApiResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/models.Game"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/webApi.ApiResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/webApi.ApiResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/homeassistant/config": {
             "get": {
                 "description": "Returns the current Home Assistant configuration (URL and token status)",
@@ -1036,6 +1095,10 @@ const docTemplate = `{
                 },
                 "leagueId": {
                     "type": "integer"
+                },
+                "leagueName": {
+                    "description": "Display name so UI can show e.g. \"Olympic Women's Hockey\"",
+                    "type": "string"
                 },
                 "statistics": {
                     "$ref": "#/definitions/models.GameStats"

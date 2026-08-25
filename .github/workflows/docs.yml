@@ -6,6 +6,8 @@ on:
       - 'web/api/**'
       - 'models/**'
       - 'docs/**'
+      - '.github/workflows/docs.yml'
+      - 'Makefile'
     branches:
       - main
       - master
@@ -14,10 +16,18 @@ on:
       - 'web/api/**'
       - 'models/**'
       - 'docs/**'
+      - '.github/workflows/docs.yml'
+      - 'Makefile'
     branches:
       - main
       - master
+  workflow_dispatch:
 
+# docs/docs.go is compiled into the binary (web/api/server.go imports it), so
+# stale generated docs ship in the release. This workflow never pushes to main:
+# branch protection requires a reviewed PR, so a direct push is rejected and the
+# only signal is a red badge nobody acts on. Instead it fails PRs that carry
+# stale docs, and opens a sync PR if anything reaches main out of date.
 jobs:
   update-docs:
     runs-on: ubuntu-latest
@@ -32,72 +42,98 @@ jobs:
           fetch-depth: 0
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v7
         with:
-          go-version: '1.23'
+          go-version-file: 'go.mod'
 
-      - name: Install swag
-        run: go install github.com/swaggo/swag/cmd/swag@latest
+      - name: Regenerate Swagger documentation
+        run: make docs
 
-      - name: Generate Swagger documentation
-        run: |
-          export PATH=$PATH:$(go env GOPATH)/bin
-          swag init -g web/api/server.go -o docs --parseDependency --parseInternal
-
-      - name: Check for changes
+      - name: Check for drift
         id: verify-changed-files
         run: |
-          if [ -n "$(git status --porcelain docs/)" ]; then
-            echo "changed=true" >> $GITHUB_OUTPUT
+          # Only the three generated files; docs/ also holds hand-written
+          # README.md, WEBSOCKET.md and assets/ that must not be swept in.
+          if [ -n "$(git status --porcelain docs/docs.go docs/swagger.json docs/swagger.yaml)" ]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            {
+              echo 'diff<<EOF'
+              git --no-pager diff --stat docs/docs.go docs/swagger.json docs/swagger.yaml
+              echo 'EOF'
+            } >> "$GITHUB_OUTPUT"
           else
-            echo "changed=false" >> $GITHUB_OUTPUT
+            echo "changed=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Commit and push changes
-        if: steps.verify-changed-files.outputs.changed == 'true' && github.event_name == 'push'
-        run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-          git add docs/
-          git commit -m "docs: auto-update API documentation [skip ci]" || exit 0
-          git push
-
-      - name: Create PR comment
+      - name: Comment on PR
         if: steps.verify-changed-files.outputs.changed == 'true' && github.event_name == 'pull_request'
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const fs = require('fs');
-            const changedFiles = fs.readdirSync('docs').filter(f => f.endsWith('.json') || f.endsWith('.yaml') || f.endsWith('.go'));
-            
-            let comment = '## 📚 API Documentation Updated\n\n';
-            comment += 'The API documentation has been automatically updated based on your changes.\n\n';
-            comment += '### Changed Files:\n';
-            changedFiles.forEach(file => {
-              comment += `- \`docs/${file}\`\n`;
-            });
-            comment += '\n### View Documentation\n';
-            comment += 'Once merged, view the interactive API documentation at:\n';
-            comment += `- Swagger UI: \`/swagger/index.html\`\n`;
-            comment += `- OpenAPI JSON: \`/docs/swagger.json\`\n`;
-            comment += `- OpenAPI YAML: \`/docs/swagger.yaml\`\n`;
-            comment += '\n### Next Steps\n';
-            comment += '1. Review the generated documentation\n';
-            comment += '2. Ensure all endpoints are properly documented\n';
-            comment += '3. Merge this PR to update the live documentation\n';
-            
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: comment
-            });
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DIFFSTAT: ${{ steps.verify-changed-files.outputs.diff }}
+        run: |
+          # Quoted heredoc: body is literal, no shell expansion of backticks.
+          cat > /tmp/pr-body.md <<'EOF'
+          ## 📚 API documentation is out of date
+
+          `docs/docs.go` is compiled into the binary, so these need to land with
+          this change or the release ships stale Swagger.
+
+          EOF
+          printf '```\n%s\n```\n\nRun `make docs` and commit the result.\n' \
+            "$DIFFSTAT" >> /tmp/pr-body.md
+          gh pr comment "${{ github.event.number }}" --body-file /tmp/pr-body.md
+
+      - name: Fail PR on stale docs
+        if: steps.verify-changed-files.outputs.changed == 'true' && github.event_name == 'pull_request'
+        run: |
+          echo "::error::API docs are stale. Run 'make docs' and commit docs/."
+          exit 1
+
+      # Reached only if something lands on main with stale docs — an admin
+      # direct push, or a merge that skipped the PR gate. Branch protection
+      # forbids pushing the fix straight to main, so raise it as a PR.
+      - name: Open documentation sync PR
+        if: steps.verify-changed-files.outputs.changed == 'true' && github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          BRANCH="chore/api-docs-sync"
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B "$BRANCH"
+          git add docs/docs.go docs/swagger.json docs/swagger.yaml
+          git commit -m "docs: regenerate API documentation
+
+          Generated by 'make docs' from ${GITHUB_SHA}."
+          git push --force origin "$BRANCH"
+
+          if [ -z "$(gh pr list --head "$BRANCH" --state open --json number --jq '.[].number')" ]; then
+            cat > /tmp/sync-body.md <<'EOF'
+          `docs/` drifted from `web/api/**` / `models/**`.
+
+          `docs/docs.go` is compiled into the binary, so until this merges the
+          release serves stale Swagger. Regenerate locally with `make docs`.
+
+          Opened automatically by `.github/workflows/docs.yml`.
+          EOF
+            printf '\nBase: `%s`  Source commit: %s\n' \
+              "$GITHUB_REF_NAME" "$GITHUB_SHA" >> /tmp/sync-body.md
+            gh pr create \
+              --base "${GITHUB_REF_NAME}" \
+              --head "$BRANCH" \
+              --title "docs: regenerate API documentation" \
+              --body-file /tmp/sync-body.md
+          else
+            echo "Existing sync PR updated with a fresh commit."
+          fi
 
       - name: Upload documentation artifacts
-        if: steps.verify-changed-files.outputs.changed == 'true'
-        uses: actions/upload-artifact@v4
+        if: always()
+        uses: actions/upload-artifact@v7
         with:
           name: api-documentation
-          path: docs/
+          path: |
+            docs/docs.go
+            docs/swagger.json
+            docs/swagger.yaml
           retention-days: 30
-
