@@ -8,10 +8,9 @@
 
 **Your team scores. Your house reacts.**
 
-Self-hosted goal detection for NHL, MLB, CFL and NFL (plus IIHF schedule/history data
-and work-in-progress Olympic hockey support) — fires a Home Assistant event within
-about a second of your watched team's score changing upstream, or streams the same
-thing over REST and WebSocket for anything else you want to build.
+Self-hosted goal detection for NHL, MLB, CFL and NFL — fires a Home Assistant event
+within about a second of your watched team's score changing upstream, or streams the
+same thing over REST and WebSocket for anything else you want to build.
 
 [![Build Status](https://github.com/goalfeed/goalfeed/workflows/PR%20Test/badge.svg)](https://github.com/goalfeed/goalfeed/actions/workflows/test.yml)
 [![codecov](https://codecov.io/gh/goalfeed/goalfeed/branch/main/graph/badge.svg)](https://codecov.io/gh/goalfeed/goalfeed)
@@ -109,10 +108,12 @@ what `home_assistant.allow_remote_url` opts out of — see
 |---|---|---|
 | NHL | `api-web.nhle.com` (undocumented NHL Edge API) | Stable — polled and live |
 | MLB | `statsapi.mlb.com` (unofficial MLB Stats API) | Stable — polled and live |
-| CFL | `cflscoreboard.cfl.ca` + a BetGenius live-tracker widget feed | Stable — polled and live |
-| NFL | ESPN's `site.api.espn.com`, plus an ESPN Fastcast WebSocket for push updates | Stable — polled and live |
-| IIHF | `realtime.iihf.com` | Client and service exist and are fully tested, and back the web API's schedule/history endpoints, but are **not wired into the live goal-detection loop** — no Home Assistant events fire for IIHF games today |
-| Olympic Men's / Women's Hockey | `olympics.com` WMR API (2026 Winter Games) | **Work in progress.** Wired into live goal detection in this working tree, but the code is currently untracked in git — not yet committed or released |
+
+CFL and NFL code exists in the repo but is **not listed as supported**. Live testing
+against real games on 2026-08-20 found that both leagues discover games correctly but
+fail to track the score afterwards, so no goal or touchdown event can fire. Fixes are in
+progress; neither league will be listed until it has been verified against a live game
+again. See [Status](#status).
 
 ### The detection loop
 
@@ -141,14 +142,13 @@ Assistant even though every score after that is caught within a second.
 
 Every event Goalfeed sends — goal detections, period-start notices, and test goals —
 arrives under the same Home Assistant event type, `goal`. Filter automations on the
-event's `teamCode` field, not on the payload's `type` field: `type` is populated only
-for Olympic hockey events today, and left empty for NHL/MLB/CFL/NFL (see
-[Status](#status)).
+event's `teamCode` field, not on the payload's `type` field: `type` (and
+`Event.Description`) are left empty for every league (see [Status](#status)).
 
-Goal/score detection itself is a raw score diff, not a play-by-play feed, for every
-league except Olympics: Goalfeed compares a watched team's last-seen score to its
-current one and fires one event per point of increase. For NHL/MLB that's one event per
-goal. For NFL/CFL, a 7-point touchdown-plus-conversion fires **seven separate `goal`
+Goal/score detection itself is a raw score diff, not a play-by-play feed: Goalfeed
+compares a watched team's last-seen score to its current one and fires one event per
+point of increase. For NHL/MLB that's one event per goal. For NFL/CFL, a 7-point
+touchdown-plus-conversion fires **seven separate `goal`
 events** in the same tick, not one "touchdown" event — plan automations accordingly
 (debounce, or only react to the first event in a burst).
 
@@ -215,8 +215,8 @@ already, with less to install, and is a better fit for some readers.
    mlb_teams: "TOR,NYY"
    test_goals: false
    ```
-   The add-on's configuration UI currently exposes NHL and MLB only. To watch CFL, NFL,
-   or Olympic hockey teams from the add-on, mount a `config.yaml` (see
+   The add-on's configuration UI currently exposes NHL and MLB only. To watch CFL or
+   NFL teams from the add-on, mount a `config.yaml` (see
    [Configuration](#configuration)) or set `GOALFEED_WATCH_*` environment variables on
    the container.
 4. Start the add-on. It runs in web mode on port 8080 with Home Assistant Supervisor
@@ -230,30 +230,73 @@ already, with less to install, and is a better fit for some readers.
 Every push to `main` publishes a new
 [GitHub Release](https://github.com/goalfeed/goalfeed/releases/latest) with binaries for
 Linux, macOS and Windows (amd64/arm64/arm/386) built by GoReleaser, each bundled with the
-built web UI:
+built web UI.
+
+**Requires the [GitHub CLI](https://cli.github.com/) (`gh`).** Don't pin a version number
+next to a release asset filename — the moment a new version ships, that exact filename
+stops existing in "latest" and the download 404s. `gh release download` always resolves
+the *current* release for you instead of a filename you typed once; this is also the
+command [goalfeed.ca](https://goalfeed.ca/docs/install/) uses:
 
 ```bash
-curl -LO https://github.com/goalfeed/goalfeed/releases/latest/download/goalfeed_1.0.36_darwin_arm64.tar.gz
-tar xzf goalfeed_1.0.36_darwin_arm64.tar.gz
+gh release download --repo goalfeed/goalfeed --pattern "*_darwin_arm64.tar.gz"
+tar xzf goalfeed_*_darwin_arm64.tar.gz
 ./goalfeed --nhl WPG --web
 ```
 
-Only a released binary reports a real version — `./goalfeed --version` on the archive
-above prints `goalfeed version 1.0.36`, stamped by GoReleaser's build. Neither `make
-build` nor a plain `go build`/`go install` stamps that value, and Cobra doesn't register
-a `--version` flag at all when it's unset — a source build genuinely has no `--version`
-flag, not a blank one; that's confirmed by running it, not assumed.
+Swap `darwin_arm64` for your platform — `darwin_amd64`, `linux_amd64`, `linux_arm64`,
+`linux_386`, `linux_armv6`, `linux_armv7`, `windows_amd64`, `windows_arm64`,
+`windows_386`, `windows_armv6`, `windows_armv7` are all published for every release.
 
-### `go install`
+No `gh`, or would rather not install it? Resolve the tag first and pass `-f` to curl so
+a broken URL fails loudly instead of silently writing a 9-byte "Not Found" file that
+`tar` then chokes on with a useless error:
 
 ```bash
-go install github.com/goalfeed/goalfeed@latest
+TAG=$(curl -fsSL https://api.github.com/repos/goalfeed/goalfeed/releases/latest | grep -m1 '"tag_name"' | cut -d'"' -f4)
+curl -fLO "https://github.com/goalfeed/goalfeed/releases/download/${TAG}/goalfeed_${TAG#v}_darwin_arm64.tar.gz"
+tar xzf "goalfeed_${TAG#v}_darwin_arm64.tar.gz"
+./goalfeed --nhl WPG --web
 ```
 
-Builds the Go binary only — no bundled web UI, since `go install` never runs the
-`web/frontend` build step GoReleaser does. Use `--web` and Goalfeed will serve the
-REST/WebSocket API with a minimal JSON status page in place of the React UI. See the
-version caveat above.
+Either way, never hardcode a version number next to `/releases/latest/download/` in a
+command someone else will copy-paste — it is guaranteed to break at the next release.
+
+Only a released binary reports a real version — `./goalfeed --version` on a downloaded
+archive prints the real tag it was built from (e.g. `goalfeed version 1.0.39`), stamped
+by GoReleaser's build. Neither `make build` nor a plain `go build` stamps that value, and
+Cobra doesn't register a `--version` flag at all when it's unset — a source build
+genuinely has no `--version` flag, not a blank one; that's confirmed by running it, not
+assumed.
+
+**`go install github.com/goalfeed/goalfeed@latest` does not work, and isn't a supported
+install path today.** `go.mod` declares the module path as `goalfeed`, not
+`github.com/goalfeed/goalfeed`:
+
+```
+go: github.com/goalfeed/goalfeed@v1.0.39: parsing go.mod:
+	module declares its path as: goalfeed
+	        but was required as: github.com/goalfeed/goalfeed
+```
+
+Fixing it means renaming the module, which touches every import in the repo — that's
+filed as a task, not done here. Use one of the methods above, or [Build from
+source](#build-from-source), instead.
+
+#### macOS: "cannot be opened because the developer cannot be verified"
+
+The released binaries are **unsigned and not notarized** — `spctl --assess --type
+execute ./goalfeed` reports `rejected` (`TeamIdentifier=not set`), verified against a
+downloaded archive, not assumed. A `curl`/`gh` download in a terminal isn't quarantined,
+so `./goalfeed --version` above just works. A **browser** download is quarantined,
+though, and clicking the archive in a browser is the more common way people actually get
+this file — that download shows "`goalfeed` cannot be opened because the developer
+cannot be verified" the first time you try to run it. Nothing is wrong with the binary;
+nobody has paid Apple to notarize it. Clear the quarantine flag and it runs normally:
+
+```bash
+xattr -d com.apple.quarantine ./goalfeed
+```
 
 ### Docker
 
@@ -268,7 +311,7 @@ a current Go image first:
 ```bash
 git clone https://github.com/goalfeed/goalfeed.git
 cd goalfeed
-sed -i '' 's/golang:1.21/golang:1.24/' Dockerfile   # or edit by hand
+perl -pi -e 's/golang:1\.21/golang:1.24/' Dockerfile   # portable; or edit by hand
 docker build -t goalfeed .
 docker run -d --name goalfeed -p 8080:8080 \
   -e GOALFEED_WATCH_NHL=WPG \
@@ -276,6 +319,16 @@ docker run -d --name goalfeed -p 8080:8080 \
   -e GOALFEED_HOME_ASSISTANT_ACCESS_TOKEN=your-long-lived-token \
   goalfeed --web
 ```
+
+`your-long-lived-token` is the same Home Assistant long-lived access token described in
+[Quickstart](#quickstart), step 1 — created from your Home Assistant user profile, under
+**Security → Long-Lived Access Tokens**.
+
+The `perl -pi -e` form edits in place identically on macOS and Linux — that's where
+Docker actually runs. `sed -i` does not: BSD/macOS `sed` requires an explicit (empty)
+backup-extension argument (`sed -i '' 's/.../.../ ' Dockerfile`), while GNU `sed` (most
+Linux distros) takes no such argument and errors — or silently misbehaves — if you pass
+one, so a `sed -i` command copy-pasted from one platform routinely fails on the other.
 
 `docker-compose.yml` in this repo does **not** run Goalfeed — it only spins up a local
 Home Assistant instance for development (see [CONTRIBUTING.md](CONTRIBUTING.md)).
@@ -291,36 +344,61 @@ make build        # npm ci && npm run build in web/frontend, then go build -o go
 Requires Go 1.24+ and Node 20+. Full dev-loop instructions (hot reload, running the test
 suite) are in [CONTRIBUTING.md](CONTRIBUTING.md).
 
+### Upgrade and uninstall
+
+**Upgrade — tested, not assumed.** Going from v1.0.36 to v1.0.39 by downloading the new
+release and overwriting the old binary in place (same directory, same filename) works
+cleanly: `config.yaml` is left untouched, and `./goalfeed --version` reports the new
+version afterward. There's no migration step and no separate uninstall/reinstall dance —
+download the new archive, extract it over the old one (or into the same directory), and
+restart the process.
+
+**Uninstall.** A binary install (release archive, or `make build` from source) creates
+exactly four things, all inside the one directory you ran it from, and nothing outside
+it — no launchd/systemd unit, no shell profile edits, no cache elsewhere on the machine:
+
+- the `goalfeed` (or `goalfeed.exe`) binary itself
+- the bundled `web/` directory (the web UI's static files)
+- `config.yaml`, if you created one
+- `app.log.jsonl`, written at runtime once Goalfeed logs its first event
+
+To uninstall, delete that directory. If you're running the Home Assistant add-on
+instead, uninstall it from **Settings → Add-ons → Goalfeed → Uninstall** the normal way
+Home Assistant removes any add-on.
+
 ## Quickstart
 
 About five minutes if you already have the binary from Install, above, and it ends in a
 goal firing on demand rather than waiting for a real game.
 
-**1. Copy the example config (10 seconds).**
+**1. Write a `config.yaml` next to the binary (10 seconds).** Replace the URL and token
+with your real ones — long-lived access tokens are created from your Home Assistant user
+profile, under **Security → Long-Lived Access Tokens**:
 
 ```bash
-cp config.example.yaml config.yaml
-```
-
-**2. Turn on `test-goals` and point it at your Home Assistant (1–2 minutes).** The
-example config already has a `home_assistant:` block with placeholder values — replace
-them with your real URL and token, and add `test-goals: true` at the top level:
-
-```yaml
+cat > config.yaml <<'EOF'
 test-goals: true
 home_assistant:
   url: "http://homeassistant.local:8123"
   access_token: "your-long-lived-access-token"
+watch:
+  nhl:
+    - WPG
+EOF
 ```
 
-Long-lived access tokens are created from your Home Assistant user profile, under
-**Security → Long-Lived Access Tokens**.
+If you have a source checkout, or a release archive that includes
+`config.example.yaml` (added to the release archive after v1.0.39 — check whether it's
+sitting next to your binary), `cp config.example.yaml config.yaml` and edit that instead;
+it's the same file, just with every key annotated. **v1.0.39 and earlier release archives
+don't contain `config.example.yaml`**, so the heredoc above is the one that works
+regardless of which release you're on.
 
-**3. Add the one-line automation you're testing against (1 minute).** In Home Assistant,
+**2. Add the one-line automation you're testing against (1 minute).** In Home Assistant,
 **Settings → Automations → Create Automation → Skip** (edit in YAML), trigger
 `event_type: goal`, action whatever you want to prove works — a light, a notification.
 
-**4. Run it (a few seconds to start).**
+**3. Run it (a few seconds to start).**
 
 ```bash
 ./goalfeed
@@ -334,7 +412,7 @@ Expected output — a normal startup, no active real games required:
 {"level":"info","ts":...,"msg":"Updating Active Games"}
 ```
 
-**5. Wait up to 60 seconds.** `test-goals` fires once a minute — see
+**4. Wait up to 60 seconds.** `test-goals` fires once a minute — see
 [Seeing it fire](#seeing-it-fire) for exactly what that log line looks like and exactly
 how long the wait is, measured, not estimated. When it lands you'll see:
 
@@ -351,10 +429,12 @@ install never look the same. Turn `test-goals` off once you've confirmed it, nar
 ## Configuration
 
 Goalfeed reads configuration from three places, in increasing priority: a `config.yaml`
-file in the working directory, `GOALFEED_*` environment variables, and CLI flags. Copy
-[`config.example.yaml`](config.example.yaml) to `config.yaml` to get started — there is
-no `--config` flag to point at a file somewhere else; Goalfeed always looks for
-`./config.yaml`.
+file in the working directory, `GOALFEED_*` environment variables, and CLI flags. On a
+source checkout, copy [`config.example.yaml`](config.example.yaml) to `config.yaml` to
+get started. **Release archives at v1.0.39 and earlier don't include
+`config.example.yaml`** — see the [Quickstart](#quickstart) heredoc for a minimal
+`config.yaml` you can write by hand instead. There is no `--config` flag to point at a
+file somewhere else; Goalfeed always looks for `./config.yaml`.
 
 | CLI flag | YAML key | Env var | Type | Default | Description |
 |---|---|---|---|---|---|
@@ -362,8 +442,6 @@ no `--config` flag to point at a file somewhere else; Goalfeed always looks for
 | `--mlb` | `watch.mlb` | `GOALFEED_WATCH_MLB` | string list | `[]` | MLB team codes to watch |
 | `--cfl` | `watch.cfl` | `GOALFEED_WATCH_CFL` | string list | `[]` | CFL team codes to watch |
 | — | `watch.nfl` | `GOALFEED_WATCH_NFL` | string list | `[]` | NFL team codes to watch — no CLI flag exists yet, use YAML or env |
-| — | `watch.olympic_men` | `GOALFEED_WATCH_OLYMPIC_MEN` | string list | `[]` | Olympic Men's Hockey team codes — no CLI flag, WIP league |
-| — | `watch.olympic_women` | `GOALFEED_WATCH_OLYMPIC_WOMEN` | string list | `[]` | Olympic Women's Hockey team codes — no CLI flag, WIP league |
 | — | `home_assistant.url` | `GOALFEED_HOME_ASSISTANT_URL` | string | `""` | Home Assistant base URL. Ignored (and auto-detected via Supervisor) when running as the HA add-on |
 | — | `home_assistant.access_token` | `GOALFEED_HOME_ASSISTANT_ACCESS_TOKEN` | string | `""` | Home Assistant long-lived access token |
 | — | `home_assistant.allow_remote_url` | `GOALFEED_HOME_ASSISTANT_ALLOW_REMOTE_URL` | bool | `false` | Allow `home_assistant.url` to be a public/remote address. By default it's rejected unless it's private/loopback/link-local or a clearly local hostname (`*.local`, `homeassistant`, `supervisor`, etc.) — this is a defense against the access token being sent to an attacker-controlled host |
@@ -398,7 +476,7 @@ watch:
   cfl:
     - BC
     - OTT
-  # nfl, olympic_men, olympic_women also read from here — no CLI flags for these yet
+  # nfl also reads from here — no CLI flag for it yet
 ```
 
 Notes that bite people:
@@ -464,40 +542,36 @@ the full walkthrough.
 
 Issues and pull requests are welcome. The most valuable contribution this project can
 take is a new league, and [CONTRIBUTING.md](CONTRIBUTING.md) walks through exactly what
-that involves end to end — including the step IIHF is still missing (see
-[Status](#status)) so it doesn't happen again by accident. It also covers which of
-Goalfeed's three repos an issue belongs in, the dev setup, the coverage gate, and code
-style.
+that involves end to end. It also covers which of Goalfeed's three repos an issue
+belongs in, the dev setup, the coverage gate, and code style.
 
 Questions and bug reports: [GitHub Issues](https://github.com/goalfeed/goalfeed/issues) —
 that's the only supported contact channel.
 
 ## Status
 
-Pre-1.0-in-spirit and honest about it, even past the 1.x version numbers: the latest
-tagged release is **v1.0.36** (2026-01-02) — roughly seven and a half months behind the
-`main` branch this README describes. If you install from a release rather than building
-from source, some of what's below may not be present yet; check
-[CHANGELOG.md](CHANGELOG.md) and the [release](https://github.com/goalfeed/goalfeed/releases/latest)
-notes for what actually shipped.
+Pre-1.0-in-spirit and honest about it, even past the 1.x version numbers. The latest
+release at time of writing is **v1.0.39**, cut from current `main`, so what's described
+here is what shipped — check the [releases page](https://github.com/goalfeed/goalfeed/releases/latest)
+for the actual current tag rather than trusting this number to stay current. Releases
+are tagged automatically on every push to `main`, which means the
+version number counts pushes rather than milestones — a bump does not imply a feature.
+Check [CHANGELOG.md](CHANGELOG.md) for what actually changed in each one.
 
 What's real and working today, and what isn't yet:
 
-- **NHL, MLB, CFL, and NFL are stable and live-polled.** These are the leagues to build
-  on.
-- **IIHF is implemented but not live.** Its client and service are complete and tested
-  and back the web API's schedule/history/team endpoints, but `main.go` never adds IIHF
-  to the set of leagues the pollers watch, so no Home Assistant event fires for an IIHF
-  goal today. This is a one-line fix that hasn't landed — see
-  [Adding a new league](CONTRIBUTING.md#adding-a-new-league) for exactly which line.
-- **Olympic hockey is new and untracked in git.** `clients/leagues/olympics/` and
-  `services/leagues/olympics/` are functional and wired into the live polling loop in
-  this working tree, but as of this README they are not part of any commit or release.
-  It's also hard-coded to the 2026 Winter Games schedule endpoint, so it needs a code
-  change for future Games rather than working generically.
-- **`Event.Type` / `Event.Description` are empty for NHL, MLB, NFL, and CFL** — only the
-  work-in-progress Olympics service populates them from real play-by-play data. Every
-  other league is a raw score diff (see [What actually reaches Home Assistant](#what-actually-reaches-home-assistant)).
+- **NHL and MLB are stable and live-polled.** These are the leagues to build on.
+- **CFL and NFL are unlisted, pending verification.** Tested against live games on
+  2026-08-20: both discover games correctly, but their live score-tracking is broken —
+  CFL's live feed sends `sportId`/`competitionId` as JSON strings while the Go struct
+  types them as `int`, so the whole payload is discarded on every poll; NFL parses
+  ESPN's `/summary?event=` expecting a top-level `events[]` array that response does not
+  contain. Both leave the score pinned or frozen, and since detection is a score diff,
+  no event can fire. Fixes are in progress. Neither league gets a support label until it
+  has been observed working against a live game.
+- **`Event.Type` / `Event.Description` are empty for every league** — goal/score
+  detection is a raw score diff, not a play-by-play feed (see
+  [What actually reaches Home Assistant](#what-actually-reaches-home-assistant)).
 - **`POST /api/refresh` is a stub** left over from a refactor — it returns success
   without refreshing anything. `POST /api/debug/nfl/add` is a real but explicitly
   debug-only endpoint, not part of the supported API surface.

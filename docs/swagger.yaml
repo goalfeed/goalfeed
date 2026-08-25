@@ -263,6 +263,9 @@ definitions:
         type: boolean
       leagueId:
         type: integer
+      leagueName:
+        description: Display name so UI can show e.g. "Olympic Women's Hockey"
+        type: string
       statistics:
         $ref: '#/definitions/models.GameStats'
     type: object
@@ -661,6 +664,43 @@ paths:
           schema:
             $ref: '#/definitions/webApi.ApiResponse'
       summary: Get all active games
+      tags:
+      - games
+  /games/history:
+    get:
+      consumes:
+      - application/json
+      description: Returns a list of completed and active games for a specific date
+        (YYYY-MM-DD format)
+      parameters:
+      - description: Date in YYYY-MM-DD format
+        in: query
+        name: date
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/webApi.ApiResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/models.Game'
+                  type: array
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/webApi.ApiResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/webApi.ApiResponse'
+      summary: Get games by date
       tags:
       - games
   /homeassistant/config:
