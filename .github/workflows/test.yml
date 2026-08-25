@@ -76,9 +76,13 @@ jobs:
           grep -h -v "^mode:" coverage.out main_coverage.out >> combined_coverage.out || true
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v7
         with:
-          file: ./combined_coverage.out
+          files: ./combined_coverage.out
+          # v7 auto-searches the tree in addition to `files` and picked up
+          # .cursor/rules/tdd_coverage.mdc as a coverage report. Upload only
+          # the file we actually generated.
+          disable_search: true
           flags: unittests
           name: codecov-umbrella
           fail_ci_if_error: false
