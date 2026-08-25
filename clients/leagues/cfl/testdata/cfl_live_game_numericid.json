@@ -1,0 +1,189 @@
+{
+  "data": {
+    "betGeniusFixtureId": "13419716",
+    "preferredSourceIds": {
+      "matchActionsSourceId": "GeniusLiveStats"
+    },
+    "scoreboardInfo": {
+      "matchStatus": "PostMatch",
+      "currentPhase": "4",
+      "awayScore": 16,
+      "homeScore": 46,
+      "awayTimeoutsLeft": 1,
+      "homeTimeoutsLeft": 1,
+      "totalTimeouts": 2,
+      "scoreByPhases": {
+        "awayScore": {
+          "quarter1": 7,
+          "quarter2": 3,
+          "quarter3": 6,
+          "quarter4": 0
+        },
+        "homeScore": {
+          "quarter1": 7,
+          "quarter2": 18,
+          "quarter3": 14,
+          "quarter4": 7
+        }
+      },
+      "timeRemainingInPhase": "00:00",
+      "possession": "None",
+      "down": 3,
+      "yardsToGo": 3,
+      "totalPhases": 4,
+      "phaseQualifier": "Regular",
+      "clockUnreliable": false
+    },
+    "matchInfo": {
+      "roundId": "1420023",
+      "roundName": "Week 12",
+      "scheduledStartTime": "2026-08-20T23:30:00+00:00",
+      "venueName": "Percival Molson Memorial Stadium",
+      "seasonId": "169290",
+      "seasonName": "2026 CFL",
+      "homeTeam": {
+        "fullName": "Montreal Alouettes",
+        "competitorId": "86680",
+        "details": {
+          "key": "86680",
+          "brand": {
+            "logo": "https://gsm-shared-assets.betstream.betgenius.com/shared/assets/sports/american-football/competitors/logos/png/86680.png",
+            "theme": {
+              "dark": {
+                "logo": {
+                  "svg": "https://gsm-shared-assets.betstream.betgenius.com/shared/assets/sports/american-football/competitors/logos/png/86680.png"
+                },
+                "primaryColor": "#D0202E",
+                "secondaryColor": "#d2202f"
+              },
+              "light": {
+                "logo": {
+                  "svg": "https://gsm-shared-assets.betstream.betgenius.com/shared/assets/sports/american-football/competitors/logos/png/86680.png"
+                },
+                "primaryColor": "#131f46",
+                "secondaryColor": "#d2202f"
+              }
+            },
+            "primaryColor": "#021D49",
+            "secondaryColor": "#D0202E"
+          },
+          "firstName": "Montreal",
+          "shortName": "Als",
+          "secondName": "Alouettes",
+          "abbreviation": "MTL",
+          "officialName": "Montreal Alouettes"
+        }
+      },
+      "awayTeam": {
+        "fullName": "Ottawa RedBlacks",
+        "competitorId": "88019",
+        "details": {
+          "key": "88019",
+          "brand": {
+            "logo": "https://gsm-shared-assets.betstream.betgenius.com/shared/assets/sports/american-football/competitors/logos/svg/88019.svg",
+            "theme": {
+              "dark": {
+                "logo": {
+                  "svg": "https://gsm-shared-assets.betstream.betgenius.com/shared/assets/sports/american-football/competitors/logos/svg/88019.svg"
+                },
+                "primaryColor": "#AC1F2D",
+                "secondaryColor": "#ac1e2c"
+              },
+              "light": {
+                "logo": {
+                  "svg": "https://gsm-shared-assets.betstream.betgenius.com/shared/assets/sports/american-football/competitors/logos/svg/88019.svg"
+                },
+                "primaryColor": "#000000",
+                "secondaryColor": "#ac1e2c"
+              }
+            },
+            "primaryColor": "#AC1F2D",
+            "secondaryColor": "#231F20"
+          },
+          "firstName": "Ottawa",
+          "shortName": "REDBLACKS",
+          "secondName": "REDBLACKS",
+          "abbreviation": "OTT",
+          "officialName": "Ottawa REDBLACKS"
+        }
+      },
+      "playedPhases": [
+        "Q1",
+        "Q2",
+        "Q3",
+        "Q4",
+        "HL"
+      ]
+    },
+    "court": {
+      "matchActions": [
+        {
+          "id": "31-3",
+          "playDescription": "(00:04) Shotgun #34 M.Anderson rush middle for 4 yards gain to the OTT16 (#96 L.Uguak), 1ST DOWN",
+          "phaseQualifier": "4",
+          "phase": "Regular",
+          "playDirection": "right",
+          "qualifier": null,
+          "isConfirmed": true,
+          "type": "Run",
+          "teamId": "88019",
+          "playDetails": {
+            "snap": {
+              "isConfirmed": true,
+              "timestampUtc": "2026-08-21T02:28:54.439030800"
+            },
+            "penalties": [],
+            "yardsToGo": 3,
+            "downNumber": 3,
+            "scrimmageLocation": {
+              "sideOfPitch": "Away",
+              "scrimmageYard": 12,
+              "nextScrimmageYard": 16,
+              "nextSideOfPitch": "Away"
+            },
+            "firstDownLocation": {
+              "firstDownYard": 15,
+              "sideOfPitch": "Away",
+              "nextFirstDownYard": 26,
+              "nextSideOfPitch": "Away"
+            },
+            "yards": 4,
+            "isScoring": false,
+            "isChangeOfPossession": false,
+            "returnYards": null,
+            "nextYardsToGo": 10,
+            "nextDownNumber": 1,
+            "nextPlay": null,
+            "competitorContributions": null
+          },
+          "isBigPlay": false,
+          "timestamp": "2026-08-21T02:28:54.439018",
+          "_createdAt": "2026-08-21T02:28:37.028532+00:00",
+          "clock": "00:04",
+          "drive": {
+            "id": "31",
+            "teamInPossessionId": "88019"
+          },
+          "subType": null,
+          "updatedTimestamp": 1787279317028,
+          "playByPlayInfo": {
+            "clock": "00:04",
+            "description": "Shotgun #34 M.Anderson rush middle for 4 yards gain to the OTT16 (#96 L.Uguak), 1ST DOWN"
+          },
+          "playStartPosition": "3rd & 3 at OTT 12"
+        }
+      ]
+    }
+  },
+  "sport": "AmericanFootball",
+  "sportId": 17,
+  "competitionId": 1035,
+  "availableTabs": {
+    "court": true,
+    "teamStats": true,
+    "playerStats": true,
+    "lineups": true,
+    "playByPlay": true
+  },
+  "source": "multisport-game-trackers-data-call"
+}

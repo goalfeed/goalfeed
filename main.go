@@ -36,6 +36,11 @@ var rootCmd = &cobra.Command{
 	Short: "Goalfeed main application",
 	Long:  `Starts the Goalfeed application.`,
 	Run: func(cmd *cobra.Command, args []string) {
+		// Printed before the structured logger opens, so a first-time user with
+		// no config sees one actionable line instead of a wall of game logs.
+		if notice := config.MissingConfigNotice(); notice != "" {
+			fmt.Fprintln(os.Stderr, notice)
+		}
 		initialize()
 		if viper.GetBool("web") {
 			runWebMode()

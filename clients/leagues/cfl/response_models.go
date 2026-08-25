@@ -1,5 +1,51 @@
 package cfl
 
+import (
+	"encoding/json"
+	"fmt"
+	"strconv"
+)
+
+// FlexInt unmarshals a JSON int OR a JSON string containing digits into an
+// int. The BetGenius live-game feed sends some numeric-looking fields
+// (sportId, competitionId) as JSON strings (e.g. "sportId":"17") even
+// though they're conceptually numbers; a plain `int` field fails to
+// unmarshal at all in that case, and because json.Unmarshal aborts the
+// whole call on a type-mismatch error, a single such field silently
+// discards the entire otherwise-valid response (see GetCFLLiveGame, which
+// used to return a zero struct on any unmarshal error). FlexInt accepts
+// both encodings so a future upstream flip back to real numbers keeps
+// working too.
+type FlexInt int
+
+func (f *FlexInt) UnmarshalJSON(data []byte) error {
+	// Numeric form: "sportId":17
+	var n int
+	if err := json.Unmarshal(data, &n); err == nil {
+		*f = FlexInt(n)
+		return nil
+	}
+	// String form: "sportId":"17"
+	var s string
+	if err := json.Unmarshal(data, &s); err == nil {
+		if s == "" {
+			*f = 0
+			return nil
+		}
+		v, err := strconv.Atoi(s)
+		if err != nil {
+			return fmt.Errorf("cfl: FlexInt: cannot parse %q as int: %w", s, err)
+		}
+		*f = FlexInt(v)
+		return nil
+	}
+	return fmt.Errorf("cfl: FlexInt: value is neither a number nor a numeric string: %s", string(data))
+}
+
+func (f FlexInt) MarshalJSON() ([]byte, error) {
+	return json.Marshal(int(f))
+}
+
 // CFL Schedule Response Models
 type CFLScheduleResponse []CFLRound
 
@@ -44,11 +90,22 @@ type CFLTimeouts struct {
 }
 
 // CFL Live Game Response Models (from BetGenius API)
+//
+// SportID and CompetitionID are FlexInt (not int): a live capture of this
+// endpoint showed both sent as JSON strings ("sportId":"17",
+// "competitionId":"1035") even though the values are numeric. A plain int
+// field fails to unmarshal on that shape, and because json.Unmarshal
+// aborts the whole call on the first type-mismatch error, that alone was
+// enough to make GetCFLLiveGame discard the entire response (including a
+// correctly-typed score) and return a zero struct. The rest of this type
+// was audited against the same live capture and found to already match
+// (matchStatus/currentPhase/possession as strings, scores/timeouts/down/
+// yardsToGo as numbers, clockUnreliable as bool, availableTabs as bools).
 type CFLLiveGameResponse struct {
 	Data          CFLLiveGameData  `json:"data"`
 	Sport         string           `json:"sport"`
-	SportID       int              `json:"sportId"`
-	CompetitionID int              `json:"competitionId"`
+	SportID       FlexInt          `json:"sportId"`
+	CompetitionID FlexInt          `json:"competitionId"`
 	AvailableTabs CFLAvailableTabs `json:"availableTabs"`
 }
 

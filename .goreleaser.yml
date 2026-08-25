@@ -32,6 +32,8 @@ archives:
     format: tar.gz
     files:
       - README.md
+      - LICENSE
+      - config.example.yaml
       - web/frontend/build/**
 
 release:

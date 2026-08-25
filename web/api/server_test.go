@@ -1084,3 +1084,50 @@ func TestIsAllowedCORSOrigin_LocalDevOriginsOnly(t *testing.T) {
 		}
 	}
 }
+
+// TestBuildFrontend_AcceptsPrebuiltAssets pins the release-archive case: the
+// archive ships web/frontend/build but no source tree, so buildFrontend must
+// treat the prebuilt assets as done rather than demanding package.json and
+// telling the user to install Node.
+func TestBuildFrontend_AcceptsPrebuiltAssets(t *testing.T) {
+	dir := t.TempDir()
+	cwd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("getwd: %v", err)
+	}
+	defer func() { _ = os.Chdir(cwd) }()
+	if err := os.Chdir(dir); err != nil {
+		t.Fatalf("chdir: %v", err)
+	}
+
+	// Exactly what a release archive contains: built assets, no package.json.
+	if err := os.MkdirAll(filepath.Join("web", "frontend", "build"), 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join("web", "frontend", "build", "index.html"),
+		[]byte("<!doctype html><title>goalfeed</title>"), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	if err := buildFrontend(); err != nil {
+		t.Fatalf("buildFrontend rejected a prebuilt release frontend: %v", err)
+	}
+}
+
+// TestBuildFrontend_ReportsMissingSourceAndBuild checks the genuinely-broken
+// case still errors, and that the message names both things it looked for.
+func TestBuildFrontend_ReportsMissingSourceAndBuild(t *testing.T) {
+	dir := t.TempDir()
+	cwd, _ := os.Getwd()
+	defer func() { _ = os.Chdir(cwd) }()
+	if err := os.Chdir(dir); err != nil {
+		t.Fatalf("chdir: %v", err)
+	}
+	err := buildFrontend()
+	if err == nil {
+		t.Fatal("expected an error when neither prebuilt assets nor source exist")
+	}
+	if !strings.Contains(err.Error(), "build") || !strings.Contains(err.Error(), "package.json") {
+		t.Fatalf("error should name both what it looked for; got: %v", err)
+	}
+}
