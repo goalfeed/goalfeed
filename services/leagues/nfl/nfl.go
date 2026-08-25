@@ -118,111 +118,167 @@ func (s NFLService) GetGameUpdate(game models.Game, ret chan models.GameUpdate) 
 	s.getGameUpdateFromScoreboard(game, ret)
 }
 
+// nflSummarySnapshot normalizes the two shapes GetNFLScoreBoard's response
+// can take into one shape the rest of this file can consume uniformly.
+//
+// In production, GetNFLScoreBoard calls ESPN's "/summary?event=" endpoint,
+// which has NO top-level "events" array -- the real score/status/team data
+// lives at header.competitions[0] (NFLScoreboardResponse.Header). Events is
+// kept only because the mocks/tests in clients/leagues/nfl build responses
+// that way; a real HTTP response will always have an empty Events slice.
+// extractSummarySnapshot prefers Header (the real, live shape) and falls
+// back to Events (the legacy/mocked shape) so callers don't need to know
+// which shape they got.
+type nflSummarySnapshot struct {
+	Competitors     []nfl.NFLScoreboardCompetitor
+	VenueName       string
+	Period          int
+	DisplayClock    string
+	Completed       bool
+	ShortDetail     string
+	SeasonYear      int
+	Week            int
+	EventDate       string
+	CompetitionDate string
+	OK              bool
+}
+
+func extractSummarySnapshot(sb nfl.NFLScoreboardResponse) nflSummarySnapshot {
+	if len(sb.Header.Competitions) > 0 {
+		c := sb.Header.Competitions[0]
+		return nflSummarySnapshot{
+			Competitors:     c.Competitors,
+			VenueName:       sb.GameInfo.Venue.FullName,
+			Period:          c.Status.Period,
+			DisplayClock:    c.Status.DisplayClock,
+			Completed:       c.Status.Type.Completed,
+			ShortDetail:     c.Status.Type.ShortDetail,
+			SeasonYear:      sb.Header.Season.Year,
+			Week:            sb.Header.Week,
+			CompetitionDate: c.Date,
+			OK:              true,
+		}
+	}
+	if len(sb.Events) > 0 && len(sb.Events[0].Competitions) > 0 {
+		event := sb.Events[0]
+		competition := event.Competitions[0]
+		return nflSummarySnapshot{
+			Competitors:     competition.Competitors,
+			VenueName:       competition.Venue.FullName,
+			Period:          event.Status.Period,
+			DisplayClock:    event.Status.DisplayClock,
+			Completed:       event.Status.Type.Completed,
+			ShortDetail:     event.Status.Type.ShortDetail,
+			SeasonYear:      event.Season.Year,
+			Week:            event.Week.Number,
+			EventDate:       event.Date,
+			CompetitionDate: competition.Date,
+			OK:              true,
+		}
+	}
+	return nflSummarySnapshot{}
+}
+
 func (s NFLService) getGameUpdateFromScoreboard(game models.Game, ret chan models.GameUpdate) {
 	scoreboard := s.Client.GetNFLScoreBoard(game.GameCode)
 
 	// Extract game info from scoreboard
 	var newState models.GameState = game.CurrentState
-	if len(scoreboard.Events) > 0 {
-		event := scoreboard.Events[0]
-		if len(event.Competitions) > 0 {
-			competition := event.Competitions[0]
-			if len(competition.Competitors) >= 2 {
-				var awayTeam, homeTeam nfl.NFLScoreboardCompetitor
+	snap := extractSummarySnapshot(scoreboard)
+	if snap.OK && len(snap.Competitors) >= 2 {
+		var awayTeam, homeTeam nfl.NFLScoreboardCompetitor
 
-				// Find home and away teams by checking HomeAway field
-				for _, competitor := range competition.Competitors {
-					if competitor.HomeAway == "home" {
-						homeTeam = competitor
-					} else if competitor.HomeAway == "away" {
-						awayTeam = competitor
+		// Find home and away teams by checking HomeAway field
+		for _, competitor := range snap.Competitors {
+			if competitor.HomeAway == "home" {
+				homeTeam = competitor
+			} else if competitor.HomeAway == "away" {
+				awayTeam = competitor
+			}
+		}
+
+		// Fallback: if API returned empty team data, reuse existing game state team info
+		if homeTeam.Team.Abbreviation == "" && game.CurrentState.Home.Team.TeamCode != "" {
+			homeTeam.Team.DisplayName = game.CurrentState.Home.Team.TeamName
+			homeTeam.Team.Abbreviation = game.CurrentState.Home.Team.TeamCode
+			homeTeam.Team.ID = game.CurrentState.Home.Team.ExtID
+			homeTeam.Team.Logo = game.CurrentState.Home.Team.LogoURL
+		}
+		if awayTeam.Team.Abbreviation == "" && game.CurrentState.Away.Team.TeamCode != "" {
+			awayTeam.Team.DisplayName = game.CurrentState.Away.Team.TeamName
+			awayTeam.Team.Abbreviation = game.CurrentState.Away.Team.TeamCode
+			awayTeam.Team.ID = game.CurrentState.Away.Team.ExtID
+			awayTeam.Team.Logo = game.CurrentState.Away.Team.LogoURL
+		}
+
+		awayScore, _ := strconv.Atoi(awayTeam.Score)
+		homeScore, _ := strconv.Atoi(homeTeam.Score)
+
+		// Derive status directly from summary signals
+		var derivedStatus models.GameStatus = models.StatusUpcoming
+		if snap.Completed {
+			derivedStatus = models.StatusEnded
+		} else if snap.DisplayClock != "" || snap.Period > 0 {
+			derivedStatus = models.StatusActive
+		}
+
+		newState = models.GameState{
+			Home: models.TeamState{
+				Team:  s.teamFromCompetitor(homeTeam),
+				Score: homeScore,
+			},
+			Away: models.TeamState{
+				Team:  s.teamFromCompetitor(awayTeam),
+				Score: awayScore,
+			},
+			Status:     derivedStatus,
+			Period:     snap.Period,
+			PeriodType: "QUARTER",
+			Clock:      snap.DisplayClock,
+			Venue: models.Venue{
+				Name: snap.VenueName,
+			},
+			Details: models.EventDetails{
+				Possession: func() string {
+					pt := scoreboard.Drives.Current.Start.PossessionText
+					if pt == "" {
+						// Fallback to current drive team abbreviation
+						abbr := scoreboard.Drives.Current.Team.Abbreviation
+						return strings.ToUpper(strings.TrimSpace(abbr))
 					}
-				}
-
-				// Fallback: if API returned empty team data, reuse existing game state team info
-				if homeTeam.Team.Abbreviation == "" && game.CurrentState.Home.Team.TeamCode != "" {
-					homeTeam.Team.DisplayName = game.CurrentState.Home.Team.TeamName
-					homeTeam.Team.Abbreviation = game.CurrentState.Home.Team.TeamCode
-					homeTeam.Team.ID = game.CurrentState.Home.Team.ExtID
-					homeTeam.Team.Logo = game.CurrentState.Home.Team.LogoURL
-				}
-				if awayTeam.Team.Abbreviation == "" && game.CurrentState.Away.Team.TeamCode != "" {
-					awayTeam.Team.DisplayName = game.CurrentState.Away.Team.TeamName
-					awayTeam.Team.Abbreviation = game.CurrentState.Away.Team.TeamCode
-					awayTeam.Team.ID = game.CurrentState.Away.Team.ExtID
-					awayTeam.Team.Logo = game.CurrentState.Away.Team.LogoURL
-				}
-
-				awayScore, _ := strconv.Atoi(awayTeam.Score)
-				homeScore, _ := strconv.Atoi(homeTeam.Score)
-
-				// Derive status directly from summary signals
-				var derivedStatus models.GameStatus = models.StatusUpcoming
-				if event.Status.Type.Completed {
-					derivedStatus = models.StatusEnded
-				} else if event.Status.DisplayClock != "" || event.Status.Period > 0 {
-					derivedStatus = models.StatusActive
-				}
-
-				newState = models.GameState{
-					Home: models.TeamState{
-						Team:  s.teamFromCompetitor(homeTeam),
-						Score: homeScore,
-					},
-					Away: models.TeamState{
-						Team:  s.teamFromCompetitor(awayTeam),
-						Score: awayScore,
-					},
-					Status:     derivedStatus,
-					Period:     event.Status.Period,
-					PeriodType: "QUARTER",
-					Clock:      event.Status.DisplayClock,
-					Venue: models.Venue{
-						Name: competition.Venue.FullName,
-					},
-					Details: models.EventDetails{
-						Possession: func() string {
-							pt := scoreboard.Drives.Current.Start.PossessionText
-							if pt == "" {
-								// Fallback to current drive team abbreviation
-								abbr := scoreboard.Drives.Current.Team.Abbreviation
-								return strings.ToUpper(strings.TrimSpace(abbr))
-							}
-							parts := strings.Fields(pt)
-							if len(parts) > 0 {
-								return parts[0]
-							}
-							return ""
-						}(),
-						YardLine: scoreboard.Drives.Current.Start.YardLine,
-						Down:     scoreboard.Drives.Current.Start.Down,
-						Distance: scoreboard.Drives.Current.Start.Distance,
-					},
-				}
-
-				// Label halftime when appropriate
-				if strings.Contains(strings.ToLower(event.Status.Type.ShortDetail), "halftime") ||
-					(newState.Period == 2 && newState.Clock == "0:00") {
-					newState.PeriodType = "HALFTIME"
-					newState.Clock = "HALFTIME"
-				}
-
-				// If situation is missing, attempt to parse from ShortDetail (e.g., "1st & 10 at CLE 25")
-				if newState.Details.Down == 0 || newState.Details.Distance == 0 || newState.Details.Possession == "" || newState.Details.YardLine == 0 {
-					d, dist, poss, yl := parseSituationShortDetail(event.Status.Type.ShortDetail)
-					if newState.Details.Down == 0 && d > 0 {
-						newState.Details.Down = d
+					parts := strings.Fields(pt)
+					if len(parts) > 0 {
+						return parts[0]
 					}
-					if newState.Details.Distance == 0 && dist > 0 {
-						newState.Details.Distance = dist
-					}
-					if newState.Details.Possession == "" && poss != "" {
-						newState.Details.Possession = poss
-					}
-					if newState.Details.YardLine == 0 && yl > 0 {
-						newState.Details.YardLine = yl
-					}
-				}
+					return ""
+				}(),
+				YardLine: scoreboard.Drives.Current.Start.YardLine,
+				Down:     scoreboard.Drives.Current.Start.Down,
+				Distance: scoreboard.Drives.Current.Start.Distance,
+			},
+		}
+
+		// Label halftime when appropriate
+		if strings.Contains(strings.ToLower(snap.ShortDetail), "halftime") ||
+			(newState.Period == 2 && newState.Clock == "0:00") {
+			newState.PeriodType = "HALFTIME"
+			newState.Clock = "HALFTIME"
+		}
+
+		// If situation is missing, attempt to parse from ShortDetail (e.g., "1st & 10 at CLE 25")
+		if newState.Details.Down == 0 || newState.Details.Distance == 0 || newState.Details.Possession == "" || newState.Details.YardLine == 0 {
+			d, dist, poss, yl := parseSituationShortDetail(snap.ShortDetail)
+			if newState.Details.Down == 0 && d > 0 {
+				newState.Details.Down = d
+			}
+			if newState.Details.Distance == 0 && dist > 0 {
+				newState.Details.Distance = dist
+			}
+			if newState.Details.Possession == "" && poss != "" {
+				newState.Details.Possession = poss
+			}
+			if newState.Details.YardLine == 0 && yl > 0 {
+				newState.Details.YardLine = yl
 			}
 		}
 	}
@@ -301,11 +357,11 @@ func (s NFLService) gameFromEvent(event nfl.NFLScheduleEvent) models.Game {
 	// If team data is missing from schedule, hydrate from scoreboard summary
 	if (homeTeam.Team.Abbreviation == "" || awayTeam.Team.Abbreviation == "") && event.ID != "" {
 		summary := s.Client.GetNFLScoreBoard(event.ID)
-		if len(summary.Events) > 0 && len(summary.Events[0].Competitions) > 0 {
-			sc := summary.Events[0].Competitions[0]
+		snap := extractSummarySnapshot(summary)
+		if snap.OK && len(snap.Competitors) > 0 {
 			var sHome nfl.NFLScoreboardCompetitor
 			var sAway nfl.NFLScoreboardCompetitor
-			for _, comp := range sc.Competitors {
+			for _, comp := range snap.Competitors {
 				if comp.HomeAway == "home" {
 					sHome = comp
 				} else if comp.HomeAway == "away" {
@@ -370,8 +426,8 @@ func (s NFLService) gameFromEvent(event nfl.NFLScheduleEvent) models.Game {
 	// Final fallback: fetch scoreboard summary to get reliable date
 	if gameDate.IsZero() && event.ID != "" {
 		summary := s.Client.GetNFLScoreBoard(event.ID)
-		if len(summary.Events) > 0 {
-			se := summary.Events[0]
+		snap := extractSummarySnapshot(summary)
+		if snap.OK {
 			// Try event date first
 			layouts := []string{
 				time.RFC3339,
@@ -381,23 +437,22 @@ func (s NFLService) gameFromEvent(event nfl.NFLScheduleEvent) models.Game {
 				"2006-01-02T15:04Z",
 				"2006-01-02T15:04-07:00",
 			}
-			if se.Date != "" {
+			if snap.EventDate != "" {
 				for _, layout := range layouts {
-					if parsedDate, err := time.Parse(layout, se.Date); err == nil {
+					if parsedDate, err := time.Parse(layout, snap.EventDate); err == nil {
 						gameDate = parsedDate
 						break
 					}
 				}
 			}
-			// Then try competition date from summary
-			if gameDate.IsZero() && len(se.Competitions) > 0 {
-				cd := se.Competitions[0].Date
-				if cd != "" {
-					for _, layout := range layouts {
-						if parsedDate, err := time.Parse(layout, cd); err == nil {
-							gameDate = parsedDate
-							break
-						}
+			// Then try competition date from summary (the real summary
+			// endpoint only has a date at this level; header carries no
+			// top-level event date)
+			if gameDate.IsZero() && snap.CompetitionDate != "" {
+				for _, layout := range layouts {
+					if parsedDate, err := time.Parse(layout, snap.CompetitionDate); err == nil {
+						gameDate = parsedDate
+						break
 					}
 				}
 			}
@@ -473,17 +528,16 @@ func (s NFLService) gameFromEvent(event nfl.NFLScheduleEvent) models.Game {
 // GameFromScoreboard builds a Game using the summary endpoint (eventID)
 func (s NFLService) GameFromScoreboard(eventID string) models.Game {
 	sb := s.Client.GetNFLScoreBoard(eventID)
-	if len(sb.Events) == 0 || len(sb.Events[0].Competitions) == 0 {
+	snap := extractSummarySnapshot(sb)
+	if !snap.OK || len(snap.Competitors) == 0 {
 		// Fallback: minimal game using IDs only
 		return models.Game{
 			GameCode: eventID,
 			LeagueId: models.LeagueIdNFL,
 		}
 	}
-	ev := sb.Events[0]
-	comp := ev.Competitions[0]
 	var awayC, homeC nfl.NFLScoreboardCompetitor
-	for _, c := range comp.Competitors {
+	for _, c := range snap.Competitors {
 		if c.HomeAway == "home" {
 			homeC = c
 		} else if c.HomeAway == "away" {
@@ -495,15 +549,15 @@ func (s NFLService) GameFromScoreboard(eventID string) models.Game {
 
 	// Derive status
 	var st models.GameStatus = models.StatusUpcoming
-	if ev.Status.Type.Completed {
+	if snap.Completed {
 		st = models.StatusEnded
-	} else if ev.Status.DisplayClock != "" || ev.Status.Period > 0 {
+	} else if snap.DisplayClock != "" || snap.Period > 0 {
 		st = models.StatusActive
 	}
 
 	// Period/clock
-	period := ev.Status.Period
-	clock := ev.Status.DisplayClock
+	period := snap.Period
+	clock := snap.DisplayClock
 
 	// Situation
 	details := models.EventDetails{
@@ -524,7 +578,7 @@ func (s NFLService) GameFromScoreboard(eventID string) models.Game {
 		Distance: sb.Drives.Current.Start.Distance,
 	}
 	if details.Down == 0 && details.Distance == 0 && details.Possession == "" && details.YardLine == 0 {
-		d, dist, poss, yl := parseSituationShortDetail(ev.Status.Type.ShortDetail)
+		d, dist, poss, yl := parseSituationShortDetail(snap.ShortDetail)
 		details.Down = d
 		details.Distance = dist
 		details.Possession = poss
@@ -550,22 +604,22 @@ func (s NFLService) GameFromScoreboard(eventID string) models.Game {
 			Period:     period,
 			PeriodType: "QUARTER",
 			Clock:      clock,
-			Venue:      models.Venue{Name: comp.Venue.FullName},
+			Venue:      models.Venue{Name: snap.VenueName},
 			Details:    details,
 		},
 		GameCode: eventID,
 		LeagueId: models.LeagueIdNFL,
 		GameDetails: models.GameDetails{
 			GameId:     eventID,
-			Season:     strconv.Itoa(ev.Season.Year),
+			Season:     strconv.Itoa(snap.SeasonYear),
 			SeasonType: "REGULAR",
-			Week:       ev.Week.Number,
+			Week:       snap.Week,
 			GameDate:   time.Now(),
 			GameTime:   "",
 			Timezone:   "UTC",
 		},
 	}
-	if strings.Contains(strings.ToLower(ev.Status.Type.ShortDetail), "halftime") || (g.CurrentState.Period == 2 && g.CurrentState.Clock == "0:00") {
+	if strings.Contains(strings.ToLower(snap.ShortDetail), "halftime") || (g.CurrentState.Period == 2 && g.CurrentState.Clock == "0:00") {
 		g.CurrentState.PeriodType = "HALFTIME"
 		g.CurrentState.Clock = "HALFTIME"
 	}

@@ -1369,9 +1369,17 @@ func setHomeAssistantConfig(c *gin.Context) {
 func buildFrontend() error {
 	frontendDir := "./web/frontend"
 
+	// A release archive ships the already-built frontend and no source tree.
+	// If the built assets are present there is nothing to build, and demanding
+	// package.json here would send release users off to install Node for a
+	// problem they don't have.
+	if _, err := os.Stat(filepath.Join(frontendDir, "build", "index.html")); err == nil {
+		return nil
+	}
+
 	// Check if package.json exists
 	if _, err := os.Stat(filepath.Join(frontendDir, "package.json")); os.IsNotExist(err) {
-		return fmt.Errorf("package.json not found in %s", frontendDir)
+		return fmt.Errorf("no prebuilt frontend at %s/build and no package.json in %s to build one from", frontendDir, frontendDir)
 	}
 
 	// Check if npm is available
