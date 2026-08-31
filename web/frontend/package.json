@@ -6,7 +6,7 @@
     "@types/node": "^16.18.0",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
-    "autoprefixer": "^10.4.0",
+    "autoprefixer": "^10.5.4",
     "axios": "^1.18.0",
     "postcss": "^8.4.0",
     "react": "^19.2.0",
