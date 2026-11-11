@@ -31,6 +31,16 @@ func (f *fixtureClient) GetNHLRightRail(string) (nhlClients.NHLRightRailResponse
 	return f.rightRail, f.rightRailErr
 }
 
+// resetRightRailThrottle forgets every game's fetch history, so tests that
+// reuse a game code do not depend on the order they run in.
+func resetRightRailThrottle(t *testing.T) {
+	t.Helper()
+	rightRailMu.Lock()
+	rightRailLast = map[string]time.Time{}
+	rightRailFinalDone = map[string]bool{}
+	rightRailMu.Unlock()
+}
+
 func loadJSON(t *testing.T, name string, v interface{}) {
 	t.Helper()
 	b, err := os.ReadFile(fixtureDir + name)
@@ -149,6 +159,7 @@ func TestApplyLandingDetail_LiveSituation(t *testing.T) {
 }
 
 func TestGameUpdate_FillsRightRailStats(t *testing.T) {
+	resetRightRailThrottle(t)
 	c := &fixtureClient{}
 	loadJSON(t, "landing_2026020291_final.json", &c.landing)
 	loadJSON(t, "right_rail_2026020291_final.json", &c.rightRail)
@@ -183,6 +194,7 @@ func TestGameUpdate_FillsRightRailStats(t *testing.T) {
 }
 
 func TestGameUpdate_RightRailFailureKeepsPreviousStats(t *testing.T) {
+	resetRightRailThrottle(t)
 	c := &fixtureClient{rightRailErr: errors.New("boom")}
 	loadJSON(t, "landing_2026020291_final.json", &c.landing)
 	svc := NHLService{Client: c}
@@ -195,23 +207,36 @@ func TestGameUpdate_RightRailFailureKeepsPreviousStats(t *testing.T) {
 	svc.GetGameUpdate(prev, ch)
 	u := <-ch
 
+	assert.Equal(t, 1, c.rightRailHit, "the fetch was attempted and failed")
 	assert.Equal(t, 11, u.NewState.Home.Statistics.Hits, "a failed right-rail must not zero the stats")
 	assert.Equal(t, c.landing.HomeTeam.Sog, u.NewState.Home.Statistics.Shots, "shots still come from landing")
 	assert.Equal(t, []int{1}, u.NewState.Home.PeriodScores)
 }
 
-func TestRightRailDue_ThrottlesLiveGamesOnly(t *testing.T) {
+func TestRightRailDue_Throttles(t *testing.T) {
+	resetRightRailThrottle(t)
 	t0 := time.Unix(5000, 0)
-	assert.True(t, rightRailDue("g1", true, t0), "first poll fetches")
-	assert.False(t, rightRailDue("g1", true, t0.Add(time.Second)), "1 Hz polling does not")
-	assert.False(t, rightRailDue("g1", true, t0.Add(rightRailInterval-time.Millisecond)))
-	assert.True(t, rightRailDue("g1", true, t0.Add(rightRailInterval)))
-	assert.True(t, rightRailDue("g2", true, t0.Add(time.Second)), "games are throttled independently")
-	assert.True(t, rightRailDue("g1", false, t0.Add(rightRailInterval+time.Second)), "a final poll always fetches")
-	assert.True(t, rightRailDue("g1", true, t0.Add(rightRailInterval+2*time.Second)), "and the entry is forgotten")
+	assert.True(t, rightRailDue("g1", "LIVE", t0), "first poll fetches")
+	assert.False(t, rightRailDue("g1", "LIVE", t0.Add(time.Second)), "1 Hz polling does not")
+	assert.False(t, rightRailDue("g1", "CRIT", t0.Add(rightRailInterval-time.Millisecond)))
+	assert.True(t, rightRailDue("g1", "LIVE", t0.Add(rightRailInterval)))
+	assert.True(t, rightRailDue("g2", "LIVE", t0.Add(time.Second)), "games are throttled independently")
+
+	// Review N1: a state goalfeed does not recognise maps to active and is
+	// polled every second, so it must be throttled like a live one.
+	assert.True(t, rightRailDue("g3", "PPD", t0))
+	assert.False(t, rightRailDue("g3", "PPD", t0.Add(time.Second)))
+	assert.False(t, rightRailDue("g3", "", t0.Add(2*time.Second)))
+
+	// Final: exactly one fetch, whenever it comes, and none after.
+	assert.True(t, rightRailDue("g1", "FINAL", t0.Add(rightRailInterval+time.Second)), "the first final poll fetches")
+	assert.False(t, rightRailDue("g1", "FINAL", t0.Add(rightRailInterval+2*time.Second)), "later final polls do not")
+	assert.False(t, rightRailDue("g1", "OFF", t0.Add(time.Hour)), "OFF is final too")
+	assert.True(t, rightRailDue("g4", "OFF", t0))
 }
 
 func TestGameUpdate_ThrottledPollKeepsStats(t *testing.T) {
+	resetRightRailThrottle(t)
 	c := &fixtureClient{}
 	loadJSON(t, "landing_2026020291_final.json", &c.landing)
 	loadJSON(t, "right_rail_2026020291_final.json", &c.rightRail)

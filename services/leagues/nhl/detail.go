@@ -18,17 +18,29 @@ import (
 var rightRailInterval = 15 * time.Second
 
 var (
-	rightRailMu   sync.Mutex
-	rightRailLast = map[string]time.Time{}
+	rightRailMu        sync.Mutex
+	rightRailLast      = map[string]time.Time{}
+	rightRailFinalDone = map[string]bool{}
 )
 
+func isFinalGameState(state string) bool {
+	return state == "FINAL" || state == "OFF"
+}
+
 // rightRailDue reports whether game gameCode should fetch right-rail now, and
-// records the attempt if so. A game that is no longer live always fetches,
-// so its final numbers are complete, and its entry is then forgotten.
-func rightRailDue(gameCode string, live bool, now time.Time) bool {
+// records the attempt if so. Every state is throttled to rightRailInterval,
+// including ones goalfeed does not recognise, since those are still polled
+// every second. The one exception is the first poll that sees the game
+// final, which always fetches once so the final numbers are complete; later
+// final polls never do.
+func rightRailDue(gameCode string, gameState string, now time.Time) bool {
 	rightRailMu.Lock()
 	defer rightRailMu.Unlock()
-	if !live {
+	if isFinalGameState(gameState) {
+		if rightRailFinalDone[gameCode] {
+			return false
+		}
+		rightRailFinalDone[gameCode] = true
 		delete(rightRailLast, gameCode)
 		return true
 	}
@@ -39,9 +51,9 @@ func rightRailDue(gameCode string, live bool, now time.Time) bool {
 	return true
 }
 
-// liveGameStates are the landing gameState values during which an on-ice
-// situation is meaningful. CRIT is the NHL's "critical" state for the late
-// stages of a close game.
+// isLiveGameState reports the landing gameState values during which an
+// on-ice situation is meaningful. CRIT is the NHL's "critical" state for the
+// late stages of a close game.
 func isLiveGameState(state string) bool {
 	return state == "LIVE" || state == "CRIT"
 }

@@ -267,7 +267,7 @@ func (s NHLService) getGameUpdateFromScoreboard(game models.Game, ret chan model
 	// decode error still returns whatever parsed, so it is logged, not
 	// discarded.
 	var rightRail nhl.NHLRightRailResponse
-	if rightRailDue(game.GameCode, isLiveGameState(scoreboard.GameState), time.Now()) {
+	if rightRailDue(game.GameCode, scoreboard.GameState, time.Now()) {
 		var err error
 		rightRail, err = s.Client.GetNHLRightRail(game.GameCode)
 		if err != nil {
