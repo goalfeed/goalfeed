@@ -326,7 +326,149 @@ func publishNHLTeam(game models.Game, team models.TeamState, opponent models.Tea
 	if team.Statistics.Penalties >= 0 {
 		publishSensor(league, teamCode, "team.penalties", team.Statistics.Penalties, nil)
 	}
-	// power_play unknown without explicit flag; skip to avoid flapping
+
+	if league != models.LeagueIdNHL {
+		return
+	}
+	publishNHLTeamGameStats(league, teamCode, team.Statistics)
+	publishNHLSituation(game, team, opponent)
+	publishNHLGameSensor(game, team, opponent)
+}
+
+// publishNHLTeamGameStats publishes the right-rail team stats panel. Until the
+// panel has been read for this game the previous values are left alone, so a
+// failed fetch never flashes every stat to zero.
+func publishNHLTeamGameStats(league models.League, teamCode string, st models.TeamStats) {
+	if !st.HasTeamGameStats {
+		return
+	}
+	publishSensor(league, teamCode, "team.hits", st.Hits, nil)
+	publishSensor(league, teamCode, "team.faceoff_wins", st.Faceoffs, map[string]interface{}{
+		"faceoffs_taken": st.FaceoffTotal,
+	})
+	publishSensor(league, teamCode, "team.faceoff_pct", st.FaceoffPct, map[string]interface{}{
+		"unit_of_measurement": "%",
+	})
+	publishSensor(league, teamCode, "team.pim", st.PenaltyMinutes, map[string]interface{}{
+		"unit_of_measurement": "min",
+	})
+	publishSensor(league, teamCode, "team.blocked_shots", st.BlockedShots, nil)
+	publishSensor(league, teamCode, "team.giveaways", st.Giveaways, nil)
+	publishSensor(league, teamCode, "team.takeaways", st.Takeaways, nil)
+	publishSensor(league, teamCode, "team.power_play", fmt.Sprintf("%d/%d", st.PowerPlayGoals, st.PowerPlays), map[string]interface{}{
+		"goals":         st.PowerPlayGoals,
+		"opportunities": st.PowerPlays,
+		"pct":           st.PowerPlayPct,
+	})
+}
+
+func isHomeTeam(game models.Game, team models.TeamState) bool {
+	return team.Team.TeamCode == game.CurrentState.Home.Team.TeamCode
+}
+
+// publishNHLSituation publishes the three live situation binary sensors. An
+// unknown situation (game not live, or an unreadable code) reads as off.
+func publishNHLSituation(game models.Game, team models.TeamState, opponent models.TeamState) {
+	league := game.LeagueId
+	teamCode := team.Team.TeamCode
+	sit := game.CurrentState.Situation
+	home := isHomeTeam(game, team)
+
+	onPP, emptyNet := false, false
+	ppAttrs := map[string]interface{}{"strength": "", "time_remaining": ""}
+	if sit != nil {
+		onPP = sit.PowerPlayTeam != "" && sit.PowerPlayTeam == teamCode
+		if home {
+			emptyNet = sit.HomeEmptyNet
+		} else {
+			emptyNet = sit.AwayEmptyNet
+		}
+		ppAttrs["strength"] = sit.Strength(home)
+		if onPP {
+			ppAttrs["time_remaining"] = sit.TimeRemaining
+		}
+	}
+	publishBinarySensor(league, teamCode, "team.on_power_play", onPP, ppAttrs)
+	publishBinarySensor(league, teamCode, "team.empty_net", emptyNet, nil)
+	publishBinarySensor(league, teamCode, "team.intermission", game.CurrentState.InIntermission, nil)
+}
+
+// publishNHLGameSensor publishes sensor.goalfeed_nhl_<team>_game: one entity
+// per team whose state is the game status and whose attributes carry the
+// whole scoreboard, so a dashboard needs a single entity rather than one per
+// field.
+func publishNHLGameSensor(game models.Game, team models.TeamState, opponent models.TeamState) {
+	cs := game.CurrentState
+	home := isHomeTeam(game, team)
+	homeAway := "away"
+	if home {
+		homeAway = "home"
+	}
+	attrs := map[string]interface{}{
+		"game_code":                game.GameCode,
+		"opponent":                 opponent.Team.TeamCode,
+		"home_away":                homeAway,
+		"score":                    team.Score,
+		"opponent_score":           opponent.Score,
+		"period":                   cs.Period,
+		"period_type":              cs.PeriodType,
+		"clock":                    cs.Clock,
+		"intermission":             cs.InIntermission,
+		"venue":                    cs.Venue.Name,
+		"shots":                    team.Statistics.Shots,
+		"opponent_shots":           opponent.Statistics.Shots,
+		"goals_by_period":          intsOrEmpty(team.PeriodScores),
+		"shots_by_period":          intsOrEmpty(team.PeriodShots),
+		"opponent_goals_by_period": intsOrEmpty(opponent.PeriodScores),
+		"opponent_shots_by_period": intsOrEmpty(opponent.PeriodShots),
+		"situation":                situationAttrs(cs.Situation, home),
+		"last_goal":                lastGoalAttrs(cs.LastGoal),
+	}
+	publishSensor(game.LeagueId, team.Team.TeamCode, "game", statusString(cs.Status), attrs)
+}
+
+func intsOrEmpty(v []int) []int {
+	if v == nil {
+		return []int{}
+	}
+	return v
+}
+
+func situationAttrs(sit *models.Situation, home bool) map[string]interface{} {
+	if sit == nil {
+		return nil
+	}
+	ownEN, oppEN := sit.AwayEmptyNet, sit.HomeEmptyNet
+	if home {
+		ownEN, oppEN = sit.HomeEmptyNet, sit.AwayEmptyNet
+	}
+	return map[string]interface{}{
+		"strength":                  sit.Strength(home),
+		"power_play_team":           sit.PowerPlayTeam,
+		"empty_net":                 ownEN,
+		"opponent_empty_net":        oppEN,
+		"power_play_time_remaining": sit.TimeRemaining,
+	}
+}
+
+func lastGoalAttrs(g *models.GoalSummary) map[string]interface{} {
+	if g == nil {
+		return nil
+	}
+	return map[string]interface{}{
+		"team":           g.TeamCode,
+		"scorer":         g.Scorer,
+		"scorer_goals":   g.ScorerGoals,
+		"assists":        g.Assists,
+		"period":         g.Period,
+		"period_type":    g.PeriodType,
+		"time_in_period": g.TimeInPeriod,
+		"strength":       g.Strength,
+		"empty_net":      g.EmptyNet,
+		"shot_type":      g.ShotType,
+		"home_score":     g.HomeScore,
+		"away_score":     g.AwayScore,
+	}
 }
 
 func publishSensor(league models.League, teamCode, metric string, value interface{}, attrs map[string]interface{}) {
@@ -481,6 +623,12 @@ func PublishBaselineForMonitoredTeams() {
 			case models.LeagueIdNHL, models.LeagueIdOlympicMensHockey, models.LeagueIdOlympicWomensHockey:
 				publishSensor(lc.id, t, "team.shots", 0, nil)
 				publishSensor(lc.id, t, "team.penalties", 0, nil)
+				if lc.id == models.LeagueIdNHL {
+					publishBinarySensor(lc.id, t, "team.on_power_play", false, map[string]interface{}{"strength": "", "time_remaining": ""})
+					publishBinarySensor(lc.id, t, "team.empty_net", false, nil)
+					publishBinarySensor(lc.id, t, "team.intermission", false, nil)
+					publishSensor(lc.id, t, "game", "idle", nil)
+				}
 			}
 		}
 	}
@@ -520,7 +668,13 @@ func PublishEndOfGameReset(game models.Game) {
 			publishSensor(league, teamCode, "team.yard_line", 0, nil)
 			publishBinarySensor(league, teamCode, "team.red_zone", false, nil)
 		case models.LeagueIdNHL, models.LeagueIdOlympicMensHockey, models.LeagueIdOlympicWomensHockey:
-			// Keep shots/penalties as final numbers; nothing to reset
+			// Keep shots, penalties and the team game stats as final numbers.
+			// The situation sensors are live-only, so they go off.
+			if league == models.LeagueIdNHL {
+				publishBinarySensor(league, teamCode, "team.on_power_play", false, map[string]interface{}{"strength": "", "time_remaining": ""})
+				publishBinarySensor(league, teamCode, "team.empty_net", false, nil)
+				publishBinarySensor(league, teamCode, "team.intermission", false, nil)
+			}
 		}
 	}
 
