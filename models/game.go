@@ -28,6 +28,7 @@ type TeamState struct {
 	Score int  `json:"score"`
 	// Enhanced team state
 	PeriodScores []int     `json:"periodScores,omitempty"`
+	PeriodShots  []int     `json:"periodShots,omitempty"` // NHL: shots on goal by period
 	Statistics   TeamStats `json:"statistics,omitempty"`
 }
 
@@ -48,6 +49,48 @@ type GameState struct {
 	// Baseball-specific details
 	Details    EventDetails `json:"details,omitempty"`
 	Statistics TeamStats    `json:"statistics,omitempty"`
+	// Hockey live situation (NHL). Situation is nil when unknown, and the
+	// zero value of a non-nil Situation means even strength.
+	InIntermission bool         `json:"inIntermission,omitempty"`
+	Situation      *Situation   `json:"situation,omitempty"`
+	LastGoal       *GoalSummary `json:"lastGoal,omitempty"`
+}
+
+// Situation is the on-ice strength of a hockey game at the time of the poll.
+type Situation struct {
+	Code          string `json:"code,omitempty"` // NHL situationCode, e.g. "1451"
+	HomeSkaters   int    `json:"homeSkaters"`
+	AwaySkaters   int    `json:"awaySkaters"`
+	HomeEmptyNet  bool   `json:"homeEmptyNet"` // home goalie pulled
+	AwayEmptyNet  bool   `json:"awayEmptyNet"`
+	PowerPlayTeam string `json:"powerPlayTeam,omitempty"` // team code with the man advantage, "" at even strength
+	TimeRemaining string `json:"timeRemaining,omitempty"` // power play clock, when given
+}
+
+// Strength renders the situation from one team's side, e.g. "5v4".
+func (s Situation) Strength(isHome bool) string {
+	if isHome {
+		return fmt.Sprintf("%dv%d", s.HomeSkaters, s.AwaySkaters)
+	}
+	return fmt.Sprintf("%dv%d", s.AwaySkaters, s.HomeSkaters)
+}
+
+// GoalSummary describes the most recent goal of a game as reported upstream.
+type GoalSummary struct {
+	EventId      string   `json:"eventId,omitempty"`
+	TeamCode     string   `json:"teamCode"`
+	Scorer       string   `json:"scorer"`
+	ScorerId     string   `json:"scorerId,omitempty"`
+	ScorerGoals  int      `json:"scorerGoals,omitempty"` // season total including this goal
+	Assists      []string `json:"assists"`
+	Period       int      `json:"period"`
+	PeriodType   string   `json:"periodType,omitempty"`
+	TimeInPeriod string   `json:"timeInPeriod"`
+	Strength     string   `json:"strength"` // "EV", "PP", "SH"
+	EmptyNet     bool     `json:"emptyNet"`
+	ShotType     string   `json:"shotType,omitempty"`
+	HomeScore    int      `json:"homeScore"`
+	AwayScore    int      `json:"awayScore"`
 }
 
 type GameDetails struct {
@@ -120,8 +163,19 @@ type TeamStats struct {
 	// NHL
 	Shots      int `json:"shots,omitempty"`
 	Hits       int `json:"hits,omitempty"`
-	Faceoffs   int `json:"faceoffs,omitempty"`
-	PowerPlays int `json:"powerPlays,omitempty"`
+	Faceoffs   int `json:"faceoffs,omitempty"`   // faceoffs won
+	PowerPlays int `json:"powerPlays,omitempty"` // power play opportunities
+	// NHL right-rail team stats. HasTeamGameStats is true once the panel has
+	// been read, so a zero can be told apart from "not fetched yet".
+	HasTeamGameStats bool    `json:"hasTeamGameStats,omitempty"`
+	FaceoffTotal     int     `json:"faceoffTotal,omitempty"`
+	FaceoffPct       float64 `json:"faceoffPct,omitempty"`
+	PowerPlayGoals   int     `json:"powerPlayGoals,omitempty"`
+	PowerPlayPct     float64 `json:"powerPlayPct,omitempty"`
+	PenaltyMinutes   int     `json:"penaltyMinutes,omitempty"`
+	BlockedShots     int     `json:"blockedShots,omitempty"`
+	Giveaways        int     `json:"giveaways,omitempty"`
+	Takeaways        int     `json:"takeaways,omitempty"`
 
 	// MLB
 	BaseballHits int `json:"baseballHits,omitempty"`

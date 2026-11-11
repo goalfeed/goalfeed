@@ -1,0 +1,760 @@
+{
+ "id": 2026020291,
+ "season": 20262027,
+ "gameType": 2,
+ "limitedScoring": false,
+ "gameDate": "2026-11-10",
+ "venue": {
+  "default": "Canada Life Centre"
+ },
+ "venueLocation": {
+  "default": "Winnipeg"
+ },
+ "startTimeUTC": "2026-11-11T00:00:00Z",
+ "easternUTCOffset": "-05:00",
+ "venueUTCOffset": "-05:00",
+ "venueTimezone": "America/Winnipeg",
+ "periodDescriptor": {
+  "number": 3,
+  "periodType": "REG",
+  "maxRegulationPeriods": 3
+ },
+ "tvBroadcasts": [
+  {
+   "id": 292,
+   "market": "H",
+   "countryCode": "CA",
+   "network": "TSN3",
+   "sequenceNumber": 134
+  },
+  {
+   "id": 409,
+   "market": "A",
+   "countryCode": "US",
+   "network": "MSGSN",
+   "sequenceNumber": 424
+  }
+ ],
+ "gameState": "OFF",
+ "gameScheduleState": "OK",
+ "awayTeam": {
+  "id": 1,
+  "commonName": {
+   "default": "Devils"
+  },
+  "abbrev": "NJD",
+  "placeName": {
+   "default": "New Jersey"
+  },
+  "placeNameWithPreposition": {
+   "default": "New Jersey",
+   "fr": "du New Jersey"
+  },
+  "score": 2,
+  "sog": 21
+ },
+ "homeTeam": {
+  "id": 52,
+  "commonName": {
+   "default": "Jets"
+  },
+  "abbrev": "WPG",
+  "placeName": {
+   "default": "Winnipeg"
+  },
+  "placeNameWithPreposition": {
+   "default": "Winnipeg",
+   "fr": "de Winnipeg"
+  },
+  "score": 4,
+  "sog": 25
+ },
+ "shootoutInUse": true,
+ "maxPeriods": 5,
+ "regPeriods": 3,
+ "otInUse": true,
+ "tiesInUse": false,
+ "summary": {
+  "scoring": [
+   {
+    "periodDescriptor": {
+     "number": 1,
+     "periodType": "REG",
+     "maxRegulationPeriods": 3
+    },
+    "goals": [
+     {
+      "situationCode": "1551",
+      "eventId": 168,
+      "strength": "ev",
+      "playerId": 8482110,
+      "firstName": {
+       "default": "Dawson"
+      },
+      "lastName": {
+       "default": "Mercer"
+      },
+      "name": {
+       "default": "D. Mercer"
+      },
+      "teamAbbrev": {
+       "default": "WPG"
+      },
+      "headshot": "https://assets.nhle.com/mugs/nhl/20262027/WPG/8482110.png",
+      "highlightClipSharingUrl": "https://nhl.com/video/njd-wpg-mercer-scores-goal-against-jake-allen-6408208968112",
+      "highlightClipSharingUrlFr": "https://nhl.com/fr/video/njd-wpg-mercer-marque-un-but-contre-jake-allen-6408209254112",
+      "highlightClip": 6408208968112,
+      "highlightClipFr": 6408209254112,
+      "discreteClip": 6408209347112,
+      "discreteClipFr": 6408209847112,
+      "goalsToDate": 2,
+      "awayScore": 0,
+      "homeScore": 1,
+      "leadingTeamAbbrev": {
+       "default": "WPG"
+      },
+      "timeInPeriod": "07:54",
+      "shotType": "wrist",
+      "goalModifier": "none",
+      "assists": [
+       {
+        "playerId": 8482149,
+        "firstName": {
+         "default": "Cole"
+        },
+        "lastName": {
+         "default": "Perfetti"
+        },
+        "name": {
+         "default": "C. Perfetti"
+        },
+        "assistsToDate": 8,
+        "sweaterNumber": 91
+       }
+      ],
+      "pptReplayUrl": "https://wsr.nhle.com/sprites/20262027/2026020291/ev168.json",
+      "homeTeamDefendingSide": "right",
+      "isHome": true
+     },
+     {
+      "situationCode": "1351",
+      "eventId": 304,
+      "strength": "pp",
+      "playerId": 8478398,
+      "firstName": {
+       "default": "Kyle"
+      },
+      "lastName": {
+       "default": "Connor"
+      },
+      "name": {
+       "default": "K. Connor"
+      },
+      "teamAbbrev": {
+       "default": "WPG"
+      },
+      "headshot": "https://assets.nhle.com/mugs/nhl/20262027/WPG/8478398.png",
+      "highlightClipSharingUrl": "https://nhl.com/video/njd-wpg-perfetti-scores-ppg-against-jake-allen-6408209087112",
+      "highlightClipSharingUrlFr": "https://nhl.com/fr/video/njd-wpg-connor-marque-un-but-en-a-n-contre-jake-allen-6408209415112",
+      "highlightClip": 6408209087112,
+      "highlightClipFr": 6408209415112,
+      "discreteClip": 6408210209112,
+      "discreteClipFr": 6408210795112,
+      "goalsToDate": 14,
+      "awayScore": 0,
+      "homeScore": 2,
+      "leadingTeamAbbrev": {
+       "default": "WPG"
+      },
+      "timeInPeriod": "15:06",
+      "shotType": "wrist",
+      "goalModifier": "none",
+      "assists": [
+       {
+        "playerId": 8482149,
+        "firstName": {
+         "default": "Cole"
+        },
+        "lastName": {
+         "default": "Perfetti"
+        },
+        "name": {
+         "default": "C. Perfetti"
+        },
+        "assistsToDate": 9,
+        "sweaterNumber": 91
+       },
+       {
+        "playerId": 8476460,
+        "firstName": {
+         "default": "Mark"
+        },
+        "lastName": {
+         "default": "Scheifele"
+        },
+        "name": {
+         "default": "M. Scheifele"
+        },
+        "assistsToDate": 15,
+        "sweaterNumber": 55
+       }
+      ],
+      "pptReplayUrl": "https://wsr.nhle.com/sprites/20262027/2026020291/ev304.json",
+      "homeTeamDefendingSide": "right",
+      "isHome": true
+     }
+    ]
+   },
+   {
+    "periodDescriptor": {
+     "number": 2,
+     "periodType": "REG",
+     "maxRegulationPeriods": 3
+    },
+    "goals": [
+     {
+      "situationCode": "1551",
+      "eventId": 382,
+      "strength": "ev",
+      "playerId": 8479407,
+      "firstName": {
+       "default": "Jesper"
+      },
+      "lastName": {
+       "default": "Bratt"
+      },
+      "name": {
+       "default": "J. Bratt"
+      },
+      "teamAbbrev": {
+       "default": "NJD"
+      },
+      "headshot": "https://assets.nhle.com/mugs/nhl/20262027/NJD/8479407.png",
+      "highlightClipSharingUrl": "https://nhl.com/video/njd-wpg-bratt-scores-goal-against-nicolas-daws-6408211502112",
+      "highlightClipSharingUrlFr": "https://nhl.com/fr/video/njd-wpg-bratt-marque-un-but-contre-nicolas-daws-6408209604112",
+      "highlightClip": 6408211502112,
+      "highlightClipFr": 6408209604112,
+      "discreteClip": 6408210799112,
+      "discreteClipFr": 6408210301112,
+      "goalsToDate": 4,
+      "awayScore": 1,
+      "homeScore": 2,
+      "leadingTeamAbbrev": {
+       "default": "WPG"
+      },
+      "timeInPeriod": "01:14",
+      "shotType": "wrist",
+      "goalModifier": "none",
+      "assists": [
+       {
+        "playerId": 8481721,
+        "firstName": {
+         "default": "Arseny"
+        },
+        "lastName": {
+         "default": "Gritsyuk"
+        },
+        "name": {
+         "default": "A. Gritsyuk"
+        },
+        "assistsToDate": 6,
+        "sweaterNumber": 81
+       },
+       {
+        "playerId": 8481559,
+        "firstName": {
+         "default": "Jack"
+        },
+        "lastName": {
+         "default": "Hughes"
+        },
+        "name": {
+         "default": "J. Hughes"
+        },
+        "assistsToDate": 17,
+        "sweaterNumber": 86
+       }
+      ],
+      "pptReplayUrl": "https://wsr.nhle.com/sprites/20262027/2026020291/ev382.json",
+      "homeTeamDefendingSide": "left",
+      "isHome": false
+     },
+     {
+      "situationCode": "1551",
+      "eventId": 393,
+      "strength": "ev",
+      "playerId": 8479996,
+      "firstName": {
+       "default": "Cody"
+      },
+      "lastName": {
+       "default": "Glass"
+      },
+      "name": {
+       "default": "C. Glass"
+      },
+      "teamAbbrev": {
+       "default": "NJD"
+      },
+      "headshot": "https://assets.nhle.com/mugs/nhl/20262027/NJD/8479996.png",
+      "highlightClipSharingUrl": "https://nhl.com/video/njd-wpg-glass-scores-goal-against-nicolas-daws-6408210222112",
+      "highlightClipSharingUrlFr": "https://nhl.com/fr/video/njd-wpg-glass-marque-un-but-contre-nicolas-daws-6408212150112",
+      "highlightClip": 6408210222112,
+      "highlightClipFr": 6408212150112,
+      "discreteClip": 6408210396112,
+      "discreteClipFr": 6408209990112,
+      "goalsToDate": 2,
+      "awayScore": 2,
+      "homeScore": 2,
+      "timeInPeriod": "01:58",
+      "shotType": "tip-in",
+      "goalModifier": "none",
+      "assists": [
+       {
+        "playerId": 8480192,
+        "firstName": {
+         "default": "Johnathan"
+        },
+        "lastName": {
+         "default": "Kovacevic"
+        },
+        "name": {
+         "default": "J. Kovacevic"
+        },
+        "assistsToDate": 2,
+        "sweaterNumber": 8
+       },
+       {
+        "playerId": 8480990,
+        "firstName": {
+         "default": "Declan"
+        },
+        "lastName": {
+         "default": "Chisholm"
+        },
+        "name": {
+         "default": "D. Chisholm"
+        },
+        "assistsToDate": 3,
+        "sweaterNumber": 47
+       }
+      ],
+      "pptReplayUrl": "https://wsr.nhle.com/sprites/20262027/2026020291/ev393.json",
+      "homeTeamDefendingSide": "left",
+      "isHome": false
+     }
+    ]
+   },
+   {
+    "periodDescriptor": {
+     "number": 3,
+     "periodType": "REG",
+     "maxRegulationPeriods": 3
+    },
+    "goals": [
+     {
+      "situationCode": "1451",
+      "eventId": 901,
+      "strength": "pp",
+      "playerId": 8482110,
+      "firstName": {
+       "default": "Dawson"
+      },
+      "lastName": {
+       "default": "Mercer"
+      },
+      "name": {
+       "default": "D. Mercer"
+      },
+      "teamAbbrev": {
+       "default": "WPG"
+      },
+      "headshot": "https://assets.nhle.com/mugs/nhl/20262027/WPG/8482110.png",
+      "highlightClipSharingUrl": "https://nhl.com/video/njd-wpg-mercer-scores-ppg-against-jake-allen-6408214100112",
+      "highlightClipSharingUrlFr": "https://nhl.com/fr/video/njd-wpg-mercer-marque-un-but-en-a-n-contre-jake-allen-6408213624112",
+      "highlightClip": 6408214100112,
+      "highlightClipFr": 6408213624112,
+      "discreteClip": 6408213040112,
+      "discreteClipFr": 6408213039112,
+      "goalsToDate": 3,
+      "goalInGame": 2,
+      "awayScore": 2,
+      "homeScore": 3,
+      "leadingTeamAbbrev": {
+       "default": "WPG"
+      },
+      "timeInPeriod": "11:58",
+      "shotType": "wrist",
+      "goalModifier": "none",
+      "assists": [
+       {
+        "playerId": 8480113,
+        "firstName": {
+         "default": "Alex"
+        },
+        "lastName": {
+         "default": "Iafallo"
+        },
+        "name": {
+         "default": "A. Iafallo"
+        },
+        "assistsToDate": 4,
+        "sweaterNumber": 9
+       },
+       {
+        "playerId": 8486025,
+        "firstName": {
+         "default": "Viggo"
+        },
+        "lastName": {
+         "default": "Bj\u00f6rck"
+        },
+        "name": {
+         "default": "V. Bj\u00f6rck"
+        },
+        "assistsToDate": 4,
+        "sweaterNumber": 61
+       }
+      ],
+      "pptReplayUrl": "https://wsr.nhle.com/sprites/20262027/2026020291/ev901.json",
+      "homeTeamDefendingSide": "right",
+      "isHome": true
+     },
+     {
+      "situationCode": "0651",
+      "eventId": 983,
+      "strength": "ev",
+      "playerId": 8478398,
+      "firstName": {
+       "default": "Kyle"
+      },
+      "lastName": {
+       "default": "Connor"
+      },
+      "name": {
+       "default": "K. Connor"
+      },
+      "teamAbbrev": {
+       "default": "WPG"
+      },
+      "headshot": "https://assets.nhle.com/mugs/nhl/20262027/WPG/8478398.png",
+      "highlightClipSharingUrl": "https://nhl.com/video/njd-wpg-connor-scores-empty-net-goal-6408215287112",
+      "highlightClipSharingUrlFr": "https://nhl.com/fr/video/njd-wpg-connor-wpg-marque-un-but-dans-un-filet-desert-6408215097112",
+      "highlightClip": 6408215287112,
+      "highlightClipFr": 6408215097112,
+      "discreteClip": 6408213449112,
+      "discreteClipFr": 6408215378112,
+      "goalsToDate": 15,
+      "goalInGame": 2,
+      "awayScore": 2,
+      "homeScore": 4,
+      "leadingTeamAbbrev": {
+       "default": "WPG"
+      },
+      "timeInPeriod": "19:02",
+      "shotType": "wrist",
+      "goalModifier": "empty-net",
+      "assists": [],
+      "pptReplayUrl": "https://wsr.nhle.com/sprites/20262027/2026020291/ev983.json",
+      "homeTeamDefendingSide": "right",
+      "isHome": true
+     }
+    ]
+   }
+  ],
+  "threeStars": [
+   {
+    "star": 1,
+    "playerId": 8482110,
+    "teamAbbrev": "WPG",
+    "headshot": "https://assets.nhle.com/mugs/nhl/20262027/WPG/8482110.png",
+    "name": {
+     "default": "D. Mercer"
+    },
+    "sweaterNo": 19,
+    "position": "C",
+    "goals": 2,
+    "assists": 0,
+    "points": 2
+   },
+   {
+    "star": 2,
+    "playerId": 8478398,
+    "teamAbbrev": "WPG",
+    "headshot": "https://assets.nhle.com/mugs/nhl/20262027/WPG/8478398.png",
+    "name": {
+     "default": "K. Connor"
+    },
+    "sweaterNo": 81,
+    "position": "L",
+    "goals": 2,
+    "assists": 0,
+    "points": 2
+   },
+   {
+    "star": 3,
+    "playerId": 8482149,
+    "teamAbbrev": "WPG",
+    "headshot": "https://assets.nhle.com/mugs/nhl/20262027/WPG/8482149.png",
+    "name": {
+     "default": "C. Perfetti"
+    },
+    "sweaterNo": 91,
+    "position": "C",
+    "goals": 0,
+    "assists": 2,
+    "points": 2
+   }
+  ],
+  "penalties": [
+   {
+    "periodDescriptor": {
+     "number": 1,
+     "periodType": "REG",
+     "maxRegulationPeriods": 3
+    },
+    "penalties": [
+     {
+      "timeInPeriod": "00:53",
+      "type": "MIN",
+      "duration": 2,
+      "committedByPlayer": {
+       "firstName": {
+        "default": "Neal"
+       },
+       "lastName": {
+        "default": "Pionk"
+       },
+       "sweaterNumber": 4
+      },
+      "teamAbbrev": {
+       "default": "WPG"
+      },
+      "descKey": "delaying-game-puck-over-glass"
+     },
+     {
+      "timeInPeriod": "13:14",
+      "type": "MIN",
+      "duration": 2,
+      "committedByPlayer": {
+       "firstName": {
+        "default": "Brett"
+       },
+       "lastName": {
+        "default": "Pesce"
+       },
+       "sweaterNumber": 22
+      },
+      "teamAbbrev": {
+       "default": "NJD"
+      },
+      "drawnBy": {
+       "firstName": {
+        "default": "Gabriel"
+       },
+       "lastName": {
+        "default": "Vilardi"
+       },
+       "sweaterNumber": 13
+      },
+      "descKey": "holding"
+     },
+     {
+      "timeInPeriod": "13:28",
+      "type": "MIN",
+      "duration": 2,
+      "committedByPlayer": {
+       "firstName": {
+        "default": "Dougie"
+       },
+       "lastName": {
+        "default": "Hamilton"
+       },
+       "sweaterNumber": 7
+      },
+      "teamAbbrev": {
+       "default": "NJD"
+      },
+      "drawnBy": {
+       "firstName": {
+        "default": "Mark"
+       },
+       "lastName": {
+        "default": "Scheifele"
+       },
+       "sweaterNumber": 55
+      },
+      "descKey": "tripping"
+     },
+     {
+      "timeInPeriod": "18:07",
+      "type": "MIN",
+      "duration": 2,
+      "committedByPlayer": {
+       "firstName": {
+        "default": "Gabriel"
+       },
+       "lastName": {
+        "default": "Vilardi"
+       },
+       "sweaterNumber": 13
+      },
+      "teamAbbrev": {
+       "default": "WPG"
+      },
+      "drawnBy": {
+       "firstName": {
+        "default": "Jack"
+       },
+       "lastName": {
+        "default": "Hughes"
+       },
+       "sweaterNumber": 86
+      },
+      "descKey": "tripping"
+     }
+    ]
+   },
+   {
+    "periodDescriptor": {
+     "number": 2,
+     "periodType": "REG",
+     "maxRegulationPeriods": 3
+    },
+    "penalties": [
+     {
+      "timeInPeriod": "08:41",
+      "type": "MIN",
+      "duration": 2,
+      "committedByPlayer": {
+       "firstName": {
+        "default": "Declan"
+       },
+       "lastName": {
+        "default": "Chisholm"
+       },
+       "sweaterNumber": 47
+      },
+      "teamAbbrev": {
+       "default": "NJD"
+      },
+      "drawnBy": {
+       "firstName": {
+        "default": "Alex"
+       },
+       "lastName": {
+        "default": "Iafallo"
+       },
+       "sweaterNumber": 9
+      },
+      "descKey": "hooking"
+     },
+     {
+      "timeInPeriod": "15:36",
+      "type": "MIN",
+      "duration": 2,
+      "committedByPlayer": {
+       "firstName": {
+        "default": "Tyrel"
+       },
+       "lastName": {
+        "default": "Bauer"
+       },
+       "sweaterNumber": 77
+      },
+      "teamAbbrev": {
+       "default": "WPG"
+      },
+      "drawnBy": {
+       "firstName": {
+        "default": "Johnathan"
+       },
+       "lastName": {
+        "default": "Kovacevic"
+       },
+       "sweaterNumber": 8
+      },
+      "descKey": "interference"
+     }
+    ]
+   },
+   {
+    "periodDescriptor": {
+     "number": 3,
+     "periodType": "REG",
+     "maxRegulationPeriods": 3
+    },
+    "penalties": [
+     {
+      "timeInPeriod": "10:17",
+      "type": "BEN",
+      "duration": 2,
+      "teamAbbrev": {
+       "default": "NJD"
+      },
+      "descKey": "too-many-men-on-the-ice",
+      "servedBy": {
+       "default": "J. Boqvist"
+      }
+     },
+     {
+      "timeInPeriod": "19:24",
+      "type": "MIN",
+      "duration": 2,
+      "committedByPlayer": {
+       "firstName": {
+        "default": "Dylan"
+       },
+       "lastName": {
+        "default": "DeMelo",
+        "cs": "Demelo",
+        "de": "Demelo",
+        "fi": "Demelo",
+        "sk": "Demelo",
+        "sv": "Demelo"
+       },
+       "sweaterNumber": 2
+      },
+      "teamAbbrev": {
+       "default": "WPG"
+      },
+      "drawnBy": {
+       "firstName": {
+        "default": "Amadeus"
+       },
+       "lastName": {
+        "default": "Lombardi"
+       },
+       "sweaterNumber": 93
+      },
+      "descKey": "tripping"
+     },
+     {
+      "timeInPeriod": "19:40",
+      "type": "MIN",
+      "duration": 2,
+      "committedByPlayer": {
+       "firstName": {
+        "default": "Nico"
+       },
+       "lastName": {
+        "default": "Hischier"
+       },
+       "sweaterNumber": 13
+      },
+      "teamAbbrev": {
+       "default": "NJD"
+      },
+      "descKey": "delaying-game-face-off-violation"
+     }
+    ]
+   }
+  ]
+ },
+ "clock": {
+  "timeRemaining": "00:00",
+  "secondsRemaining": 0,
+  "running": false,
+  "inIntermission": false
+ }
+}

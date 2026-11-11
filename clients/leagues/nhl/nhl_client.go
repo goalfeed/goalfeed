@@ -20,7 +20,11 @@ func (c NHLApiClient) GetNHLScoreBoard(gameId string) NHLScoreboardResponse {
 
 	bodyByte := <-body
 	var response NHLScoreboardResponse
-	json.Unmarshal(bodyByte, &response)
+	if err := json.Unmarshal(bodyByte, &response); err != nil && len(bodyByte) > 0 {
+		// Unmarshal fills every field it can before reporting a mismatch, so
+		// the partial response is still used; the error is only logged.
+		utils.GetLogger().Warn(fmt.Sprintf("NHL landing %s: decode: %v", gameId, err))
+	}
 	return response
 }
 

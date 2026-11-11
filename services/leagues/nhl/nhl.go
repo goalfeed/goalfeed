@@ -149,7 +149,7 @@ func (s NHLService) gameFromScoreboard(gameId string) models.Game {
 		clock = "LIVE"
 	}
 
-	return models.Game{
+	game := models.Game{
 		CurrentState: models.GameState{
 			Home: models.TeamState{
 				Team: models.Team{
@@ -198,6 +198,8 @@ func (s NHLService) gameFromScoreboard(gameId string) models.Game {
 			Timezone:   "UTC",
 		},
 	}
+	applyLandingDetail(&game.CurrentState, scoreboard)
+	return game
 }
 
 func (s NHLService) getGameUpdateFromScoreboard(game models.Game, ret chan models.GameUpdate) {
@@ -258,6 +260,16 @@ func (s NHLService) getGameUpdateFromScoreboard(game models.Game, ret chan model
 			Name: scoreboard.Venue.Default,
 		},
 	}
+	applyLandingDetail(&newState, scoreboard)
+
+	// One extra keyless request per monitored live game per poll. A decode
+	// error still returns whatever parsed, so it is logged, not discarded.
+	rightRail, err := s.Client.GetNHLRightRail(game.GameCode)
+	if err != nil {
+		logger.Warn(fmt.Sprintf("NHL game %s: right-rail: %v", game.GameCode, err))
+	}
+	applyRightRail(&newState, game.CurrentState, rightRail)
+
 	ret <- models.GameUpdate{
 		OldState: game.CurrentState,
 		NewState: newState,
