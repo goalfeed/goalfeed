@@ -63,7 +63,7 @@ func SendEvent(event models.Event) {
 	req.Header.Set("Content-Type", "application/json")
 
 	// Send the request
-	client := &http.Client{}
+	client := haHTTPClient(0)
 	resp, err := client.Do(req)
 	if err != nil {
 		logger.Warn(err)
@@ -154,7 +154,7 @@ func SendGameUpdate(game models.Game) {
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 	req.Header.Set("Content-Type", "application/json")
 
-	client := &http.Client{}
+	client := haHTTPClient(0)
 	resp, err := client.Do(req)
 	if err != nil {
 		logger.Warn("Failed to send game update to Home Assistant: " + err.Error())
@@ -223,7 +223,7 @@ func SendPeriodUpdate(game models.Game, eventType models.EventType) {
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 	req.Header.Set("Content-Type", "application/json")
 
-	client := &http.Client{}
+	client := haHTTPClient(0)
 	resp, err := client.Do(req)
 	if err != nil {
 		logger.Warn("Failed to send period update to Home Assistant: " + err.Error())
@@ -320,7 +320,7 @@ func SendCustomEvent(eventType string, data map[string]interface{}) {
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 	req.Header.Set("Content-Type", "application/json")
 
-	client := &http.Client{}
+	client := haHTTPClient(0)
 	resp, err := client.Do(req)
 	if err != nil {
 		logger.Warn("Failed to send custom event to Home Assistant: " + err.Error())

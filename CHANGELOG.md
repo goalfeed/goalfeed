@@ -20,6 +20,21 @@ would serve no one. For the full per-tag record from that window, see
 
 ### Security
 
+- **Closed two remaining ways the Home Assistant token could reach a public
+  address.** A single-label URL host that is really a number
+  (`http://134744072`, `http://0x08080808`) passed as a LAN hostname, and
+  some system resolvers read those as `8.8.8.8`. Those hosts are now
+  rejected. Separately, and more robustly, every request carrying the token
+  now checks the IP it actually connects to, after DNS, and refuses anything
+  that isn't loopback or private. That covers search-domain completion and
+  DNS rebinding as well. `home_assistant.allow_remote_url: true` turns both
+  checks off for a genuinely remote Home Assistant, as before. If you
+  reach Home Assistant through an HTTP proxy set in the environment without
+  that opt-in, Goalfeed now connects directly instead. If your Home
+  Assistant hostname resolves *only* to a Tailscale (`100.64.0.0/10`) or
+  global IPv6 address, set `home_assistant.allow_remote_url: true`; a name
+  that also has a private IPv4 address keeps working.
+
 - **Fixed an unauthenticated Home Assistant access-token exfiltration path.**
   `POST /api/homeassistant/config` accepted an arbitrary URL with no
   validation, and every subsequent outbound call to Home Assistant attached

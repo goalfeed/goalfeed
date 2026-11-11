@@ -127,7 +127,7 @@ func publishEntity(domain, entity, friendly string, state interface{}, attrs map
 	}
 	req.Header.Set("Authorization", "Bearer "+token)
 	req.Header.Set("Content-Type", "application/json")
-	client := &http.Client{Timeout: 5 * time.Second}
+	client := haHTTPClient(5 * time.Second)
 	resp, err := client.Do(req)
 	if err != nil {
 		stateLogger.Warn(fmt.Sprintf("HA state send err: %v", err))
