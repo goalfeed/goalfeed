@@ -7,7 +7,37 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 )
+
+// rightRailInterval spaces out right-rail fetches for one game. Live games
+// are polled every second for goal detection; the team stats panel does not
+// need that, and an unofficial API hit at 1 Hz per game is how an IP gets
+// blocked, which would take goal detection (landing) down with it. Situation,
+// power play, empty net and goals come from landing and stay per-second.
+var rightRailInterval = 15 * time.Second
+
+var (
+	rightRailMu   sync.Mutex
+	rightRailLast = map[string]time.Time{}
+)
+
+// rightRailDue reports whether game gameCode should fetch right-rail now, and
+// records the attempt if so. A game that is no longer live always fetches,
+// so its final numbers are complete, and its entry is then forgotten.
+func rightRailDue(gameCode string, live bool, now time.Time) bool {
+	rightRailMu.Lock()
+	defer rightRailMu.Unlock()
+	if !live {
+		delete(rightRailLast, gameCode)
+		return true
+	}
+	if last, ok := rightRailLast[gameCode]; ok && now.Sub(last) < rightRailInterval {
+		return false
+	}
+	rightRailLast[gameCode] = now
+	return true
+}
 
 // liveGameStates are the landing gameState values during which an on-ice
 // situation is meaningful. CRIT is the NHL's "critical" state for the late

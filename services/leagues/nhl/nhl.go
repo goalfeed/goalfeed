@@ -262,11 +262,17 @@ func (s NHLService) getGameUpdateFromScoreboard(game models.Game, ret chan model
 	}
 	applyLandingDetail(&newState, scoreboard)
 
-	// One extra keyless request per monitored live game per poll. A decode
-	// error still returns whatever parsed, so it is logged, not discarded.
-	rightRail, err := s.Client.GetNHLRightRail(game.GameCode)
-	if err != nil {
-		logger.Warn(fmt.Sprintf("NHL game %s: right-rail: %v", game.GameCode, err))
+	// At most one extra keyless request per live game every
+	// rightRailInterval; between fetches the previous stats carry over. A
+	// decode error still returns whatever parsed, so it is logged, not
+	// discarded.
+	var rightRail nhl.NHLRightRailResponse
+	if rightRailDue(game.GameCode, isLiveGameState(scoreboard.GameState), time.Now()) {
+		var err error
+		rightRail, err = s.Client.GetNHLRightRail(game.GameCode)
+		if err != nil {
+			logger.Warn(fmt.Sprintf("NHL game %s: right-rail: %v", game.GameCode, err))
+		}
 	}
 	applyRightRail(&newState, game.CurrentState, rightRail)
 

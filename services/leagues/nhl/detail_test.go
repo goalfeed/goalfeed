@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"testing"
+	"time"
 
 	nhlClients "goalfeed/clients/leagues/nhl"
 	"goalfeed/models"
@@ -197,4 +198,35 @@ func TestGameUpdate_RightRailFailureKeepsPreviousStats(t *testing.T) {
 	assert.Equal(t, 11, u.NewState.Home.Statistics.Hits, "a failed right-rail must not zero the stats")
 	assert.Equal(t, c.landing.HomeTeam.Sog, u.NewState.Home.Statistics.Shots, "shots still come from landing")
 	assert.Equal(t, []int{1}, u.NewState.Home.PeriodScores)
+}
+
+func TestRightRailDue_ThrottlesLiveGamesOnly(t *testing.T) {
+	t0 := time.Unix(5000, 0)
+	assert.True(t, rightRailDue("g1", true, t0), "first poll fetches")
+	assert.False(t, rightRailDue("g1", true, t0.Add(time.Second)), "1 Hz polling does not")
+	assert.False(t, rightRailDue("g1", true, t0.Add(rightRailInterval-time.Millisecond)))
+	assert.True(t, rightRailDue("g1", true, t0.Add(rightRailInterval)))
+	assert.True(t, rightRailDue("g2", true, t0.Add(time.Second)), "games are throttled independently")
+	assert.True(t, rightRailDue("g1", false, t0.Add(rightRailInterval+time.Second)), "a final poll always fetches")
+	assert.True(t, rightRailDue("g1", true, t0.Add(rightRailInterval+2*time.Second)), "and the entry is forgotten")
+}
+
+func TestGameUpdate_ThrottledPollKeepsStats(t *testing.T) {
+	c := &fixtureClient{}
+	loadJSON(t, "landing_2026020291_final.json", &c.landing)
+	loadJSON(t, "right_rail_2026020291_final.json", &c.rightRail)
+	c.landing.GameState = "LIVE"
+	svc := NHLService{Client: c}
+	game := models.Game{GameCode: "throttle-test", LeagueId: models.LeagueIdNHL}
+
+	ch := make(chan models.GameUpdate, 1)
+	svc.GetGameUpdate(game, ch)
+	first := <-ch
+	game.CurrentState = first.NewState
+
+	svc.GetGameUpdate(game, ch)
+	second := <-ch
+	assert.Equal(t, 1, c.rightRailHit, "the second poll inside the interval does not refetch")
+	assert.Equal(t, 22, second.NewState.Home.Statistics.Hits, "and keeps the stats from the first")
+	assert.Equal(t, []int{2, 0, 2}, second.NewState.Home.PeriodScores)
 }
