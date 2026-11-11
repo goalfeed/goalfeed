@@ -54,6 +54,13 @@ var (
 	needRefresh                       = false
 	logger                            = utils.GetLogger()
 	eventSender    func(models.Event) = homeassistant.SendEvent // Allow this to be replaced in tests
+
+	// Live Home Assistant state publishers, replaceable in tests. These were
+	// dropped from the live path in e12fbade along with main_refactored.go,
+	// which left every per-team sensor frozen at its startup baseline during
+	// games; checkGame calls them on every poll.
+	teamSensorPublisher func(models.Game) = homeassistant.PublishTeamSensors
+	endOfGamePublisher  func(models.Game) = homeassistant.PublishEndOfGameReset
 )
 
 // TickerConfig holds configuration for a ticker
@@ -274,8 +281,14 @@ func checkGame(gameKey string) {
 	updatedGame.CurrentState = gameUpdate.NewState
 	memoryStore.SetGame(updatedGame)
 
+	// Publish the per-team Home Assistant sensors for this poll. publishEntity
+	// dedupes unchanged state, so calling this every poll costs nothing when
+	// nothing moved.
+	teamSensorPublisher(updatedGame)
+
 	// Remove game from active monitoring if it has ended
 	if gameUpdate.NewState.Status == models.StatusEnded {
+		endOfGamePublisher(updatedGame)
 		logger.Info(fmt.Sprintf("Game %s has ended, removing from active monitoring", gameKey))
 		memoryStore.DeleteActiveGame(updatedGame)
 		memoryStore.DeleteActiveGameKey(gameKey)

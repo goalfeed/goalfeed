@@ -913,3 +913,47 @@ func TestTickerManager_RefreshTicker(t *testing.T) {
 		refreshTicker.Task()
 	})
 }
+
+// TestCheckGame_PublishesTeamSensorsEveryPoll guards the regression from
+// e12fbade, where the live call to PublishTeamSensors was deleted with
+// main_refactored.go and Home Assistant sensors froze at their startup
+// baseline for every game.
+func TestCheckGame_PublishesTeamSensorsEveryPoll(t *testing.T) {
+	setupTest(t)
+	var published []models.Game
+	var ended []models.Game
+	oldPub, oldEnd := teamSensorPublisher, endOfGamePublisher
+	teamSensorPublisher = func(g models.Game) { published = append(published, g) }
+	endOfGamePublisher = func(g models.Game) { ended = append(ended, g) }
+	defer func() { teamSensorPublisher, endOfGamePublisher = oldPub, oldEnd }()
+
+	game := createTestGame(models.LeagueIdNHL, "WPG", "TOR")
+	game.CurrentState.Status = models.StatusActive
+	game.CurrentState.Home.Score = 2
+	memoryStore.AppendActiveGame(game)
+
+	checkGame(game.GetGameKey())
+
+	if assert.Len(t, published, 1) {
+		assert.Equal(t, 2, published[0].CurrentState.Home.Score)
+	}
+	assert.Empty(t, ended, "an active game must not get the end-of-game reset")
+}
+
+func TestCheckGame_PublishesEndOfGameResetWhenFinal(t *testing.T) {
+	setupTest(t)
+	var order []string
+	oldPub, oldEnd := teamSensorPublisher, endOfGamePublisher
+	teamSensorPublisher = func(models.Game) { order = append(order, "sensors") }
+	endOfGamePublisher = func(models.Game) { order = append(order, "reset") }
+	defer func() { teamSensorPublisher, endOfGamePublisher = oldPub, oldEnd }()
+
+	game := createTestGame(models.LeagueIdNHL, "WPG", "TOR")
+	game.CurrentState.Status = models.StatusEnded
+	memoryStore.AppendActiveGame(game)
+
+	checkGame(game.GetGameKey())
+
+	// Final numbers first, then the reset, never the other way round.
+	assert.Equal(t, []string{"sensors", "reset"}, order)
+}
