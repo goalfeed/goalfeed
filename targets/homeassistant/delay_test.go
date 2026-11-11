@@ -11,6 +11,8 @@ import (
 	"testing"
 	"time"
 
+	"goalfeed/models"
+
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -219,25 +221,71 @@ func indexOf(xs []string, x string) int {
 	return -1
 }
 
-// Review N2: turning the delay down to 0 mid-game must not let an
-// immediate send overtake one still queued for the same entity.
-func TestDispatchToHA_DelayDroppedToZeroDoesNotOvertake(t *testing.T) {
+// gatedQueue returns a queue whose worker, once it has taken a send and
+// would sleep until it is due, signals on sleeping and then waits for
+// release. A test can hold the worker exactly in the state the review C1
+// race depended on, without relying on wall-clock timing.
+func gatedQueue(t *testing.T) (*delayQueue, chan struct{}, chan struct{}) {
+	t.Helper()
+	q := newDelayQueue()
+	sleeping := make(chan struct{}, 16)
+	release := make(chan struct{})
+	q.sleep = func(time.Duration) {
+		sleeping <- struct{}{}
+		<-release
+	}
+	return q, sleeping, release
+}
+
+func waitSleeping(t *testing.T, sleeping chan struct{}) {
+	t.Helper()
+	select {
+	case <-sleeping:
+	case <-time.After(5 * time.Second):
+		t.Fatal("worker never took the send")
+	}
+}
+
+// Review C1, the root cause: a send the worker has taken and is sleeping on
+// is still pending, so the queue is not idle.
+func TestDelayQueue_NotIdleWhileSleepingOnASend(t *testing.T) {
+	q, sleeping, release := gatedQueue(t)
+	q.enqueue(time.Now().Add(time.Hour), "sensor.score", func() {})
+	waitSleeping(t, sleeping)
+	assert.False(t, q.idle(), "a send waiting for its due time is pending")
+	close(release)
+	require.Eventually(t, q.idle, 2*time.Second, 5*time.Millisecond)
+}
+
+func useQueue(t *testing.T, q *delayQueue) {
+	t.Helper()
 	old := haDelayQueue
-	haDelayQueue = newDelayQueue()
+	haDelayQueue = q
 	t.Cleanup(func() { haDelayQueue = old })
+}
+
+// Review N2/C1: turning the delay down to 0 while a send is still waiting
+// must not let a new send for the same entity overtake it.
+func TestDispatchToHA_DelayDroppedToZeroDoesNotOvertake(t *testing.T) {
+	q, sleeping, release := gatedQueue(t)
+	useQueue(t, q)
 
 	var mu sync.Mutex
 	var got []int
-	withBroadcastDelay(t, 0.3)
-	dispatchToHA("sensor.score", func() { mu.Lock(); got = append(got, 1); mu.Unlock() })
+	add := func(n int) func() { return func() { mu.Lock(); got = append(got, n); mu.Unlock() } }
+
+	withBroadcastDelay(t, 30)
+	dispatchToHA("sensor.score", add(1))
+	waitSleeping(t, sleeping)
 
 	viper.Set(broadcastDelayKey, 0)
-	dispatchToHA("sensor.score", func() { mu.Lock(); got = append(got, 2); mu.Unlock() })
+	dispatchToHA("sensor.score", add(2))
 	mu.Lock()
-	assert.Empty(t, got, "with the older send still queued, the new one queues too")
+	assert.Empty(t, got, "send 1 is still pending, so send 2 queues behind it")
 	mu.Unlock()
 
-	require.Eventually(t, func() bool { return haDelayQueue.idle() }, 3*time.Second, 10*time.Millisecond)
+	close(release)
+	require.Eventually(t, q.idle, 2*time.Second, 5*time.Millisecond)
 	mu.Lock()
 	assert.Equal(t, []int{1, 2}, got)
 	mu.Unlock()
@@ -246,4 +294,92 @@ func TestDispatchToHA_DelayDroppedToZeroDoesNotOvertake(t *testing.T) {
 	ran := false
 	dispatchToHA("sensor.score", func() { ran = true })
 	assert.True(t, ran)
+}
+
+// Review C2: publishEntity must take the same care. After the delay drops
+// to 0 with an older state still queued, the newer state queues behind it.
+func TestPublishEntity_DelayDroppedToZeroDoesNotOvertake(t *testing.T) {
+	var mu sync.Mutex
+	var states []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		b, _ := io.ReadAll(r.Body)
+		var st haState
+		_ = json.Unmarshal(b, &st)
+		mu.Lock()
+		states = append(states, st.State)
+		mu.Unlock()
+		w.WriteHeader(http.StatusOK)
+	}))
+	t.Cleanup(srv.Close)
+	os.Setenv("SUPERVISOR_API", srv.URL)
+	os.Setenv("SUPERVISOR_TOKEN", "t")
+	t.Cleanup(func() { os.Unsetenv("SUPERVISOR_API"); os.Unsetenv("SUPERVISOR_TOKEN") })
+	debounceAfter = 0
+	entityCache = map[string]entityCacheEntry{}
+
+	q, sleeping, release := gatedQueue(t)
+	useQueue(t, q)
+	withBroadcastDelay(t, 30)
+
+	publishEntity("sensor", "goalfeed_nhl_wpg_team_current_score", "", 1, nil)
+	waitSleeping(t, sleeping)
+	viper.Set(broadcastDelayKey, 0)
+	publishEntity("sensor", "goalfeed_nhl_wpg_team_current_score", "", 2, nil)
+
+	mu.Lock()
+	assert.Empty(t, states, "the newer score must not be sent ahead of the queued older one")
+	mu.Unlock()
+
+	close(release)
+	require.Eventually(t, func() bool { mu.Lock(); defer mu.Unlock(); return len(states) == 2 }, 3*time.Second, 10*time.Millisecond)
+	mu.Lock()
+	assert.Equal(t, []string{"1", "2"}, states)
+	mu.Unlock()
+}
+
+// Review note: every event shares one ordered stream, so goalfeed_goal can
+// never reach HA before the goal event raised ahead of it, even when HA is
+// slow to answer the first.
+func TestEvents_ShareOneOrderedStream(t *testing.T) {
+	firstIn := make(chan struct{})
+	releaseFirst := make(chan struct{})
+	var mu sync.Mutex
+	var paths []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		paths = append(paths, r.URL.Path)
+		n := len(paths)
+		mu.Unlock()
+		if n == 1 {
+			close(firstIn)
+			<-releaseFirst
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	t.Cleanup(srv.Close)
+	os.Setenv("SUPERVISOR_API", srv.URL)
+	os.Setenv("SUPERVISOR_TOKEN", "t")
+	t.Cleanup(func() { os.Unsetenv("SUPERVISOR_API"); os.Unsetenv("SUPERVISOR_TOKEN") })
+	useQueue(t, newDelayQueue())
+	withBroadcastDelay(t, 0.01)
+
+	SendEvent(models.Event{TeamCode: "WPG", LeagueId: int(models.LeagueIdNHL)})
+	SendCustomEvent("goalfeed_goal", map[string]interface{}{"team": "WPG"})
+
+	select {
+	case <-firstIn:
+	case <-time.After(5 * time.Second):
+		t.Fatal("first event never arrived")
+	}
+	time.Sleep(200 * time.Millisecond)
+	mu.Lock()
+	assert.Len(t, paths, 1, "goalfeed_goal waits for the goal event ahead of it")
+	mu.Unlock()
+
+	close(releaseFirst)
+	require.Eventually(t, func() bool { mu.Lock(); defer mu.Unlock(); return len(paths) == 2 }, 3*time.Second, 10*time.Millisecond)
+	mu.Lock()
+	assert.True(t, strings.HasSuffix(paths[0], "/api/events/goal"), paths[0])
+	assert.True(t, strings.HasSuffix(paths[1], "/api/events/goalfeed_goal"), paths[1])
+	mu.Unlock()
 }

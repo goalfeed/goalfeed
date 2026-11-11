@@ -119,9 +119,11 @@ func publishEntity(domain, entity, friendly string, state interface{}, attrs map
 		}
 	}
 
-	if broadcastDelay() > 0 {
-		// Cached now, sent later; see delay.go. The result of a delayed send
-		// is only logged, so report it as accepted.
+	if broadcastDelay() > 0 || !haDelayQueue.idle() {
+		// Cached now, sent later; see delay.go. With the delay just turned
+		// down to 0 and older sends still queued, this queues too rather than
+		// overtaking them (review C2). The result of a deferred send is only
+		// logged, so report it as accepted.
 		dispatchToHA(key, func() { sendState(domain, entity, serialized) })
 		return true, prev
 	}

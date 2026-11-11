@@ -47,9 +47,13 @@ type delayedSend struct {
 // can never let an older state land after a newer one. Sends with different
 // keys run concurrently, so one slow entity cannot hold up the rest.
 type delayQueue struct {
-	mu       sync.Mutex
-	items    []delayedSend
-	tails    map[string]chan struct{} // per key: closed when its latest send finishes
+	mu    sync.Mutex
+	items []delayedSend
+	tails map[string]chan struct{} // per key: closed when its latest send finishes
+	// inflight counts sends taken off items but not yet finished, including
+	// one the worker is still sleeping on. Counting it only after the sleep
+	// left a window where idle() was true with a send pending, and a send at
+	// delay 0 overtook it (review C1).
 	inflight int
 	wake     chan struct{}
 	started  bool
@@ -99,6 +103,7 @@ func (q *delayQueue) run() {
 		}
 		next := q.items[0]
 		q.items = q.items[1:]
+		q.inflight++ // under the same lock as the pop, so idle() never sees a gap
 		q.mu.Unlock()
 		if wait := next.due.Sub(q.now()); wait > 0 {
 			q.sleep(wait)
@@ -108,7 +113,6 @@ func (q *delayQueue) run() {
 		prev := q.tails[next.key]
 		done := make(chan struct{})
 		q.tails[next.key] = done
-		q.inflight++
 		q.mu.Unlock()
 
 		go func(send delayedSend) {

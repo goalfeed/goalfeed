@@ -227,6 +227,7 @@ func TestRightRailDue_Throttles(t *testing.T) {
 	assert.True(t, rightRailDue("g3", "PPD", t0))
 	assert.False(t, rightRailDue("g3", "PPD", t0.Add(time.Second)))
 	assert.False(t, rightRailDue("g3", "", t0.Add(2*time.Second)))
+	assert.True(t, rightRailDue("g3", "PPD", t0.Add(rightRailInterval)), "and fetches again once the interval passes")
 
 	// Final: exactly one fetch, whenever it comes, and none after.
 	assert.True(t, rightRailDue("g1", "FINAL", t0.Add(rightRailInterval+time.Second)), "the first final poll fetches")
