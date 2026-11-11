@@ -199,13 +199,25 @@ for games that aren't live.
 | `binary_sensor.goalfeed_nhl_<team>_team_on_power_play` | on while this team has the man advantage | `strength` (`"5v4"`), `time_remaining` |
 | `binary_sensor.goalfeed_nhl_<team>_team_empty_net` | on while this team's goalie is pulled | |
 | `binary_sensor.goalfeed_nhl_<team>_team_intermission` | on during intermission | |
-| `sensor.goalfeed_nhl_<team>_game` | `scheduled` / `active` / `final` | the whole scoreboard: `score`, `opponent`, `opponent_score`, `period`, `clock`, `intermission`, `shots`, `goals_by_period`, `shots_by_period` (and `opponent_…` versions), `situation`, `last_goal` (`scorer`, `assists`, `strength`, `empty_net`, `time_in_period`) |
+| `sensor.goalfeed_nhl_<team>_game` | `scheduled` / `active` / `final` | the whole scoreboard: `score`, `opponent`, `opponent_score`, `period`, `intermission`, `shots`, `goals_by_period`, `shots_by_period` (and `opponent_…` versions), `situation`, `last_goal` (`scorer`, `assists`, `strength`, `empty_net`, `time_in_period`) |
 
 `sensor.goalfeed_nhl_<team>_game` is the one to build a scoreboard or jumbotron card
-from: one entity, everything in its attributes. A pulled goalie for an extra attacker is
+from: one entity, everything in its attributes, plus `..._team_clock` for the running
+clock. A pulled goalie for an extra attacker is
 not a power play: `on_power_play` compares skaters net of the extra attacker, so a
 6-on-5 is `off` for both teams and `empty_net` is `on` for the team that pulled. When a
 game ends, the situation sensors go `off` and the stats keep their final values.
+
+**Keeping the recorder small.** `..._team_clock` changes every second during a live
+game, and Home Assistant's recorder stores every change. If you don't need clock
+history, exclude it:
+
+```yaml
+recorder:
+  exclude:
+    entity_globs:
+      - sensor.goalfeed_*_team_clock
+```
 
 **Matching your TV.** The NHL feed runs ahead of broadcasts and streams, so a goal horn
 can go off before you see the goal. Set `home_assistant.broadcast_delay_seconds` (for

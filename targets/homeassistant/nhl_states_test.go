@@ -149,6 +149,7 @@ func TestPublishTeamSensors_NHLGameSensor(t *testing.T) {
 	assert.Equal(t, "home", a["home_away"])
 	assert.Equal(t, 3.0, a["score"])
 	assert.Equal(t, 2.0, a["opponent_score"])
+	assert.NotContains(t, a, "clock", "a per-second attribute would write a recorder row every second")
 	assert.Equal(t, []interface{}{2.0, 0.0, 1.0}, a["goals_by_period"])
 	assert.Equal(t, []interface{}{8.0, 5.0, 10.0}, a["shots_by_period"])
 	assert.Equal(t, []interface{}{}, a["opponent_goals_by_period"])

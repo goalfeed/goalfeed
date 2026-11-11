@@ -413,6 +413,11 @@ func publishNHLSituation(game models.Game, team models.TeamState, opponent model
 // per team whose state is the game status and whose attributes carry the
 // whole scoreboard, so a dashboard needs a single entity rather than one per
 // field.
+//
+// The game clock is deliberately not an attribute. It changes every second,
+// and every attribute change is a new row in Home Assistant's recorder; the
+// clock lives in team_clock instead, which users can exclude from the
+// recorder on its own. Everything here changes only when something happens.
 func publishNHLGameSensor(game models.Game, team models.TeamState, opponent models.TeamState) {
 	cs := game.CurrentState
 	home := isHomeTeam(game, team)
@@ -428,7 +433,6 @@ func publishNHLGameSensor(game models.Game, team models.TeamState, opponent mode
 		"opponent_score":           opponent.Score,
 		"period":                   cs.Period,
 		"period_type":              cs.PeriodType,
-		"clock":                    cs.Clock,
 		"intermission":             cs.InIntermission,
 		"venue":                    cs.Venue.Name,
 		"shots":                    team.Statistics.Shots,
