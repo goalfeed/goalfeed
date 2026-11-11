@@ -34,6 +34,8 @@ func init() {
 	// operator opts in.
 	viper.SetDefault("home_assistant.allow_remote_url", false)
 	viper.SetDefault("web.allow_config_writes", false)
+	// Seconds to hold back Home Assistant output to match a TV or stream.
+	viper.SetDefault("home_assistant.broadcast_delay_seconds", 0)
 	if err := viper.ReadInConfig(); err != nil {
 		var notFound viper.ConfigFileNotFoundError
 		if errors.As(err, &notFound) {

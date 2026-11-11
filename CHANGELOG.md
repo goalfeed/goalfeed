@@ -18,6 +18,31 @@ would serve no one. For the full per-tag record from that window, see
 
 ## [Unreleased]
 
+### Fixed
+
+- **Home Assistant sensors update during games again.** Since September 2025,
+  per-team sensors such as `..._team_current_score`, `..._team_clock`,
+  `..._team_period` and `..._team_shots` were set at startup and from the
+  schedule, but never updated while a game was live. They now update on
+  every poll, and reset when the game ends. Goal events were not affected.
+
+### Added
+
+- **NHL team game stats in Home Assistant.** Each watched NHL team gets hits,
+  faceoff wins and faceoff %, power play (`"1/3"`), PIM, blocked shots,
+  giveaways and takeaways sensors, plus `on_power_play`, `empty_net` and
+  `intermission` binary sensors. There is also one
+  `sensor.goalfeed_nhl_<team>_game` whose attributes carry the whole
+  scoreboard: goals and shots by period, situation and last goal. The
+  team stats add one free, keyless NHL request per live game at most every
+  15 seconds; the situation sensors update every second.
+- **`goalfeed_goal` event for NHL goals**, fired alongside the existing
+  `goal` event, with the scorer, assists, strength and empty-net flag. The
+  `goal` event is unchanged.
+- **`home_assistant.broadcast_delay_seconds`** holds back everything sent to
+  Home Assistant so lights and dashboards line up with your TV or stream.
+  The default is 0 (off).
+
 ### Security
 
 - **Closed two remaining ways the Home Assistant token could reach a public
