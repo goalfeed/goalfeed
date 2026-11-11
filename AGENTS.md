@@ -82,8 +82,10 @@ in `main_test.go` exists so that can't recur silently.
 validates the HA URL and `targets/homeassistant/guard.go` enforces it at every
 outbound call site. This closed a real vulnerability where an unauthenticated
 request could redirect the service and exfiltrate a long-lived token. Any new
-code path that reaches Home Assistant must go through the guard, and must
-resolve the URL at send time: with `broadcast_delay_seconds` set, sends run
+code path that reaches Home Assistant must go through the guard, must use
+`haHTTPClient` (its dialer re-checks the actual IP after DNS, and
+`TestHASenders_AllUseGuardedClient` fails on any other `http.Client` in the
+package), and must resolve the URL at send time: with `broadcast_delay_seconds` set, sends run
 later through `dispatchToHA`, so resolve and guard inside the deferred
 function, never before queueing it. Link-local is rejected deliberately —
 that range holds the cloud metadata endpoint.
