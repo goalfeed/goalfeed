@@ -122,7 +122,7 @@ func publishEntity(domain, entity, friendly string, state interface{}, attrs map
 	if broadcastDelay() > 0 {
 		// Cached now, sent later; see delay.go. The result of a delayed send
 		// is only logged, so report it as accepted.
-		dispatchToHA(func() { sendState(domain, entity, serialized) })
+		dispatchToHA(key, func() { sendState(domain, entity, serialized) })
 		return true, prev
 	}
 	if !sendState(domain, entity, serialized) {

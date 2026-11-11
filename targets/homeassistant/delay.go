@@ -37,31 +37,40 @@ func broadcastDelay() time.Duration {
 
 type delayedSend struct {
 	due time.Time
+	key string
 	fn  func()
 }
 
-// delayQueue starts sends in the order they were dispatched, each no earlier
-// than its due time. A send runs on its own goroutine, as an undelayed send
-// effectively does, so a slow or unreachable Home Assistant cannot hold up the
-// sends behind it.
+// delayQueue releases sends in the order they were dispatched, each no
+// earlier than its due time. Sends that share a key (one entity's state, or
+// the event stream) run strictly one after another, so a slow Home Assistant
+// can never let an older state land after a newer one. Sends with different
+// keys run concurrently, so one slow entity cannot hold up the rest.
 type delayQueue struct {
-	mu      sync.Mutex
-	items   []delayedSend
-	wake    chan struct{}
-	started bool
-	now     func() time.Time
-	sleep   func(time.Duration)
+	mu       sync.Mutex
+	items    []delayedSend
+	tails    map[string]chan struct{} // per key: closed when its latest send finishes
+	inflight int
+	wake     chan struct{}
+	started  bool
+	now      func() time.Time
+	sleep    func(time.Duration)
 }
 
 func newDelayQueue() *delayQueue {
-	return &delayQueue{wake: make(chan struct{}, 1), now: time.Now, sleep: time.Sleep}
+	return &delayQueue{
+		tails: map[string]chan struct{}{},
+		wake:  make(chan struct{}, 1),
+		now:   time.Now,
+		sleep: time.Sleep,
+	}
 }
 
 var haDelayQueue = newDelayQueue()
 
-func (q *delayQueue) enqueue(due time.Time, fn func()) {
+func (q *delayQueue) enqueue(due time.Time, key string, fn func()) {
 	q.mu.Lock()
-	q.items = append(q.items, delayedSend{due: due, fn: fn})
+	q.items = append(q.items, delayedSend{due: due, key: key, fn: fn})
 	if !q.started {
 		q.started = true
 		go q.run()
@@ -71,6 +80,13 @@ func (q *delayQueue) enqueue(due time.Time, fn func()) {
 	case q.wake <- struct{}{}:
 	default:
 	}
+}
+
+// idle reports whether nothing is queued or still being sent.
+func (q *delayQueue) idle() bool {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	return len(q.items) == 0 && q.inflight == 0
 }
 
 func (q *delayQueue) run() {
@@ -87,17 +103,44 @@ func (q *delayQueue) run() {
 		if wait := next.due.Sub(q.now()); wait > 0 {
 			q.sleep(wait)
 		}
-		go next.fn()
+
+		q.mu.Lock()
+		prev := q.tails[next.key]
+		done := make(chan struct{})
+		q.tails[next.key] = done
+		q.inflight++
+		q.mu.Unlock()
+
+		go func(send delayedSend) {
+			if prev != nil {
+				<-prev
+			}
+			send.fn()
+			close(done)
+			q.mu.Lock()
+			if q.tails[send.key] == done {
+				delete(q.tails, send.key)
+			}
+			q.inflight--
+			q.mu.Unlock()
+		}(next)
 	}
 }
 
-// dispatchToHA runs fn now when no broadcast delay is set, preserving the
-// existing synchronous behaviour, and otherwise queues it for later.
-func dispatchToHA(fn func()) {
+// dispatchToHA runs fn now when no broadcast delay is set and nothing is
+// still queued, preserving the existing synchronous behaviour. Otherwise it
+// queues fn under key. When the delay is turned down to 0 while sends are
+// still queued, new sends join the back of the queue rather than overtaking
+// older ones.
+func dispatchToHA(key string, fn func()) {
 	d := broadcastDelay()
-	if d <= 0 {
+	if d <= 0 && haDelayQueue.idle() {
 		fn()
 		return
 	}
-	haDelayQueue.enqueue(time.Now().Add(d), fn)
+	haDelayQueue.enqueue(time.Now().Add(d), key, fn)
 }
+
+// haEventsKey orders every HA event (goal, goalfeed_goal, game and period
+// updates) as one stream.
+const haEventsKey = "events"

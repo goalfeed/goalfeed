@@ -45,12 +45,12 @@ func TestDelayQueue_PreservesOrderAndWaitsForDue(t *testing.T) {
 	q.sleep = func(d time.Duration) { mu.Lock(); slept = append(slept, d); clock = clock.Add(d); mu.Unlock() }
 
 	order := make(chan int, 3)
-	q.enqueue(start.Add(3*time.Second), func() { order <- 1 })
-	q.enqueue(start.Add(3*time.Second), func() { order <- 2 })
-	q.enqueue(start.Add(5*time.Second), func() { order <- 3 })
+	q.enqueue(start.Add(3*time.Second), "a", func() { order <- 1 })
+	q.enqueue(start.Add(3*time.Second), "b", func() { order <- 2 })
+	q.enqueue(start.Add(5*time.Second), "c", func() { order <- 3 })
 
 	got := []int{<-order, <-order, <-order}
-	// Each send runs on its own goroutine, so only the start order is
+	// Different keys run concurrently, so only their release order is
 	// guaranteed; the sleeps prove each waited for its due time.
 	assert.ElementsMatch(t, []int{1, 2, 3}, got)
 	mu.Lock()
@@ -175,4 +175,75 @@ func TestDelayedSend_ResolvesAndGuardsURLAtSendTime(t *testing.T) {
 	time.Sleep(700 * time.Millisecond)
 	assert.Empty(t, first)
 	assert.Empty(t, second)
+}
+
+// Review N2: two states for one entity must reach HA in order even when HA
+// is slow, while a slow entity must not hold up a different one.
+func TestDelayQueue_SameKeyStrictlyOrderedOtherKeysNot(t *testing.T) {
+	q := newDelayQueue()
+	now := time.Now()
+	release := make(chan struct{})
+	var mu sync.Mutex
+	var log []string
+	rec := func(s string) { mu.Lock(); log = append(log, s); mu.Unlock() }
+
+	q.enqueue(now, "sensor.score", func() { rec("score=1 start"); <-release; rec("score=1 end") })
+	q.enqueue(now, "sensor.score", func() { rec("score=2") })
+	otherDone := make(chan struct{})
+	q.enqueue(now, "sensor.hits", func() { rec("hits"); close(otherDone) })
+
+	select {
+	case <-otherDone:
+	case <-time.After(2 * time.Second):
+		t.Fatal("a slow entity held up a different one")
+	}
+	mu.Lock()
+	assert.NotContains(t, log, "score=2", "the newer score must wait for the older one")
+	mu.Unlock()
+
+	close(release)
+	require.Eventually(t, func() bool { return q.idle() }, 2*time.Second, 5*time.Millisecond)
+	mu.Lock()
+	defer mu.Unlock()
+	iStart, iEnd, iTwo := indexOf(log, "score=1 start"), indexOf(log, "score=1 end"), indexOf(log, "score=2")
+	assert.True(t, iStart < iEnd && iEnd < iTwo, "order was %v", log)
+	assert.Empty(t, q.tails, "finished lanes are cleaned up")
+}
+
+func indexOf(xs []string, x string) int {
+	for i, v := range xs {
+		if v == x {
+			return i
+		}
+	}
+	return -1
+}
+
+// Review N2: turning the delay down to 0 mid-game must not let an
+// immediate send overtake one still queued for the same entity.
+func TestDispatchToHA_DelayDroppedToZeroDoesNotOvertake(t *testing.T) {
+	old := haDelayQueue
+	haDelayQueue = newDelayQueue()
+	t.Cleanup(func() { haDelayQueue = old })
+
+	var mu sync.Mutex
+	var got []int
+	withBroadcastDelay(t, 0.3)
+	dispatchToHA("sensor.score", func() { mu.Lock(); got = append(got, 1); mu.Unlock() })
+
+	viper.Set(broadcastDelayKey, 0)
+	dispatchToHA("sensor.score", func() { mu.Lock(); got = append(got, 2); mu.Unlock() })
+	mu.Lock()
+	assert.Empty(t, got, "with the older send still queued, the new one queues too")
+	mu.Unlock()
+
+	require.Eventually(t, func() bool { return haDelayQueue.idle() }, 3*time.Second, 10*time.Millisecond)
+	mu.Lock()
+	assert.Equal(t, []int{1, 2}, got)
+	mu.Unlock()
+
+	// Once drained, a zero delay is synchronous again.
+	ran := false
+	dispatchToHA("sensor.score", func() { ran = true })
+	assert.True(t, ran)
 }

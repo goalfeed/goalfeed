@@ -15,9 +15,15 @@ import (
 
 var logger = utils.GetLogger()
 
+// haEventTimeout bounds every event POST. Events used to have no timeout at
+// all, so a hung Home Assistant leaked a goroutine per goal; with events
+// ordered as one stream behind a broadcast delay, it would also stall every
+// event after it.
+const haEventTimeout = 10 * time.Second
+
 // SendEvent sends a detailed event to Home Assistant
 func SendEvent(event models.Event) {
-	dispatchToHA(func() { sendEventNow(event) })
+	dispatchToHA(haEventsKey, func() { sendEventNow(event) })
 }
 
 func sendEventNow(event models.Event) {
@@ -67,7 +73,7 @@ func sendEventNow(event models.Event) {
 	req.Header.Set("Content-Type", "application/json")
 
 	// Send the request
-	client := haHTTPClient(0)
+	client := haHTTPClient(haEventTimeout)
 	resp, err := client.Do(req)
 	if err != nil {
 		logger.Warn(err)
@@ -93,7 +99,7 @@ func sendEventNow(event models.Event) {
 
 // SendGameUpdate sends detailed game state updates to Home Assistant
 func SendGameUpdate(game models.Game) {
-	dispatchToHA(func() { sendGameUpdateNow(game) })
+	dispatchToHA(haEventsKey, func() { sendGameUpdateNow(game) })
 }
 
 func sendGameUpdateNow(game models.Game) {
@@ -162,7 +168,7 @@ func sendGameUpdateNow(game models.Game) {
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 	req.Header.Set("Content-Type", "application/json")
 
-	client := haHTTPClient(0)
+	client := haHTTPClient(haEventTimeout)
 	resp, err := client.Do(req)
 	if err != nil {
 		logger.Warn("Failed to send game update to Home Assistant: " + err.Error())
@@ -183,7 +189,7 @@ func sendGameUpdateNow(game models.Game) {
 
 // SendPeriodUpdate sends period/quarter start/end events
 func SendPeriodUpdate(game models.Game, eventType models.EventType) {
-	dispatchToHA(func() { sendPeriodUpdateNow(game, eventType) })
+	dispatchToHA(haEventsKey, func() { sendPeriodUpdateNow(game, eventType) })
 }
 
 func sendPeriodUpdateNow(game models.Game, eventType models.EventType) {
@@ -235,7 +241,7 @@ func sendPeriodUpdateNow(game models.Game, eventType models.EventType) {
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 	req.Header.Set("Content-Type", "application/json")
 
-	client := haHTTPClient(0)
+	client := haHTTPClient(haEventTimeout)
 	resp, err := client.Do(req)
 	if err != nil {
 		logger.Warn("Failed to send period update to Home Assistant: " + err.Error())
@@ -299,7 +305,7 @@ func getLeagueName(leagueId models.League) string {
 func SendCustomEvent(eventType string, data map[string]interface{}) {
 	data["timestamp"] = time.Now().Format(time.RFC3339)
 	data["source"] = "goalfeed"
-	dispatchToHA(func() { sendCustomEventNow(eventType, data) })
+	dispatchToHA(haEventsKey, func() { sendCustomEventNow(eventType, data) })
 }
 
 func sendCustomEventNow(eventType string, data map[string]interface{}) {
@@ -337,7 +343,7 @@ func sendCustomEventNow(eventType string, data map[string]interface{}) {
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 	req.Header.Set("Content-Type", "application/json")
 
-	client := haHTTPClient(0)
+	client := haHTTPClient(haEventTimeout)
 	resp, err := client.Do(req)
 	if err != nil {
 		logger.Warn("Failed to send custom event to Home Assistant: " + err.Error())
