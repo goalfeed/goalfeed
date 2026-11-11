@@ -8,6 +8,9 @@ type MockNHLApiClient struct {
 	mockedGameStatus      string
 	GetNHLScheduleCalls   int
 	GetNHLScoreBoardCalls int
+	// RightRail is returned by GetNHLRightRail; nil means an empty panel.
+	RightRail    *NHLRightRailResponse
+	RightRailErr error
 }
 
 var homeScore = 0
@@ -55,4 +58,11 @@ func (c MockNHLApiClient) GetAllTeams() NHLTeamResponse {
 	var response NHLTeamResponse
 	json.Unmarshal([]byte(TeamResponseJson), &response)
 	return response
+}
+
+func (c MockNHLApiClient) GetNHLRightRail(sGameId string) (NHLRightRailResponse, error) {
+	if c.RightRail == nil {
+		return NHLRightRailResponse{}, c.RightRailErr
+	}
+	return *c.RightRail, c.RightRailErr
 }

@@ -1,0 +1,342 @@
+{
+ "seasonSeries": [
+  {
+   "id": 2026020277,
+   "season": 20262027,
+   "gameType": 2,
+   "gameDate": "2026-11-08",
+   "startTimeUTC": "2026-11-08T18:00:00Z",
+   "easternUTCOffset": "-05:00",
+   "venueUTCOffset": "-05:00",
+   "gameState": "OFF",
+   "gameScheduleState": "OK",
+   "awayTeam": {
+    "id": 13,
+    "abbrev": "FLA",
+    "score": 1
+   },
+   "homeTeam": {
+    "id": 6,
+    "abbrev": "BOS",
+    "score": 4
+   },
+   "periodDescriptor": {
+    "number": 3,
+    "periodType": "REG",
+    "maxRegulationPeriods": 3
+   },
+   "gameCenterLink": "/gamecenter/bos-vs-fla/2026/11/08/2026020277",
+   "gameOutcome": {
+    "lastPeriodType": "REG"
+   }
+  },
+  {
+   "id": 2026020488,
+   "season": 20262027,
+   "gameType": 2,
+   "gameDate": "2026-12-08",
+   "startTimeUTC": "2026-12-09T00:00:00Z",
+   "easternUTCOffset": "-05:00",
+   "venueUTCOffset": "-05:00",
+   "gameState": "FUT",
+   "gameScheduleState": "OK",
+   "awayTeam": {
+    "id": 6,
+    "abbrev": "BOS"
+   },
+   "homeTeam": {
+    "id": 13,
+    "abbrev": "FLA"
+   },
+   "gameCenterLink": "/gamecenter/fla-vs-bos/2026/12/08/2026020488",
+   "gameOutcome": {
+    "lastPeriodType": "REG"
+   }
+  },
+  {
+   "id": 2026020536,
+   "season": 20262027,
+   "gameType": 2,
+   "gameDate": "2026-12-15",
+   "startTimeUTC": "2026-12-16T00:00:00Z",
+   "easternUTCOffset": "-05:00",
+   "venueUTCOffset": "-05:00",
+   "gameState": "FUT",
+   "gameScheduleState": "OK",
+   "awayTeam": {
+    "id": 13,
+    "abbrev": "FLA"
+   },
+   "homeTeam": {
+    "id": 6,
+    "abbrev": "BOS"
+   },
+   "gameCenterLink": "/gamecenter/bos-vs-fla/2026/12/15/2026020536",
+   "gameOutcome": {
+    "lastPeriodType": "REG"
+   }
+  },
+  {
+   "id": 2026021326,
+   "season": 20262027,
+   "gameType": 2,
+   "gameDate": "2027-04-09",
+   "startTimeUTC": "2027-04-09T23:00:00Z",
+   "easternUTCOffset": "-04:00",
+   "venueUTCOffset": "-04:00",
+   "gameState": "FUT",
+   "gameScheduleState": "OK",
+   "awayTeam": {
+    "id": 6,
+    "abbrev": "BOS"
+   },
+   "homeTeam": {
+    "id": 13,
+    "abbrev": "FLA"
+   },
+   "gameCenterLink": "/gamecenter/fla-vs-bos/2027/04/09/2026021326",
+   "gameOutcome": {
+    "lastPeriodType": "REG"
+   }
+  }
+ ],
+ "seasonSeriesWins": {
+  "awayTeamWins": 0,
+  "homeTeamWins": 1
+ },
+ "gameInfo": {
+  "referees": [
+   {
+    "fullName": {
+     "default": "Pierre Lambert"
+    },
+    "sweaterNumber": 25
+   },
+   {
+    "fullName": {
+     "default": "Brandon Blandina"
+    },
+    "sweaterNumber": 39
+   }
+  ],
+  "linesmen": [
+   {
+    "fullName": {
+     "default": "Brandon Grillo"
+    },
+    "sweaterNumber": 75
+   },
+   {
+    "fullName": {
+     "default": "Tyson Baker"
+    },
+    "sweaterNumber": 88
+   }
+  ],
+  "awayTeam": {
+   "headCoach": {
+    "default": "Paul Maurice"
+   },
+   "scratches": [
+    {
+     "id": 8475179,
+     "firstName": {
+      "default": "Dmitry",
+      "cs": "Dmitrij",
+      "fi": "Dmitri",
+      "sk": "Dmitrij"
+     },
+     "lastName": {
+      "default": "Kulikov"
+     }
+    },
+    {
+     "id": 8483433,
+     "firstName": {
+      "default": "Jack"
+     },
+     "lastName": {
+      "default": "Devine"
+     }
+    },
+    {
+     "id": 8483771,
+     "firstName": {
+      "default": "Sandis"
+     },
+     "lastName": {
+      "default": "Vilmanis"
+     }
+    }
+   ]
+  },
+  "homeTeam": {
+   "headCoach": {
+    "default": "Marco Sturm"
+   },
+   "scratches": [
+    {
+     "id": 8476374,
+     "firstName": {
+      "default": "Sean"
+     },
+     "lastName": {
+      "default": "Kuraly"
+     }
+    },
+    {
+     "id": 8477365,
+     "firstName": {
+      "default": "Connor"
+     },
+     "lastName": {
+      "default": "Clifton"
+     }
+    },
+    {
+     "id": 8481219,
+     "firstName": {
+      "default": "Jonathan"
+     },
+     "lastName": {
+      "default": "Aspirot"
+     }
+    }
+   ]
+  }
+ },
+ "gameVideo": {
+  "threeMinRecap": 6408109323112,
+  "threeMinRecapFr": 6408110973112,
+  "condensedGame": 6408109910112,
+  "condensedGameFr": 6408111864112
+ },
+ "linescore": {
+  "byPeriod": [
+   {
+    "periodDescriptor": {
+     "number": 1,
+     "periodType": "REG",
+     "maxRegulationPeriods": 3
+    },
+    "away": 1,
+    "home": 3
+   },
+   {
+    "periodDescriptor": {
+     "number": 2,
+     "periodType": "REG",
+     "maxRegulationPeriods": 3
+    },
+    "away": 0,
+    "home": 0
+   },
+   {
+    "periodDescriptor": {
+     "number": 3,
+     "periodType": "REG",
+     "maxRegulationPeriods": 3
+    },
+    "away": 0,
+    "home": 1
+   }
+  ],
+  "totals": {
+   "away": 1,
+   "home": 4
+  }
+ },
+ "shotsByPeriod": [
+  {
+   "periodDescriptor": {
+    "number": 1,
+    "periodType": "REG",
+    "maxRegulationPeriods": 3
+   },
+   "away": 19,
+   "home": 11
+  },
+  {
+   "periodDescriptor": {
+    "number": 2,
+    "periodType": "REG",
+    "maxRegulationPeriods": 3
+   },
+   "away": 9,
+   "home": 18
+  },
+  {
+   "periodDescriptor": {
+    "number": 3,
+    "periodType": "REG",
+    "maxRegulationPeriods": 3
+   },
+   "away": 14,
+   "home": 8
+  }
+ ],
+ "teamGameStats": [
+  {
+   "category": "sog",
+   "awayValue": 42,
+   "homeValue": 37
+  },
+  {
+   "category": "faceoffWinningPctg",
+   "awayValue": 0.363636,
+   "homeValue": 0.636364
+  },
+  {
+   "category": "faceoffWins",
+   "awayValue": "28/77",
+   "homeValue": "49/77"
+  },
+  {
+   "category": "powerPlay",
+   "awayValue": "1/5",
+   "homeValue": "1/9"
+  },
+  {
+   "category": "powerPlayPctg",
+   "awayValue": 0.2,
+   "homeValue": 0.111111
+  },
+  {
+   "category": "pim",
+   "awayValue": 72,
+   "homeValue": 54
+  },
+  {
+   "category": "hits",
+   "awayValue": 38,
+   "homeValue": 13
+  },
+  {
+   "category": "blockedShots",
+   "awayValue": 6,
+   "homeValue": 6
+  },
+  {
+   "category": "giveaways",
+   "awayValue": 13,
+   "homeValue": 20
+  },
+  {
+   "category": "takeaways",
+   "awayValue": 5,
+   "homeValue": 2
+  }
+ ],
+ "gameReports": {
+  "gameSummary": "https://www.nhl.com/scores/htmlreports/20262027/GS020277.HTM",
+  "eventSummary": "https://www.nhl.com/scores/htmlreports/20262027/ES020277.HTM",
+  "playByPlay": "https://www.nhl.com/scores/htmlreports/20262027/PL020277.HTM",
+  "faceoffSummary": "https://www.nhl.com/scores/htmlreports/20262027/FS020277.HTM",
+  "faceoffComparison": "https://www.nhl.com/scores/htmlreports/20262027/FC020277.HTM",
+  "rosters": "https://www.nhl.com/scores/htmlreports/20262027/RO020277.HTM",
+  "shotSummary": "https://www.nhl.com/scores/htmlreports/20262027/SS020277.HTM",
+  "shiftChart": "https://www.nhl.com/stats/shiftcharts?id=2026020277",
+  "toiAway": "https://www.nhl.com/scores/htmlreports/20262027/TV020277.HTM",
+  "toiHome": "https://www.nhl.com/scores/htmlreports/20262027/TH020277.HTM"
+ }
+}
