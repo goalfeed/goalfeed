@@ -17,6 +17,10 @@ var logger = utils.GetLogger()
 
 // SendEvent sends a detailed event to Home Assistant
 func SendEvent(event models.Event) {
+	dispatchToHA(func() { sendEventNow(event) })
+}
+
+func sendEventNow(event models.Event) {
 	// Detect if running inside Home Assistant add-on environment
 	homeAssistantURL := os.Getenv("SUPERVISOR_API")
 	accessToken := os.Getenv("SUPERVISOR_TOKEN")
@@ -89,6 +93,10 @@ func SendEvent(event models.Event) {
 
 // SendGameUpdate sends detailed game state updates to Home Assistant
 func SendGameUpdate(game models.Game) {
+	dispatchToHA(func() { sendGameUpdateNow(game) })
+}
+
+func sendGameUpdateNow(game models.Game) {
 	homeAssistantURL := os.Getenv("SUPERVISOR_API")
 	accessToken := os.Getenv("SUPERVISOR_TOKEN")
 
@@ -175,6 +183,10 @@ func SendGameUpdate(game models.Game) {
 
 // SendPeriodUpdate sends period/quarter start/end events
 func SendPeriodUpdate(game models.Game, eventType models.EventType) {
+	dispatchToHA(func() { sendPeriodUpdateNow(game, eventType) })
+}
+
+func sendPeriodUpdateNow(game models.Game, eventType models.EventType) {
 	homeAssistantURL := os.Getenv("SUPERVISOR_API")
 	accessToken := os.Getenv("SUPERVISOR_TOKEN")
 
@@ -281,7 +293,16 @@ func getLeagueName(leagueId models.League) string {
 }
 
 // SendCustomEvent sends a custom event to Home Assistant with full control over the payload
+//
+// The timestamp is taken when the event is raised, not when a broadcast delay
+// finally lets it out, so automations can still tell when it happened.
 func SendCustomEvent(eventType string, data map[string]interface{}) {
+	data["timestamp"] = time.Now().Format(time.RFC3339)
+	data["source"] = "goalfeed"
+	dispatchToHA(func() { sendCustomEventNow(eventType, data) })
+}
+
+func sendCustomEventNow(eventType string, data map[string]interface{}) {
 	homeAssistantURL := os.Getenv("SUPERVISOR_API")
 	accessToken := os.Getenv("SUPERVISOR_TOKEN")
 
@@ -300,10 +321,6 @@ func SendCustomEvent(eventType string, data map[string]interface{}) {
 	}
 
 	url := fmt.Sprintf("%s/api/events/%s", homeAssistantURL, eventType)
-
-	// Add timestamp and source
-	data["timestamp"] = time.Now().Format(time.RFC3339)
-	data["source"] = "goalfeed"
 
 	jsonData, err := json.Marshal(data)
 	if err != nil {

@@ -88,3 +88,8 @@ func GetStringSlice(key string) []string {
 func GetBool(key string) bool {
 	return viper.GetBool(key)
 }
+
+// GetFloat64 returns a configuration value as a float64.
+func GetFloat64(key string) float64 {
+	return viper.GetFloat64(key)
+}

@@ -108,37 +108,6 @@ func publishEntity(domain, entity, friendly string, state interface{}, attrs map
 	entityCache[key] = entityCacheEntry{Serialized: string(serialized), UpdatedAt: time.Now()}
 	cacheMu.Unlock()
 
-	// Resolve HA endpoint after caching
-	haURL, token := getHAAuth()
-	if haURL == "" || token == "" {
-		stateLogger.Warn("Home Assistant not configured; cached state only")
-		return false, ""
-	}
-	if err := validateOutboundHAURL(haURL); err != nil {
-		stateLogger.Warn(fmt.Sprintf("HA state send refused: %v", err))
-		return false, ""
-	}
-
-	url := fmt.Sprintf("%s/api/states/%s.%s", haURL, domain, entity)
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(serialized))
-	if err != nil {
-		stateLogger.Warn(fmt.Sprintf("HA state req err: %v", err))
-		return false, ""
-	}
-	req.Header.Set("Authorization", "Bearer "+token)
-	req.Header.Set("Content-Type", "application/json")
-	client := haHTTPClient(5 * time.Second)
-	resp, err := client.Do(req)
-	if err != nil {
-		stateLogger.Warn(fmt.Sprintf("HA state send err: %v", err))
-		return false, ""
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		bodyBytes, _ := io.ReadAll(resp.Body)
-		stateLogger.Warn(fmt.Sprintf("HA state non-2xx: %s %s", resp.Status, string(bodyBytes)))
-		return false, ""
-	}
 	// Extract previous state
 	prev := ""
 	if ok && last.Serialized != "" {
@@ -149,7 +118,54 @@ func publishEntity(domain, entity, friendly string, state interface{}, attrs map
 			}
 		}
 	}
+
+	if broadcastDelay() > 0 {
+		// Cached now, sent later; see delay.go. The result of a delayed send
+		// is only logged, so report it as accepted.
+		dispatchToHA(func() { sendState(domain, entity, serialized) })
+		return true, prev
+	}
+	if !sendState(domain, entity, serialized) {
+		return false, ""
+	}
 	return true, prev
+}
+
+// sendState POSTs one entity state to Home Assistant. The HA URL is resolved
+// and validated here, at the moment the request is built, so a delayed send
+// is guarded exactly like an immediate one.
+func sendState(domain, entity string, serialized []byte) bool {
+	haURL, token := getHAAuth()
+	if haURL == "" || token == "" {
+		stateLogger.Warn("Home Assistant not configured; cached state only")
+		return false
+	}
+	if err := validateOutboundHAURL(haURL); err != nil {
+		stateLogger.Warn(fmt.Sprintf("HA state send refused: %v", err))
+		return false
+	}
+
+	url := fmt.Sprintf("%s/api/states/%s.%s", haURL, domain, entity)
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(serialized))
+	if err != nil {
+		stateLogger.Warn(fmt.Sprintf("HA state req err: %v", err))
+		return false
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Content-Type", "application/json")
+	client := haHTTPClient(5 * time.Second)
+	resp, err := client.Do(req)
+	if err != nil {
+		stateLogger.Warn(fmt.Sprintf("HA state send err: %v", err))
+		return false
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		stateLogger.Warn(fmt.Sprintf("HA state non-2xx: %s %s", resp.Status, string(bodyBytes)))
+		return false
+	}
+	return true
 }
 
 func leagueSlug(league models.League) string {
