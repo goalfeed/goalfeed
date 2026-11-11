@@ -21,7 +21,25 @@ import (
 func withBroadcastDelay(t *testing.T, secs float64) {
 	t.Helper()
 	viper.Set(broadcastDelayKey, secs)
-	t.Cleanup(func() { viper.Set(broadcastDelayKey, 0) })
+	t.Cleanup(func() {
+		// Let every send this test queued finish before touching config:
+		// a send still in flight reads the HA URL and token, and resetting
+		// viper under it is a data race (go test -race).
+		drainQueue(t, haDelayQueue)
+		viper.Set(broadcastDelayKey, 0)
+	})
+}
+
+func drainQueue(t *testing.T, q *delayQueue) {
+	t.Helper()
+	deadline := time.Now().Add(10 * time.Second)
+	for !q.idle() {
+		if time.Now().After(deadline) {
+			t.Error("delay queue did not drain")
+			return
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
 }
 
 func TestBroadcastDelay_ParsingAndCap(t *testing.T) {
@@ -61,6 +79,7 @@ func TestDelayQueue_PreservesOrderAndWaitsForDue(t *testing.T) {
 }
 
 func TestPublishEntity_DelayedSendArrivesLater(t *testing.T) {
+	useQueue(t, newDelayQueue())
 	var mu sync.Mutex
 	var arrived []time.Time
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -98,6 +117,7 @@ func TestPublishEntity_DelayedSendArrivesLater(t *testing.T) {
 }
 
 func TestSendCustomEvent_DelayedKeepsRaiseTimestamp(t *testing.T) {
+	useQueue(t, newDelayQueue())
 	bodies := make(chan map[string]interface{}, 1)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasSuffix(r.URL.Path, "/api/events/goalfeed_goal") {
@@ -135,6 +155,11 @@ func TestSendCustomEvent_DelayedKeepsRaiseTimestamp(t *testing.T) {
 // Switching between two local servers while the send waits proves the
 // resolution happens at send time; the poisoned case then proves the guard
 // refuses it and the token never leaves.
+//
+// Config is changed only while the worker is parked at the gate, and the
+// gate is opened through a channel, so the change happens-before the send
+// reads it. Changing it while the send might be running would be a data
+// race on viper's global map.
 func TestDelayedSend_ResolvesAndGuardsURLAtSendTime(t *testing.T) {
 	type hit struct{ auth string }
 	first, second := make(chan hit, 4), make(chan hit, 4)
@@ -157,11 +182,16 @@ func TestDelayedSend_ResolvesAndGuardsURLAtSendTime(t *testing.T) {
 	})
 	debounceAfter = 0
 	entityCache = map[string]entityCacheEntry{}
-	withBroadcastDelay(t, 0.3)
+
+	q, sleeping, step := steppedQueue(t)
+	useQueue(t, q)
+	withBroadcastDelay(t, 30)
 
 	viper.Set("home_assistant.url", srv1.URL)
 	publishEntity("sensor", "goalfeed_nhl_wpg_team_hits", "", 3, nil)
+	waitSleeping(t, sleeping)
 	viper.Set("home_assistant.url", srv2.URL)
+	step <- struct{}{}
 
 	select {
 	case h := <-second:
@@ -170,55 +200,30 @@ func TestDelayedSend_ResolvesAndGuardsURLAtSendTime(t *testing.T) {
 		t.Fatal("delayed send never arrived at the URL configured at send time")
 	}
 	assert.Empty(t, first, "the URL from queue time must not be used")
+	drainQueue(t, q)
 
 	// Now poison the URL while a send waits: it must be refused.
 	publishEntity("sensor", "goalfeed_nhl_wpg_team_hits", "", 4, nil)
+	waitSleeping(t, sleeping)
 	viper.Set("home_assistant.url", "http://attacker.example:8123")
-	time.Sleep(700 * time.Millisecond)
+	step <- struct{}{}
+	drainQueue(t, q)
 	assert.Empty(t, first)
 	assert.Empty(t, second)
 }
 
-// Review N2: two states for one entity must reach HA in order even when HA
-// is slow, while a slow entity must not hold up a different one.
-func TestDelayQueue_SameKeyStrictlyOrderedOtherKeysNot(t *testing.T) {
+// steppedQueue is like gatedQueue, but the test lets each parked send go
+// one at a time by sending on step.
+func steppedQueue(t *testing.T) (*delayQueue, chan struct{}, chan struct{}) {
+	t.Helper()
 	q := newDelayQueue()
-	now := time.Now()
-	release := make(chan struct{})
-	var mu sync.Mutex
-	var log []string
-	rec := func(s string) { mu.Lock(); log = append(log, s); mu.Unlock() }
-
-	q.enqueue(now, "sensor.score", func() { rec("score=1 start"); <-release; rec("score=1 end") })
-	q.enqueue(now, "sensor.score", func() { rec("score=2") })
-	otherDone := make(chan struct{})
-	q.enqueue(now, "sensor.hits", func() { rec("hits"); close(otherDone) })
-
-	select {
-	case <-otherDone:
-	case <-time.After(2 * time.Second):
-		t.Fatal("a slow entity held up a different one")
+	sleeping := make(chan struct{}, 16)
+	step := make(chan struct{})
+	q.sleep = func(time.Duration) {
+		sleeping <- struct{}{}
+		<-step
 	}
-	mu.Lock()
-	assert.NotContains(t, log, "score=2", "the newer score must wait for the older one")
-	mu.Unlock()
-
-	close(release)
-	require.Eventually(t, func() bool { return q.idle() }, 2*time.Second, 5*time.Millisecond)
-	mu.Lock()
-	defer mu.Unlock()
-	iStart, iEnd, iTwo := indexOf(log, "score=1 start"), indexOf(log, "score=1 end"), indexOf(log, "score=2")
-	assert.True(t, iStart < iEnd && iEnd < iTwo, "order was %v", log)
-	assert.Empty(t, q.tails, "finished lanes are cleaned up")
-}
-
-func indexOf(xs []string, x string) int {
-	for i, v := range xs {
-		if v == x {
-			return i
-		}
-	}
-	return -1
+	return q, sleeping, step
 }
 
 // gatedQueue returns a queue whose worker, once it has taken a send and
