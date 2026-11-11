@@ -957,3 +957,74 @@ func TestCheckGame_PublishesEndOfGameResetWhenFinal(t *testing.T) {
 	// Final numbers first, then the reset, never the other way round.
 	assert.Equal(t, []string{"sensors", "reset"}, order)
 }
+
+func TestFireGoalEvents_GoalfeedGoalMatchesEachScorer(t *testing.T) {
+	setupTest(t)
+	viper.Set("watch.nhl", []string{"WPG"})
+	leagueServices[int(models.LeagueIdNHL)] = &MockLeagueService{leagueName: "NHL"}
+
+	type sent struct {
+		kind string
+		data map[string]interface{}
+	}
+	got := make(chan sent, 4)
+	oldEv, oldCustom := eventSender, customEventSender
+	eventSender = func(models.Event) {}
+	customEventSender = func(kind string, data map[string]interface{}) { got <- sent{kind, data} }
+	defer func() { eventSender, customEventSender = oldEv, oldCustom }()
+
+	// WPG went 1 -> 3 in one poll; the summary lists both goals, and NJD's
+	// 1-0 opener before them.
+	game := createTestGame(models.LeagueIdNHL, "WPG", "NJD")
+	game.CurrentState.Home.Score = 3
+	game.CurrentState.Away.Score = 1
+	game.CurrentState.Goals = []models.GoalSummary{
+		{TeamCode: "WPG", Scorer: "Gabriel Vilardi", HomeScore: 1, AwayScore: 1},
+		{TeamCode: "WPG", Scorer: "Kyle Connor", Strength: "PP", Assists: []string{"Josh Morrissey"}, HomeScore: 2, AwayScore: 1},
+		{TeamCode: "WPG", Scorer: "Mark Scheifele", Strength: "EV", HomeScore: 3, AwayScore: 1},
+	}
+	ev := models.Event{TeamCode: "WPG", LeagueId: int(models.LeagueIdNHL), LeagueName: "NHL", OpponentCode: "NJD"}
+	events := make(chan []models.Event, 1)
+	events <- []models.Event{ev, ev}
+	fireGoalEvents(events, game)
+
+	scorers := map[interface{}]map[string]interface{}{}
+	for i := 0; i < 2; i++ {
+		s := <-got
+		assert.Equal(t, "goalfeed_goal", s.kind)
+		scorers[s.data["team_score"]] = s.data
+	}
+	assert.Equal(t, "Kyle Connor", scorers[2]["scorer"])
+	assert.Equal(t, "PP", scorers[2]["strength"])
+	assert.Equal(t, []string{"Josh Morrissey"}, scorers[2]["assists"])
+	assert.Equal(t, "Mark Scheifele", scorers[3]["scorer"])
+	assert.Equal(t, 1, scorers[3]["opponent_score"])
+	assert.Equal(t, "home", scorers[3]["home_away"])
+}
+
+func TestGoalfeedGoalEventData_SummaryNotCaughtUp(t *testing.T) {
+	game := createTestGame(models.LeagueIdNHL, "WPG", "NJD")
+	game.CurrentState.Home.Score = 1
+	ev := models.Event{TeamCode: "WPG", LeagueName: "NHL"}
+	data := goalfeedGoalEventData(ev, game, 1)
+	assert.Equal(t, "", data["scorer"], "no guessed scorer when the summary lags the score")
+	assert.Equal(t, 1, data["team_score"])
+	assert.Equal(t, []string{}, data["assists"])
+}
+
+func TestFireGoalEvents_GoalfeedGoalIsNHLOnly(t *testing.T) {
+	setupTest(t)
+	viper.Set("watch.mlb", []string{"TOR"})
+	leagueServices[int(models.LeagueIdMLB)] = &MockLeagueService{leagueName: "MLB"}
+	custom := 0
+	oldEv, oldCustom := eventSender, customEventSender
+	eventSender = func(models.Event) {}
+	customEventSender = func(string, map[string]interface{}) { custom++ }
+	defer func() { eventSender, customEventSender = oldEv, oldCustom }()
+
+	events := make(chan []models.Event, 1)
+	events <- []models.Event{{TeamCode: "TOR", LeagueName: "MLB"}}
+	fireGoalEvents(events, createTestGame(models.LeagueIdMLB, "TOR", "NYY"))
+	time.Sleep(20 * time.Millisecond)
+	assert.Equal(t, 0, custom)
+}

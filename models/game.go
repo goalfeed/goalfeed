@@ -51,9 +51,31 @@ type GameState struct {
 	Statistics TeamStats    `json:"statistics,omitempty"`
 	// Hockey live situation (NHL). Situation is nil when unknown, and the
 	// zero value of a non-nil Situation means even strength.
-	InIntermission bool         `json:"inIntermission,omitempty"`
-	Situation      *Situation   `json:"situation,omitempty"`
-	LastGoal       *GoalSummary `json:"lastGoal,omitempty"`
+	InIntermission bool          `json:"inIntermission,omitempty"`
+	Situation      *Situation    `json:"situation,omitempty"`
+	LastGoal       *GoalSummary  `json:"lastGoal,omitempty"`
+	Goals          []GoalSummary `json:"goals,omitempty"` // every goal so far, in order
+}
+
+// GoalFor returns the goal that took teamCode's score to teamScore, if the
+// upstream summary has it yet. Score detection fires one event per point, so
+// this is how each event is matched to its own scorer when two goals land in
+// one poll.
+func (s GameState) GoalFor(teamCode string, teamScore int) (GoalSummary, bool) {
+	isHome := teamCode == s.Home.Team.TeamCode
+	for _, g := range s.Goals {
+		if g.TeamCode != teamCode {
+			continue
+		}
+		score := g.AwayScore
+		if isHome {
+			score = g.HomeScore
+		}
+		if score == teamScore {
+			return g, true
+		}
+	}
+	return GoalSummary{}, false
 }
 
 // Situation is the on-ice strength of a hockey game at the time of the poll.

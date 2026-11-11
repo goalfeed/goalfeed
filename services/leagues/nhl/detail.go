@@ -21,7 +21,12 @@ func isLiveGameState(state string) bool {
 // costs no extra request.
 func applyLandingDetail(state *models.GameState, sb nhl.NHLScoreboardResponse) {
 	state.InIntermission = sb.Clock.InIntermission
-	state.LastGoal = lastGoalFromLanding(sb)
+	state.Goals = goalsFromLanding(sb)
+	state.LastGoal = nil
+	if n := len(state.Goals); n > 0 {
+		last := state.Goals[n-1]
+		state.LastGoal = &last
+	}
 
 	if !isLiveGameState(sb.GameState) {
 		state.Situation = nil
@@ -90,48 +95,50 @@ func situationFromCode(code, homeCode, awayCode string) (models.Situation, bool)
 	return s, true
 }
 
-func lastGoalFromLanding(sb nhl.NHLScoreboardResponse) *models.GoalSummary {
-	for p := len(sb.Summary.Scoring) - 1; p >= 0; p-- {
-		period := sb.Summary.Scoring[p]
-		if len(period.Goals) == 0 {
-			continue
+func goalsFromLanding(sb nhl.NHLScoreboardResponse) []models.GoalSummary {
+	var goals []models.GoalSummary
+	for _, period := range sb.Summary.Scoring {
+		for _, g := range period.Goals {
+			goals = append(goals, goalSummary(sb, period.PeriodDescriptor, g))
 		}
-		g := period.Goals[len(period.Goals)-1]
-		assists := make([]string, 0, len(g.Assists))
-		for _, a := range g.Assists {
-			assists = append(assists, playerName(a.Name, a.FirstName, a.LastName))
-		}
-		team := g.TeamAbbrev.Default
-		if team == "" {
-			if g.IsHome {
-				team = sb.HomeTeam.Abbrev
-			} else {
-				team = sb.AwayTeam.Abbrev
-			}
-		}
-		summary := &models.GoalSummary{
-			TeamCode:     team,
-			Scorer:       playerName(g.Name, g.FirstName, g.LastName),
-			ScorerGoals:  int(g.GoalsToDate),
-			Assists:      assists,
-			Period:       period.PeriodDescriptor.Number,
-			PeriodType:   mapPeriodType(period.PeriodDescriptor.PeriodType),
-			TimeInPeriod: g.TimeInPeriod,
-			Strength:     strings.ToUpper(g.Strength),
-			EmptyNet:     g.GoalModifier == "empty-net",
-			ShotType:     g.ShotType,
-			HomeScore:    int(g.HomeScore),
-			AwayScore:    int(g.AwayScore),
-		}
-		if g.EventID != 0 {
-			summary.EventId = strconv.Itoa(int(g.EventID))
-		}
-		if g.PlayerID != 0 {
-			summary.ScorerId = strconv.Itoa(int(g.PlayerID))
-		}
-		return summary
 	}
-	return nil
+	return goals
+}
+
+func goalSummary(sb nhl.NHLScoreboardResponse, pd nhl.PeriodDescriptor, g nhl.LandingGoal) models.GoalSummary {
+	assists := make([]string, 0, len(g.Assists))
+	for _, a := range g.Assists {
+		assists = append(assists, playerName(a.Name, a.FirstName, a.LastName))
+	}
+	team := g.TeamAbbrev.Default
+	if team == "" {
+		if g.IsHome {
+			team = sb.HomeTeam.Abbrev
+		} else {
+			team = sb.AwayTeam.Abbrev
+		}
+	}
+	summary := models.GoalSummary{
+		TeamCode:     team,
+		Scorer:       playerName(g.Name, g.FirstName, g.LastName),
+		ScorerGoals:  int(g.GoalsToDate),
+		Assists:      assists,
+		Period:       pd.Number,
+		PeriodType:   mapPeriodType(pd.PeriodType),
+		TimeInPeriod: g.TimeInPeriod,
+		Strength:     strings.ToUpper(g.Strength),
+		EmptyNet:     g.GoalModifier == "empty-net",
+		ShotType:     g.ShotType,
+		HomeScore:    int(g.HomeScore),
+		AwayScore:    int(g.AwayScore),
+	}
+	if g.EventID != 0 {
+		summary.EventId = strconv.Itoa(int(g.EventID))
+	}
+	if g.PlayerID != 0 {
+		summary.ScorerId = strconv.Itoa(int(g.PlayerID))
+	}
+	return summary
 }
 
 // playerName prefers the full first and last name and falls back to the

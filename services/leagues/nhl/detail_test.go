@@ -75,14 +75,42 @@ func TestLastGoalFromRecordedLanding(t *testing.T) {
 	var landing nhlClients.NHLScoreboardResponse
 	loadJSON(t, "landing_2026020291_final.json", &landing)
 
-	g := lastGoalFromLanding(landing)
+	var st models.GameState
+	applyLandingDetail(&st, landing)
+	require.Len(t, st.Goals, 6)
+	assert.Equal(t, "PP", st.Goals[1].Strength)
+	assert.Equal(t, "WPG", st.Goals[1].TeamCode)
+	g := st.LastGoal
 	require.NotNil(t, g)
+	assert.Equal(t, st.Goals[5], *g)
 	assert.Equal(t, models.GoalSummary{
 		EventId: "983", TeamCode: "WPG", Scorer: "Kyle Connor", ScorerId: "8478398",
 		ScorerGoals: 15, Assists: []string{}, Period: 3, PeriodType: "REGULAR",
 		TimeInPeriod: "19:02", Strength: "EV", EmptyNet: true, ShotType: "wrist",
 		HomeScore: 4, AwayScore: 2,
 	}, *g)
+}
+
+func TestGoalFor_MatchesEachPointToItsGoal(t *testing.T) {
+	var landing nhlClients.NHLScoreboardResponse
+	loadJSON(t, "landing_2026020291_final.json", &landing)
+	var st models.GameState
+	st.Home.Team.TeamCode, st.Away.Team.TeamCode = "WPG", "NJD"
+	applyLandingDetail(&st, landing)
+
+	// WPG (home) scored 1st, 2nd (PP), 3rd (PP) and 4th (empty net).
+	g, ok := st.GoalFor("WPG", 4)
+	require.True(t, ok)
+	assert.True(t, g.EmptyNet)
+	g, ok = st.GoalFor("WPG", 2)
+	require.True(t, ok)
+	assert.Equal(t, "PP", g.Strength)
+	g, ok = st.GoalFor("NJD", 2)
+	require.True(t, ok)
+	assert.Equal(t, "NJD", g.TeamCode)
+
+	_, ok = st.GoalFor("WPG", 5)
+	assert.False(t, ok, "a goal the summary has not caught up with yet")
 }
 
 func TestApplyLandingDetail_FinalGameHasNoSituation(t *testing.T) {
