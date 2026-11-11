@@ -3,6 +3,7 @@ package homeassistant
 import (
 	"encoding/json"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -202,13 +203,21 @@ func TestDelayedSend_ResolvesAndGuardsURLAtSendTime(t *testing.T) {
 	assert.Empty(t, first, "the URL from queue time must not be used")
 	drainQueue(t, q)
 
-	// Now poison the URL while a send waits: it must be refused.
+	// Now poison the URL while a send waits: it must be refused by the URL
+	// check in sendState. The poisoned host is a public-looking name that
+	// the test resolver points at srv1 on 127.0.0.1, so the dial-time IP
+	// check would let it through: only validateOutboundHAURL stands between
+	// the token and that server (review F1).
+	_, port1, _ := net.SplitHostPort(strings.TrimPrefix(srv1.URL, "http://"))
+	oldResolver := haResolver
+	haResolver = fakeDNS(t, map[string]net.IP{"ha": net.ParseIP("127.0.0.1")})
 	publishEntity("sensor", "goalfeed_nhl_wpg_team_hits", "", 4, nil)
 	waitSleeping(t, sleeping)
-	viper.Set("home_assistant.url", "http://attacker.example:8123")
+	viper.Set("home_assistant.url", "http://ha.attacker.example:"+port1)
 	step <- struct{}{}
 	drainQueue(t, q)
-	assert.Empty(t, first)
+	haResolver = oldResolver
+	assert.Empty(t, first, "a URL that fails validation must never be sent to, even if it would connect")
 	assert.Empty(t, second)
 }
 

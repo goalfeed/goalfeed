@@ -15,6 +15,8 @@ import (
 	"testing"
 	"time"
 
+	"goalfeed/models"
+
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -190,5 +192,56 @@ func TestHASenders_AllUseGuardedClient(t *testing.T) {
 				return true
 			})
 		}
+	}
+}
+
+// Review F1, widened: every token sender's own URL check must be what stops
+// a poisoned URL. The poisoned host is a public-looking name that the test
+// resolver points at a local server on 127.0.0.1, so the dial-time IP check
+// would let it through; with a sender's validateOutboundHAURL removed, the
+// token reaches the server and this fails. A control run with the plain
+// loopback URL proves each sender really would have delivered.
+func TestEverySender_URLCheckRefusesPoisonedURL(t *testing.T) {
+	var hits atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hits.Add(1)
+		w.WriteHeader(http.StatusOK)
+	}))
+	t.Cleanup(srv.Close)
+	_, port, _ := net.SplitHostPort(strings.TrimPrefix(srv.URL, "http://"))
+
+	old := haResolver
+	haResolver = fakeDNS(t, map[string]net.IP{"ha": net.ParseIP("127.0.0.1")})
+	t.Cleanup(func() { haResolver = old })
+	// Sends are synchronous only at delay 0 with the queue idle; the
+	// control assertion depends on that.
+	drainQueue(t, haDelayQueue)
+	viper.Set(broadcastDelayKey, 0)
+
+	game := models.Game{GameCode: "1", LeagueId: models.LeagueIdNHL}
+	senders := map[string]func(){
+		"SendEvent":        func() { SendEvent(models.Event{TeamCode: "WPG", LeagueId: int(models.LeagueIdNHL)}) },
+		"SendGameUpdate":   func() { SendGameUpdate(game) },
+		"SendPeriodUpdate": func() { SendPeriodUpdate(game, models.EventTypePeriodStart) },
+		"SendCustomEvent":  func() { SendCustomEvent("goalfeed_goal", map[string]interface{}{"team": "WPG"}) },
+		"CheckConnection":  func() { CheckConnection(2 * time.Second) },
+		"publishEntity": func() {
+			debounceAfter = 0
+			entityCache = map[string]entityCacheEntry{}
+			publishEntity("sensor", "goalfeed_nhl_wpg_team_hits", "", 1, nil)
+		},
+	}
+	for name, send := range senders {
+		t.Run(name, func(t *testing.T) {
+			withHAConfig(t, "http://127.0.0.1:"+port, false)
+			hits.Store(0)
+			send()
+			require.Equal(t, int32(1), hits.Load(), "control: the plain loopback URL must deliver")
+
+			withHAConfig(t, "http://ha.attacker.example:"+port, false)
+			hits.Store(0)
+			send()
+			assert.Equal(t, int32(0), hits.Load(), "a URL that fails validation must never be sent to, even if it would connect")
+		})
 	}
 }
