@@ -41,3 +41,28 @@ func TestGetGameUpdate_FailedFetchKeepsPreviousState(t *testing.T) {
 	CFLService{}.GetEvents(recovered, events)
 	assert.Empty(t, <-events, "recovering from a failed fetch must not fire scores")
 }
+
+// Only a response with neither field is a failed fetch. One that is missing
+// just one of them is still a real update and must be used: the guard has
+// to be "both empty", not "either empty".
+func TestGetGameUpdate_OneIdentityFieldIsStillAnUpdate(t *testing.T) {
+	b, err := os.ReadFile("../../../clients/leagues/cfl/testdata/cfl_live_game_numericid.json")
+	require.NoError(t, err)
+	var live cflClients.CFLLiveGameResponse
+	require.NoError(t, json.Unmarshal(b, &live))
+	require.NotEmpty(t, live.Data.BetGeniusFixtureID)
+	require.NotEmpty(t, live.Data.ScoreboardInfo.MatchStatus)
+
+	noStatus := live
+	noStatus.Data.ScoreboardInfo.MatchStatus = ""
+	noFixture := live
+	noFixture.Data.BetGeniusFixtureID = ""
+	for name, resp := range map[string]cflClients.CFLLiveGameResponse{"no match status": noStatus, "no fixture id": noFixture} {
+		t.Run(name, func(t *testing.T) {
+			game := models.Game{GameCode: "13419716", LeagueId: models.LeagueIdCFL}
+			got := cflPoll(CFLService{Client: cflClients.MockCFLApiClient{LiveGameResponse: resp}}, game).NewState
+			assert.Equal(t, 46, got.Home.Score)
+			assert.Equal(t, 16, got.Away.Score)
+		})
+	}
+}
