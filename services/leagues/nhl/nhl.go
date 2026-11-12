@@ -205,6 +205,16 @@ func (s NHLService) gameFromScoreboard(gameId string) models.Game {
 func (s NHLService) getGameUpdateFromScoreboard(game models.Game, ret chan models.GameUpdate) {
 	scoreboard := s.Client.GetNHLScoreBoard(game.GameCode)
 
+	// A failed fetch (network error, or a body that is not JSON) leaves a
+	// zero response. Taking it as the new state would drop both scores to 0,
+	// and the next good poll would fire a false goal event for every goal
+	// already scored. Anything that is not this game's landing is no update.
+	if strconv.Itoa(scoreboard.ID) != game.GameCode {
+		logger.Warn(fmt.Sprintf("NHL game %s: landing returned game id %d; keeping the previous state", game.GameCode, scoreboard.ID))
+		ret <- models.GameUpdate{OldState: game.CurrentState, NewState: game.CurrentState}
+		return
+	}
+
 	// Extract period information from periodDescriptor
 	var period int
 	var periodType string

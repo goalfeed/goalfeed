@@ -243,7 +243,7 @@ func TestGameUpdate_ThrottledPollKeepsStats(t *testing.T) {
 	loadJSON(t, "right_rail_2026020291_final.json", &c.rightRail)
 	c.landing.GameState = "LIVE"
 	svc := NHLService{Client: c}
-	game := models.Game{GameCode: "throttle-test", LeagueId: models.LeagueIdNHL}
+	game := models.Game{GameCode: "2026020291", LeagueId: models.LeagueIdNHL}
 
 	ch := make(chan models.GameUpdate, 1)
 	svc.GetGameUpdate(game, ch)

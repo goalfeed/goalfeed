@@ -2,6 +2,7 @@ package nhl
 
 import (
 	"encoding/json"
+	"strconv"
 )
 
 type MockNHLApiClient struct {
@@ -43,6 +44,11 @@ func (c MockNHLApiClient) GetNHLScoreBoard(sGameId string) NHLScoreboardResponse
 	var response NHLScoreboardResponse
 	c.GetNHLScoreBoardCalls++
 	json.Unmarshal([]byte(ActiveGameScoreboard), &response)
+	// The canned payload has no top-level id; stand in for the landing of
+	// whichever game was asked for, as the real endpoint does.
+	if id, err := strconv.Atoi(sGameId); err == nil {
+		response.ID = id
+	}
 	response.AwayTeam.Score = awayScore
 	response.HomeTeam.Score = homeScore
 	return response
