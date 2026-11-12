@@ -15,8 +15,18 @@ import (
 
 var logger = utils.GetLogger()
 
+// haEventTimeout bounds every event POST. Events used to have no timeout at
+// all, so a hung Home Assistant leaked a goroutine per goal; with events
+// ordered as one stream behind a broadcast delay, it would also stall every
+// event after it.
+const haEventTimeout = 10 * time.Second
+
 // SendEvent sends a detailed event to Home Assistant
 func SendEvent(event models.Event) {
+	dispatchToHA(haEventsKey, func() { sendEventNow(event) })
+}
+
+func sendEventNow(event models.Event) {
 	// Detect if running inside Home Assistant add-on environment
 	homeAssistantURL := os.Getenv("SUPERVISOR_API")
 	accessToken := os.Getenv("SUPERVISOR_TOKEN")
@@ -63,7 +73,7 @@ func SendEvent(event models.Event) {
 	req.Header.Set("Content-Type", "application/json")
 
 	// Send the request
-	client := &http.Client{}
+	client := haHTTPClient(haEventTimeout)
 	resp, err := client.Do(req)
 	if err != nil {
 		logger.Warn(err)
@@ -89,6 +99,10 @@ func SendEvent(event models.Event) {
 
 // SendGameUpdate sends detailed game state updates to Home Assistant
 func SendGameUpdate(game models.Game) {
+	dispatchToHA(haEventsKey, func() { sendGameUpdateNow(game) })
+}
+
+func sendGameUpdateNow(game models.Game) {
 	homeAssistantURL := os.Getenv("SUPERVISOR_API")
 	accessToken := os.Getenv("SUPERVISOR_TOKEN")
 
@@ -154,7 +168,7 @@ func SendGameUpdate(game models.Game) {
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 	req.Header.Set("Content-Type", "application/json")
 
-	client := &http.Client{}
+	client := haHTTPClient(haEventTimeout)
 	resp, err := client.Do(req)
 	if err != nil {
 		logger.Warn("Failed to send game update to Home Assistant: " + err.Error())
@@ -175,6 +189,10 @@ func SendGameUpdate(game models.Game) {
 
 // SendPeriodUpdate sends period/quarter start/end events
 func SendPeriodUpdate(game models.Game, eventType models.EventType) {
+	dispatchToHA(haEventsKey, func() { sendPeriodUpdateNow(game, eventType) })
+}
+
+func sendPeriodUpdateNow(game models.Game, eventType models.EventType) {
 	homeAssistantURL := os.Getenv("SUPERVISOR_API")
 	accessToken := os.Getenv("SUPERVISOR_TOKEN")
 
@@ -223,7 +241,7 @@ func SendPeriodUpdate(game models.Game, eventType models.EventType) {
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 	req.Header.Set("Content-Type", "application/json")
 
-	client := &http.Client{}
+	client := haHTTPClient(haEventTimeout)
 	resp, err := client.Do(req)
 	if err != nil {
 		logger.Warn("Failed to send period update to Home Assistant: " + err.Error())
@@ -281,7 +299,16 @@ func getLeagueName(leagueId models.League) string {
 }
 
 // SendCustomEvent sends a custom event to Home Assistant with full control over the payload
+//
+// The timestamp is taken when the event is raised, not when a broadcast delay
+// finally lets it out, so automations can still tell when it happened.
 func SendCustomEvent(eventType string, data map[string]interface{}) {
+	data["timestamp"] = time.Now().Format(time.RFC3339)
+	data["source"] = "goalfeed"
+	dispatchToHA(haEventsKey, func() { sendCustomEventNow(eventType, data) })
+}
+
+func sendCustomEventNow(eventType string, data map[string]interface{}) {
 	homeAssistantURL := os.Getenv("SUPERVISOR_API")
 	accessToken := os.Getenv("SUPERVISOR_TOKEN")
 
@@ -301,10 +328,6 @@ func SendCustomEvent(eventType string, data map[string]interface{}) {
 
 	url := fmt.Sprintf("%s/api/events/%s", homeAssistantURL, eventType)
 
-	// Add timestamp and source
-	data["timestamp"] = time.Now().Format(time.RFC3339)
-	data["source"] = "goalfeed"
-
 	jsonData, err := json.Marshal(data)
 	if err != nil {
 		logger.Error("Failed to marshal custom event: " + err.Error())
@@ -320,7 +343,7 @@ func SendCustomEvent(eventType string, data map[string]interface{}) {
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 	req.Header.Set("Content-Type", "application/json")
 
-	client := &http.Client{}
+	client := haHTTPClient(haEventTimeout)
 	resp, err := client.Do(req)
 	if err != nil {
 		logger.Warn("Failed to send custom event to Home Assistant: " + err.Error())

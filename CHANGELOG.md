@@ -18,7 +18,52 @@ would serve no one. For the full per-tag record from that window, see
 
 ## [Unreleased]
 
+### Fixed
+
+- **No more false NHL goal events after a failed fetch.** If one request to the
+  NHL failed, the next good one fired a `goal` event for every goal already
+  scored in the game. A failed fetch now leaves the game as it was. The same
+  fix applies to CFL, where one failed fetch could replay a whole game's
+  points.
+- **Home Assistant sensors update during games again.** Since September 2025,
+  per-team sensors such as `..._team_current_score`, `..._team_clock`,
+  `..._team_period` and `..._team_shots` were set at startup and from the
+  schedule, but never updated while a game was live. They now update on
+  every poll, and reset when the game ends. Goal events were not affected.
+
+### Added
+
+- **NHL team game stats in Home Assistant.** Each watched NHL team gets hits,
+  faceoff wins and faceoff %, power play (`"1/3"`), PIM, blocked shots,
+  giveaways and takeaways sensors, plus `on_power_play`, `empty_net` and
+  `intermission` binary sensors. There is also one
+  `sensor.goalfeed_nhl_<team>_game` whose attributes carry the whole
+  scoreboard: goals and shots by period, situation and last goal. The
+  team stats add one free, keyless NHL request per live game at most every
+  15 seconds; the situation sensors update every second.
+- **`goalfeed_goal` event for NHL goals**, fired alongside the existing
+  `goal` event, with the scorer, assists, strength and empty-net flag. The
+  `goal` event is unchanged.
+- **`home_assistant.broadcast_delay_seconds`** holds back everything sent to
+  Home Assistant so lights and dashboards line up with your TV or stream.
+  The default is 0 (off).
+
 ### Security
+
+- **Closed two remaining ways the Home Assistant token could reach a public
+  address.** A single-label URL host that is really a number
+  (`http://134744072`, `http://0x08080808`) passed as a LAN hostname, and
+  some system resolvers read those as `8.8.8.8`. Those hosts are now
+  rejected. Separately, and more robustly, every request carrying the token
+  now checks the IP it actually connects to, after DNS, and refuses anything
+  that isn't loopback or private. That covers search-domain completion and
+  DNS rebinding as well. `home_assistant.allow_remote_url: true` turns both
+  checks off for a genuinely remote Home Assistant, as before. If you
+  reach Home Assistant through an HTTP proxy set in the environment without
+  that opt-in, Goalfeed now connects directly instead. If your Home
+  Assistant hostname resolves *only* to a Tailscale (`100.64.0.0/10`) or
+  global IPv6 address, set `home_assistant.allow_remote_url: true`; a name
+  that also has a private IPv4 address keeps working.
 
 - **Fixed an unauthenticated Home Assistant access-token exfiltration path.**
   `POST /api/homeassistant/config` accepted an arbitrary URL with no

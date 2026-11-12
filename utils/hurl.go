@@ -21,12 +21,16 @@ import (
 //  2. It must have a non-empty host.
 //  3. Unless allowRemote is true, the host must resolve to something clearly
 //     local:
-//     - an IP literal that is loopback, link-local, or private
-//     (RFC 1918 / RFC 4193), or
+//     - an IP literal that is loopback or private (RFC 1918 / RFC 4193);
+//     link-local is refused, see isPrivateOrLocalIP, or
 //     - a hostname that is clearly local: "localhost", "homeassistant",
 //     "homeassistant.local", "supervisor", anything ending in ".local",
-//     or a bare single-label hostname (no dots) - i.e. not a public
-//     hostname.
+//     or a bare single-label hostname (no dots) that inet_aton could not
+//     read as a numeric address - i.e. not a public hostname.
+//
+// This is a check on the name only. The Home Assistant HTTP client also
+// checks the address it actually dials (IsAllowedHomeAssistantIP), which is
+// what covers DNS search domains and rebinding.
 //
 // Public/routable IPs and public hostnames are rejected unless allowRemote is
 // true, in which case only the scheme/host checks (1 and 2) still apply - the
@@ -85,7 +89,40 @@ func isLocalHomeAssistantHost(host string) bool {
 	// Not an IP literal. A bare single-label hostname (no dots, e.g. an mDNS
 	// or NetBIOS name on the LAN) is treated as local; anything with a dot
 	// that isn't covered above is assumed to be a public DNS name.
-	return !strings.Contains(lower, ".")
+	if strings.Contains(lower, ".") {
+		return false
+	}
+	// ...except a single label that inet_aton would read as an IPv4 address.
+	// net.ParseIP rejects "134744072", "0x08080808" and "010", but a cgo /
+	// getaddrinfo resolver turns them into 8.8.8.8, 8.8.8.8 and 0.0.0.8, so
+	// treating them as LAN names would let the token reach a public IP.
+	return !looksLikeNumericIPv4(lower)
+}
+
+// looksLikeNumericIPv4 reports whether a single label could be parsed by
+// inet_aton as an address: all decimal (or octal) digits, or a 0x prefix.
+func looksLikeNumericIPv4(label string) bool {
+	if strings.HasPrefix(label, "0x") {
+		return true
+	}
+	if label == "" {
+		return false
+	}
+	for _, r := range label {
+		if r < '0' || r > '9' {
+			return false
+		}
+	}
+	return true
+}
+
+// IsAllowedHomeAssistantIP reports whether ip is an address Goalfeed may
+// connect to with the Home Assistant token when remote URLs are not allowed:
+// loopback or private only. It is checked against the address actually being
+// dialled, after DNS, so it holds even when a hostname resolves somewhere
+// its name did not suggest.
+func IsAllowedHomeAssistantIP(ip net.IP) bool {
+	return isPrivateOrLocalIP(ip)
 }
 
 func isPrivateOrLocalIP(ip net.IP) bool {

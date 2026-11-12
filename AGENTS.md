@@ -59,21 +59,36 @@ field. Prefer tolerant types (see `FlexInt` in `clients/leagues/cfl`), log
 decode errors, and never silently return a zero struct.
 
 **The Home Assistant event shape is a downstream contract.** Users' automations
-key on it. Events POST to `<ha_url>/api/events/goal` (plus `/game_update` and
-`/period_update`), carrying `models.GameEvent`. `Type` and `Description` are
-empty for every currently-supported league — automations filter on `teamCode`
-and `leagueId`. Changing field names or the endpoint breaks people's houses.
+key on it. Events POST to `<ha_url>/api/events/goal`, carrying
+`models.GameEvent`; NHL goals also POST `goalfeed_goal` (a separate, additive
+event: add fields to it freely, but never move data out of `goal`).
+`SendGameUpdate` (`/game_update`) and `SendPeriodUpdate` (`/period_update`)
+exist but have had no live caller since e12fbade; re-wiring them would start
+new events firing in people's automations, so that is a decision, not a fix.
+`Type` and `Description` are empty for every currently-supported league —
+automations filter on `teamCode` and `leagueId`. Changing field names or the
+endpoint breaks people's houses.
 
 **Detection counts points, not plays.** It is a raw score diff, so a 7-point
 score change emits seven separate events. Don't document or imply play-level
 semantics that don't exist.
 
+**Sensors are published from `checkGame` on every poll** via
+`teamSensorPublisher`. That call was once lost in a refactor (e12fbade) and
+every live sensor froze for a year with all tests green; the regression test
+in `main_test.go` exists so that can't recur silently.
+
 **Never attach the Home Assistant token to an unvalidated URL.** `utils/hurl.go`
 validates the HA URL and `targets/homeassistant/guard.go` enforces it at every
 outbound call site. This closed a real vulnerability where an unauthenticated
 request could redirect the service and exfiltrate a long-lived token. Any new
-code path that reaches Home Assistant must go through the guard. Link-local is
-rejected deliberately — that range holds the cloud metadata endpoint.
+code path that reaches Home Assistant must go through the guard, must use
+`haHTTPClient` (its dialer re-checks the actual IP after DNS, and
+`TestHASenders_AllUseGuardedClient` fails on any other `http.Client` in the
+package), and must resolve the URL at send time: with `broadcast_delay_seconds` set, sends run
+later through `dispatchToHA`, so resolve and guard inside the deferred
+function, never before queueing it. Link-local is rejected deliberately —
+that range holds the cloud metadata endpoint.
 
 **No team or league logos, wordmarks, or trademarks** anywhere in the repo, the
 site, or generated assets. Team codes set in the display face are the visual

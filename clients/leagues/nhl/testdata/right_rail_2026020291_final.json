@@ -1,0 +1,284 @@
+{
+ "seasonSeries": [
+  {
+   "id": 2026020291,
+   "season": 20262027,
+   "gameType": 2,
+   "gameDate": "2026-11-10",
+   "startTimeUTC": "2026-11-11T00:00:00Z",
+   "easternUTCOffset": "-05:00",
+   "venueUTCOffset": "-05:00",
+   "gameState": "OFF",
+   "gameScheduleState": "OK",
+   "awayTeam": {
+    "id": 1,
+    "abbrev": "NJD",
+    "score": 2
+   },
+   "homeTeam": {
+    "id": 52,
+    "abbrev": "WPG",
+    "score": 4
+   },
+   "periodDescriptor": {
+    "number": 3,
+    "periodType": "REG",
+    "maxRegulationPeriods": 3
+   },
+   "gameCenterLink": "/gamecenter/wpg-vs-njd/2026/11/10/2026020291",
+   "gameOutcome": {
+    "lastPeriodType": "REG"
+   }
+  },
+  {
+   "id": 2026020418,
+   "season": 20262027,
+   "gameType": 2,
+   "gameDate": "2026-11-28",
+   "startTimeUTC": "2026-11-29T00:00:00Z",
+   "easternUTCOffset": "-05:00",
+   "venueUTCOffset": "-05:00",
+   "gameState": "FUT",
+   "gameScheduleState": "OK",
+   "awayTeam": {
+    "id": 52,
+    "abbrev": "WPG"
+   },
+   "homeTeam": {
+    "id": 1,
+    "abbrev": "NJD"
+   },
+   "gameCenterLink": "/gamecenter/njd-vs-wpg/2026/11/28/2026020418",
+   "gameOutcome": {
+    "lastPeriodType": "REG"
+   }
+  }
+ ],
+ "seasonSeriesWins": {
+  "awayTeamWins": 0,
+  "homeTeamWins": 1
+ },
+ "gameInfo": {
+  "referees": [
+   {
+    "fullName": {
+     "default": "Chris Schlenker"
+    },
+    "sweaterNumber": 3
+   },
+   {
+    "fullName": {
+     "default": "Peter MacDougall"
+    },
+    "sweaterNumber": 38
+   }
+  ],
+  "linesmen": [
+   {
+    "fullName": {
+     "default": "Kiel Murchison",
+     "es": "Kiel Murchison "
+    },
+    "sweaterNumber": 79
+   },
+   {
+    "fullName": {
+     "default": "David Brisebois"
+    },
+    "sweaterNumber": 96
+   }
+  ],
+  "awayTeam": {
+   "headCoach": {
+    "default": "Sheldon Keefe"
+   },
+   "scratches": [
+    {
+     "id": 8477511,
+     "firstName": {
+      "default": "Anthony"
+     },
+     "lastName": {
+      "default": "Mantha"
+     }
+    },
+    {
+     "id": 8479362,
+     "firstName": {
+      "default": "Riley"
+     },
+     "lastName": {
+      "default": "Tufte"
+     }
+    }
+   ]
+  },
+  "homeTeam": {
+   "headCoach": {
+    "default": "Scott Arniel"
+   },
+   "scratches": [
+    {
+     "id": 8475799,
+     "firstName": {
+      "default": "Nino"
+     },
+     "lastName": {
+      "default": "Niederreiter"
+     }
+    },
+    {
+     "id": 8477938,
+     "firstName": {
+      "default": "Haydn"
+     },
+     "lastName": {
+      "default": "Fleury"
+     }
+    },
+    {
+     "id": 8483532,
+     "firstName": {
+      "default": "Clay"
+     },
+     "lastName": {
+      "default": "Stevenson"
+     }
+    }
+   ]
+  }
+ },
+ "gameVideo": {
+  "threeMinRecap": 6408215300112,
+  "threeMinRecapFr": 6408214213112,
+  "condensedGame": 6408214225112
+ },
+ "linescore": {
+  "byPeriod": [
+   {
+    "periodDescriptor": {
+     "number": 1,
+     "periodType": "REG",
+     "maxRegulationPeriods": 3
+    },
+    "away": 0,
+    "home": 2
+   },
+   {
+    "periodDescriptor": {
+     "number": 2,
+     "periodType": "REG",
+     "maxRegulationPeriods": 3
+    },
+    "away": 2,
+    "home": 0
+   },
+   {
+    "periodDescriptor": {
+     "number": 3,
+     "periodType": "REG",
+     "maxRegulationPeriods": 3
+    },
+    "away": 0,
+    "home": 2
+   }
+  ],
+  "totals": {
+   "away": 2,
+   "home": 4
+  }
+ },
+ "shotsByPeriod": [
+  {
+   "periodDescriptor": {
+    "number": 1,
+    "periodType": "REG",
+    "maxRegulationPeriods": 3
+   },
+   "away": 11,
+   "home": 8
+  },
+  {
+   "periodDescriptor": {
+    "number": 2,
+    "periodType": "REG",
+    "maxRegulationPeriods": 3
+   },
+   "away": 6,
+   "home": 5
+  },
+  {
+   "periodDescriptor": {
+    "number": 3,
+    "periodType": "REG",
+    "maxRegulationPeriods": 3
+   },
+   "away": 4,
+   "home": 12
+  }
+ ],
+ "teamGameStats": [
+  {
+   "category": "sog",
+   "awayValue": 21,
+   "homeValue": 25
+  },
+  {
+   "category": "faceoffWinningPctg",
+   "awayValue": 0.470588,
+   "homeValue": 0.529412
+  },
+  {
+   "category": "faceoffWins",
+   "awayValue": "24/51",
+   "homeValue": "27/51"
+  },
+  {
+   "category": "powerPlay",
+   "awayValue": "0/4",
+   "homeValue": "2/4"
+  },
+  {
+   "category": "powerPlayPctg",
+   "awayValue": 0.0,
+   "homeValue": 0.5
+  },
+  {
+   "category": "pim",
+   "awayValue": 10,
+   "homeValue": 8
+  },
+  {
+   "category": "hits",
+   "awayValue": 8,
+   "homeValue": 22
+  },
+  {
+   "category": "blockedShots",
+   "awayValue": 8,
+   "homeValue": 11
+  },
+  {
+   "category": "giveaways",
+   "awayValue": 16,
+   "homeValue": 9
+  },
+  {
+   "category": "takeaways",
+   "awayValue": 2,
+   "homeValue": 7
+  }
+ ],
+ "gameReports": {
+  "gameSummary": "https://www.nhl.com/scores/htmlreports/20262027/GS020291.HTM",
+  "eventSummary": "https://www.nhl.com/scores/htmlreports/20262027/ES020291.HTM",
+  "playByPlay": "https://www.nhl.com/scores/htmlreports/20262027/PL020291.HTM",
+  "faceoffSummary": "https://www.nhl.com/scores/htmlreports/20262027/FS020291.HTM",
+  "faceoffComparison": "https://www.nhl.com/scores/htmlreports/20262027/FC020291.HTM",
+  "rosters": "https://www.nhl.com/scores/htmlreports/20262027/RO020291.HTM",
+  "shotSummary": "https://www.nhl.com/scores/htmlreports/20262027/SS020291.HTM",
+  "shiftChart": "https://www.nhl.com/stats/shiftcharts?id=2026020291",
+  "toiAway": "https://www.nhl.com/scores/htmlreports/20262027/TV020291.HTM",
+  "toiHome": "https://www.nhl.com/scores/htmlreports/20262027/TH020291.HTM"
+ }
+}
