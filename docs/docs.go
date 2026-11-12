@@ -1201,8 +1201,22 @@ const docTemplate = `{
                 "fetchedAt": {
                     "type": "string"
                 },
+                "goals": {
+                    "description": "every goal so far, in order",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.GoalSummary"
+                    }
+                },
                 "home": {
                     "$ref": "#/definitions/models.TeamState"
+                },
+                "inIntermission": {
+                    "description": "Hockey live situation (NHL). Situation is nil when unknown, and the\nzero value of a non-nil Situation means even strength.",
+                    "type": "boolean"
+                },
+                "lastGoal": {
+                    "$ref": "#/definitions/models.GoalSummary"
                 },
                 "period": {
                     "description": "Enhanced game state",
@@ -1211,6 +1225,9 @@ const docTemplate = `{
                 "periodType": {
                     "description": "\"REGULAR\", \"OVERTIME\", \"SHOOTOUT\", etc.",
                     "type": "string"
+                },
+                "situation": {
+                    "$ref": "#/definitions/models.Situation"
                 },
                 "statistics": {
                     "$ref": "#/definitions/models.TeamStats"
@@ -1249,6 +1266,58 @@ const docTemplate = `{
                 },
                 "turnovers": {
                     "type": "integer"
+                }
+            }
+        },
+        "models.GoalSummary": {
+            "type": "object",
+            "properties": {
+                "assists": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "awayScore": {
+                    "type": "integer"
+                },
+                "emptyNet": {
+                    "type": "boolean"
+                },
+                "eventId": {
+                    "type": "string"
+                },
+                "homeScore": {
+                    "type": "integer"
+                },
+                "period": {
+                    "type": "integer"
+                },
+                "periodType": {
+                    "type": "string"
+                },
+                "scorer": {
+                    "type": "string"
+                },
+                "scorerGoals": {
+                    "description": "season total including this goal",
+                    "type": "integer"
+                },
+                "scorerId": {
+                    "type": "string"
+                },
+                "shotType": {
+                    "type": "string"
+                },
+                "strength": {
+                    "description": "\"EV\", \"PP\", \"SH\"",
+                    "type": "string"
+                },
+                "teamCode": {
+                    "type": "string"
+                },
+                "timeInPeriod": {
+                    "type": "string"
                 }
             }
         },
@@ -1303,6 +1372,36 @@ const docTemplate = `{
                 }
             }
         },
+        "models.Situation": {
+            "type": "object",
+            "properties": {
+                "awayEmptyNet": {
+                    "type": "boolean"
+                },
+                "awaySkaters": {
+                    "type": "integer"
+                },
+                "code": {
+                    "description": "NHL situationCode, e.g. \"1451\"",
+                    "type": "string"
+                },
+                "homeEmptyNet": {
+                    "description": "home goalie pulled",
+                    "type": "boolean"
+                },
+                "homeSkaters": {
+                    "type": "integer"
+                },
+                "powerPlayTeam": {
+                    "description": "team code with the man advantage, \"\" at even strength",
+                    "type": "string"
+                },
+                "timeRemaining": {
+                    "description": "power play clock, when given",
+                    "type": "string"
+                }
+            }
+        },
         "models.Team": {
             "type": "object",
             "properties": {
@@ -1336,6 +1435,13 @@ const docTemplate = `{
                         "type": "integer"
                     }
                 },
+                "periodShots": {
+                    "description": "NHL: shots on goal by period",
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
                 "score": {
                     "type": "integer"
                 },
@@ -1354,15 +1460,32 @@ const docTemplate = `{
                     "description": "MLB",
                     "type": "integer"
                 },
+                "blockedShots": {
+                    "type": "integer"
+                },
                 "errors": {
                     "type": "integer"
                 },
+                "faceoffPct": {
+                    "type": "number"
+                },
+                "faceoffTotal": {
+                    "type": "integer"
+                },
                 "faceoffs": {
+                    "description": "faceoffs won",
                     "type": "integer"
                 },
                 "firstDowns": {
                     "description": "League-specific stats\nNFL/CFL",
                     "type": "integer"
+                },
+                "giveaways": {
+                    "type": "integer"
+                },
+                "hasTeamGameStats": {
+                    "description": "NHL right-rail team stats. HasTeamGameStats is true once the panel has\nbeen read, so a zero can be told apart from \"not fetched yet\".",
+                    "type": "boolean"
                 },
                 "hits": {
                     "type": "integer"
@@ -1373,6 +1496,9 @@ const docTemplate = `{
                 "penalties": {
                     "type": "integer"
                 },
+                "penaltyMinutes": {
+                    "type": "integer"
+                },
                 "penaltyYards": {
                     "type": "integer"
                 },
@@ -1380,7 +1506,14 @@ const docTemplate = `{
                     "description": "General stats",
                     "type": "integer"
                 },
+                "powerPlayGoals": {
+                    "type": "integer"
+                },
+                "powerPlayPct": {
+                    "type": "number"
+                },
                 "powerPlays": {
+                    "description": "power play opportunities",
                     "type": "integer"
                 },
                 "rushingYards": {
@@ -1391,6 +1524,9 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "strikeouts": {
+                    "type": "integer"
+                },
+                "takeaways": {
                     "type": "integer"
                 },
                 "timeOfPossession": {
