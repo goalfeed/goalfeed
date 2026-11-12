@@ -101,6 +101,16 @@ func (s CFLService) GetGameUpdate(game models.Game, ret chan models.GameUpdate) 
 	logger.Info("Fetching live CFL game data from Genius Sports API")
 	liveGame := s.Client.GetCFLLiveGame(game.GameCode)
 
+	// A failed fetch returns an empty response. Taking it as the new state
+	// would drop both scores to 0, and the next good poll would fire an
+	// event for every point already scored. A real response always names
+	// its fixture and match status.
+	if liveGame.Data.BetGeniusFixtureID == "" && liveGame.Data.ScoreboardInfo.MatchStatus == "" {
+		logger.Warnf("CFL game %s: empty live response; keeping the previous state", game.GameCode)
+		ret <- models.GameUpdate{OldState: game.CurrentState, NewState: game.CurrentState}
+		return
+	}
+
 	// Extract detailed game information (fallback-friendly)
 	var period int
 	var periodType string

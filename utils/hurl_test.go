@@ -1,6 +1,9 @@
 package utils
 
-import "testing"
+import (
+	"net"
+	"testing"
+)
 
 func TestValidateHomeAssistantURL_AllowsPrivateAndLocalHosts(t *testing.T) {
 	cases := []string{
@@ -119,6 +122,47 @@ func TestValidateHomeAssistantURL_AcceptsRealWorldLocalDeployments(t *testing.T)
 	} {
 		if err := ValidateHomeAssistantURL(raw, false); err != nil {
 			t.Errorf("legitimate local deployment URL rejected: %s -> %v", raw, err)
+		}
+	}
+}
+
+// Single labels that net.ParseIP rejects but inet_aton (used by cgo /
+// getaddrinfo resolvers) reads as an IPv4 address. Each of these is 8.8.8.8
+// or another public address, so they must not pass as LAN hostnames.
+func TestValidateHomeAssistantURL_RejectsInetAtonNumericLabels(t *testing.T) {
+	cases := []string{
+		"http://134744072:8123",   // decimal 8.8.8.8
+		"http://0x08080808:8123",  // hex 8.8.8.8
+		"http://0X08080808:8123",  // upper-case prefix
+		"http://01002004010:8123", // octal 8.8.8.8
+		"http://010.010.010.010",  // dotted octal (8.8.8.8 to inet_aton)
+		"http://0x8.0x8.0x8.0x8",  // dotted hex
+		"http://8.0x80808",        // two-part form
+		"http://3627734062",       // a public address in decimal
+		"http://0x0",              // still a hex address
+	}
+	for _, raw := range cases {
+		if err := ValidateHomeAssistantURL(raw, false); err == nil {
+			t.Errorf("expected %q to be rejected: inet_aton reads it as an address", raw)
+		}
+	}
+	// Ordinary LAN names that merely contain digits are unaffected.
+	for _, raw := range []string{"http://nas1:8123", "http://ha2026:8123", "http://homeassistant:8123", "http://pi4:8123"} {
+		if err := ValidateHomeAssistantURL(raw, false); err != nil {
+			t.Errorf("expected %q to stay allowed, got %v", raw, err)
+		}
+	}
+}
+
+func TestIsAllowedHomeAssistantIP(t *testing.T) {
+	for _, s := range []string{"127.0.0.1", "::1", "192.168.1.5", "10.0.0.2", "172.16.5.9", "fd00::1"} {
+		if !IsAllowedHomeAssistantIP(net.ParseIP(s)) {
+			t.Errorf("%s should be allowed", s)
+		}
+	}
+	for _, s := range []string{"8.8.8.8", "169.254.169.254", "fe80::1", "0.0.0.0", "::", "::ffff:8.8.8.8", "100.64.0.1"} {
+		if IsAllowedHomeAssistantIP(net.ParseIP(s)) {
+			t.Errorf("%s should be refused", s)
 		}
 	}
 }

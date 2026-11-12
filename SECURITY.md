@@ -87,9 +87,11 @@ outbound requests and sent straight to it. This has been fixed:
 - **URL validation, enforced twice.** Every `home_assistant.url` — whether set
   via this API, an environment variable, or a hand-edited `config.yaml` — is
   validated before use: it must be an `http`/`https` URL with a non-empty
-  host that resolves to a private/loopback/link-local address, or a hostname
-  that's clearly local (`*.local`, `homeassistant`, `homeassistant.local`,
-  `supervisor`, or a bare single-label hostname). `POST
+  host that is a private or loopback address (link-local is refused: that
+  range holds the cloud metadata endpoint), or a hostname that's clearly
+  local (`*.local`, `homeassistant`, `homeassistant.local`, `supervisor`, or
+  a bare single-label hostname that isn't a numeric address in disguise, such
+  as `134744072` or `0x08080808`, which some resolvers read as `8.8.8.8`). `POST
   /api/homeassistant/config` rejects an invalid URL with `400` before writing
   anything, and — separately, so a config file poisoned some other way is
   still covered — every outbound call to Home Assistant re-validates the
@@ -98,6 +100,14 @@ outbound requests and sent straight to it. This has been fixed:
   opt-in `home_assistant.allow_remote_url` config key (default `false`),
   which relaxes the private-address requirement but never the scheme/host
   checks.
+- **The address actually dialled is checked too.** A hostname check can't see
+  where DNS sends a name: a single-label name completed by a DNS search
+  domain, or a name rebound between validation and the request, could still
+  resolve to a public IP. Unless `home_assistant.allow_remote_url` is set,
+  every connection that carries the token is checked at dial time, after
+  DNS, and refused unless the IP is loopback or private. Redirects go through
+  the same check, and environment proxies are not used for these requests,
+  since a proxy would hide the real destination.
 - **CORS is no longer wide open.** `Access-Control-Allow-Origin: *` combined
   with credentials — which let any page read this API's responses, including
   the HA config endpoints — has been replaced with an allowlist of local

@@ -40,7 +40,7 @@ func CheckConnection(timeout time.Duration) (bool, string, string) {
 	if err := validateOutboundHAURL(url); err != nil {
 		return false, source, fmt.Sprintf("refusing to check connection: %v", err)
 	}
-	client := &http.Client{Timeout: timeout}
+	client := haHTTPClient(timeout)
 	req, err := http.NewRequest("GET", strings.TrimRight(url, "/")+"/api/", nil)
 	if err != nil {
 		return false, source, fmt.Sprintf("request error: %v", err)

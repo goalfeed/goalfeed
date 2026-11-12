@@ -54,6 +54,14 @@ var (
 	needRefresh                       = false
 	logger                            = utils.GetLogger()
 	eventSender    func(models.Event) = homeassistant.SendEvent // Allow this to be replaced in tests
+
+	// Live Home Assistant state publishers, replaceable in tests. These were
+	// dropped from the live path in e12fbade along with main_refactored.go,
+	// which left every per-team sensor frozen at its startup baseline during
+	// games; checkGame calls them on every poll.
+	customEventSender   func(string, map[string]interface{}) = homeassistant.SendCustomEvent
+	teamSensorPublisher func(models.Game)                    = homeassistant.PublishTeamSensors
+	endOfGamePublisher  func(models.Game)                    = homeassistant.PublishEndOfGameReset
 )
 
 // TickerConfig holds configuration for a ticker
@@ -249,10 +257,13 @@ func checkGame(gameKey string) {
 	go service.GetGameUpdate(game, updateChan)
 	gameUpdate := <-updateChan
 
-	// Detect and fire goal events
+	// Detect and fire goal events. fireGoalEvents gets the updated game so
+	// each event can be matched to its scorer in the new state.
+	updatedGame := game
+	updatedGame.CurrentState = gameUpdate.NewState
 	eventChan := make(chan []models.Event)
 	go service.GetEvents(gameUpdate, eventChan)
-	go fireGoalEvents(eventChan, game)
+	go fireGoalEvents(eventChan, updatedGame)
 
 	if gameUpdate.NewState.Period != gameUpdate.OldState.Period {
 		logger.Info(fmt.Sprintf("Period change detected for %s game %s: %d -> %d", service.GetLeagueName(), game.GameCode, gameUpdate.OldState.Period, gameUpdate.NewState.Period))
@@ -270,12 +281,16 @@ func checkGame(gameKey string) {
 	}
 
 	// Update the game with new state
-	updatedGame := game
-	updatedGame.CurrentState = gameUpdate.NewState
 	memoryStore.SetGame(updatedGame)
+
+	// Publish the per-team Home Assistant sensors for this poll. publishEntity
+	// dedupes unchanged state, so calling this every poll costs nothing when
+	// nothing moved.
+	teamSensorPublisher(updatedGame)
 
 	// Remove game from active monitoring if it has ended
 	if gameUpdate.NewState.Status == models.StatusEnded {
+		endOfGamePublisher(updatedGame)
 		logger.Info(fmt.Sprintf("Game %s has ended, removing from active monitoring", gameKey))
 		memoryStore.DeleteActiveGame(updatedGame)
 		memoryStore.DeleteActiveGameKey(gameKey)
@@ -284,11 +299,26 @@ func checkGame(gameKey string) {
 }
 
 func fireGoalEvents(events chan []models.Event, game models.Game) {
-	for _, event := range <-events {
+	batch := <-events
+	// Score detection emits one event per point, home team first. Count each
+	// team's events so the i-th can be matched to the goal that took that
+	// team's score to (new score - count + 1 + i).
+	perTeam := map[string]int{}
+	for _, event := range batch {
+		perTeam[event.TeamCode]++
+	}
+	seen := map[string]int{}
+	for _, event := range batch {
 		logger.Info(fmt.Sprintf("Event %s: %s", event.Type, event.Description))
+		nth := seen[event.TeamCode]
+		seen[event.TeamCode]++
 		if teamIsMonitoredByLeague(event.TeamCode, leagueServices[int(game.LeagueId)].GetLeagueName()) {
 			// Send enhanced event to Home Assistant
 			go eventSender(event)
+			if game.LeagueId == models.LeagueIdNHL {
+				newScore := teamScore(game.CurrentState, event.TeamCode)
+				go customEventSender(goalfeedGoalEventType, goalfeedGoalEventData(event, game, newScore-perTeam[event.TeamCode]+1+nth))
+			}
 			// Append to app log
 			go applog.AppendEvent(event)
 			// Broadcast event to web clients
@@ -296,6 +326,66 @@ func fireGoalEvents(events chan []models.Event, game models.Game) {
 		}
 	}
 }
+
+// goalfeedGoalEventType is a Home Assistant event fired alongside the
+// existing "goal" event for NHL goals. The "goal" event and its payload are a
+// downstream contract and are left exactly as they were; this one carries the
+// scorer, assists and strength for animations and announcements.
+const goalfeedGoalEventType = "goalfeed_goal"
+
+func teamScore(state models.GameState, teamCode string) int {
+	if teamCode == state.Home.Team.TeamCode {
+		return state.Home.Score
+	}
+	return state.Away.Score
+}
+
+// goalfeedGoalEventData builds the goalfeed_goal payload for the goal that
+// took the event team's score to goalScore. The scorer fields are present
+// only when the upstream summary already lists that goal; the NHL sometimes
+// posts the score a poll before the scorer, and a guessed scorer is worse
+// than none.
+func goalfeedGoalEventData(event models.Event, game models.Game, goalScore int) map[string]interface{} {
+	cs := game.CurrentState
+	homeAway := "away"
+	opponentScore := cs.Home.Score
+	if event.TeamCode == cs.Home.Team.TeamCode {
+		homeAway = "home"
+		opponentScore = cs.Away.Score
+	}
+	data := map[string]interface{}{
+		"league":         event.LeagueName,
+		"league_id":      event.LeagueId,
+		"game_code":      game.GameCode,
+		"team":           event.TeamCode,
+		"team_name":      event.TeamName,
+		"opponent":       event.OpponentCode,
+		"home_away":      homeAway,
+		"team_score":     goalScore,
+		"opponent_score": opponentScore,
+		"period":         cs.Period,
+		"period_type":    cs.PeriodType,
+		"clock":          cs.Clock,
+		"scorer":         "",
+		"assists":        []string{},
+		"strength":       "",
+		"empty_net":      false,
+		"time_in_period": "",
+	}
+	if g, ok := cs.GoalFor(event.TeamCode, goalScore); ok {
+		data["scorer"] = g.Scorer
+		data["scorer_goals"] = g.ScorerGoals
+		data["assists"] = g.Assists
+		data["strength"] = g.Strength
+		data["empty_net"] = g.EmptyNet
+		data["time_in_period"] = g.TimeInPeriod
+		data["shot_type"] = g.ShotType
+		data["period"] = g.Period
+		data["period_type"] = g.PeriodType
+	}
+	return data
+}
+
 func teamIsMonitoredByLeague(teamCode, leagueName string) bool {
 	// Convert leagueName to config key (lowercase, special mapping for Olympic hockey)
 	configKey := leagueNameToWatchConfigKey(leagueName)

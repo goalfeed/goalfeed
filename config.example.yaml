@@ -1,6 +1,9 @@
 home_assistant:
   url: "http://yourhomeassistanturl"
   access_token: "yourhomeassistantaccesstoken"
+  # Hold back everything sent to Home Assistant by this many seconds so goal
+  # lights and dashboards land with your TV or stream. Default 0.
+  # broadcast_delay_seconds: 30
 watch:
   nhl:
     - WPG

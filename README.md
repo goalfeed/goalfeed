@@ -140,10 +140,10 @@ Assistant even though every score after that is caught within a second.
 
 ### What actually reaches Home Assistant
 
-Every event Goalfeed sends — goal detections, period-start notices, and test goals —
-arrives under the same Home Assistant event type, `goal`. Filter automations on the
-event's `teamCode` field, not on the payload's `type` field: `type` (and
-`Event.Description`) are left empty for every league (see [Status](#status)).
+**Events.** Goal detections, period-start notices and test goals all arrive under the
+Home Assistant event type `goal`. Filter automations on the event's `teamCode` field,
+not on the payload's `type` field: `type` (and `Event.Description`) are left empty for
+every league (see [Status](#status)).
 
 Goal/score detection itself is a raw score diff, not a play-by-play feed: Goalfeed
 compares a watched team's last-seen score to its current one and fires one event per
@@ -152,12 +152,80 @@ touchdown-plus-conversion fires **seven separate `goal`
 events** in the same tick, not one "touchdown" event — plan automations accordingly
 (debounce, or only react to the first event in a burst).
 
-Goalfeed also publishes per-team sensors and binary sensors
-(`sensor.goalfeed_<league>_<team>_current_score`,
-`binary_sensor.goalfeed_<league>_<team>_has_active_game`, and league-specific ones like
-`..._shots` for hockey or `..._down` for football), seeded at startup and refreshed on
-the 10-minute schedule ticker, so you can build a dashboard without listening for the
-event at all.
+**NHL goals also fire `goalfeed_goal`**, alongside (not instead of) `goal`. Its data
+carries `team`, `opponent`, `home_away`, `team_score`, `opponent_score`, `period`,
+`clock`, and, once the NHL has posted them, `scorer`, `assists`, `strength` (`EV`, `PP`
+or `SH`), `empty_net` and `time_in_period`. The NHL sometimes posts a score a few
+seconds before it names the scorer; in that case the event still fires, with `scorer`
+empty rather than guessed. Two goals in one poll fire two events, each with its own
+scorer.
+
+```yaml
+trigger:
+  - platform: event
+    event_type: goalfeed_goal
+    event_data:
+      team: WPG
+action:
+  - service: tts.speak
+    data:
+      message: "{{ trigger.event.data.scorer or 'Jets' }} scores! {{ trigger.event.data.team_score }} to {{ trigger.event.data.opponent_score }}"
+```
+
+**Sensors.** Goalfeed publishes per-team sensors and binary sensors, seeded at startup
+and updated on every poll of a live game, so you can build a dashboard without listening
+for events at all. Every league gets
+`sensor.goalfeed_<league>_<team>_team_current_score`, `..._team_status`,
+`..._team_opponent`, `..._team_clock`, `..._team_period` and
+`binary_sensor.goalfeed_<league>_<team>_team_has_active_game`, plus league-specific ones
+(`..._team_shots` for hockey, `..._team_down` for football).
+
+NHL teams also get these, read from the NHL's game center. The team stats cost one
+extra free, keyless request per live game at most every 15 seconds (plus one at the
+final whistle); the situation sensors come from the per-second poll Goalfeed already
+makes, so power plays and pulled goalies show up within a second. Nothing is fetched
+for games that aren't live.
+
+| Entity | State | Attributes |
+|---|---|---|
+| `sensor.goalfeed_nhl_<team>_team_hits` | hits | |
+| `sensor.goalfeed_nhl_<team>_team_faceoff_wins` | faceoffs won | `faceoffs_taken` |
+| `sensor.goalfeed_nhl_<team>_team_faceoff_pct` | faceoff win % | |
+| `sensor.goalfeed_nhl_<team>_team_power_play` | `"1/3"` | `goals`, `opportunities`, `pct` |
+| `sensor.goalfeed_nhl_<team>_team_pim` | penalty minutes | |
+| `sensor.goalfeed_nhl_<team>_team_blocked_shots` | blocked shots | |
+| `sensor.goalfeed_nhl_<team>_team_giveaways` | giveaways | |
+| `sensor.goalfeed_nhl_<team>_team_takeaways` | takeaways | |
+| `binary_sensor.goalfeed_nhl_<team>_team_on_power_play` | on while this team has the man advantage | `strength` (`"5v4"`), `time_remaining` |
+| `binary_sensor.goalfeed_nhl_<team>_team_empty_net` | on while this team's goalie is pulled | |
+| `binary_sensor.goalfeed_nhl_<team>_team_intermission` | on during intermission | |
+| `sensor.goalfeed_nhl_<team>_game` | `scheduled` / `active` / `final` | the whole scoreboard: `score`, `opponent`, `opponent_score`, `period`, `intermission`, `shots`, `goals_by_period`, `shots_by_period` (and `opponent_…` versions), `situation`, `last_goal` (`scorer`, `assists`, `strength`, `empty_net`, `time_in_period`) |
+
+`sensor.goalfeed_nhl_<team>_game` is the one to build a scoreboard or jumbotron card
+from: one entity, everything in its attributes, plus `..._team_clock` for the running
+clock. A pulled goalie for an extra attacker is
+not a power play: `on_power_play` compares skaters net of the extra attacker, so a
+6-on-5 is `off` for both teams and `empty_net` is `on` for the team that pulled. When a
+game ends, the situation sensors go `off` and the stats keep their final values.
+
+**Keeping the recorder small.** `..._team_clock` changes every second during a live
+game, and Home Assistant's recorder stores every change. If you don't need clock
+history, exclude it:
+
+```yaml
+recorder:
+  exclude:
+    entity_globs:
+      - sensor.goalfeed_*_team_clock
+```
+
+**Matching your TV.** The NHL feed runs ahead of broadcasts and streams, so a goal horn
+can go off before you see the goal. Set `home_assistant.broadcast_delay_seconds` (for
+example `30`) to hold back everything Goalfeed sends to Home Assistant — sensors and
+events alike, in order — by that many seconds. It applies to the whole Goalfeed
+instance, not per screen, and the Goalfeed web UI stays real-time. Tune it by watching
+for a goal and adjusting until the horn lands with the replay of the puck crossing the
+line.
 
 ## The problem
 
@@ -444,7 +512,8 @@ file somewhere else; Goalfeed always looks for `./config.yaml`.
 | — | `watch.nfl` | `GOALFEED_WATCH_NFL` | string list | `[]` | NFL team codes to watch — no CLI flag exists yet, use YAML or env |
 | — | `home_assistant.url` | `GOALFEED_HOME_ASSISTANT_URL` | string | `""` | Home Assistant base URL. Ignored (and auto-detected via Supervisor) when running as the HA add-on |
 | — | `home_assistant.access_token` | `GOALFEED_HOME_ASSISTANT_ACCESS_TOKEN` | string | `""` | Home Assistant long-lived access token |
-| — | `home_assistant.allow_remote_url` | `GOALFEED_HOME_ASSISTANT_ALLOW_REMOTE_URL` | bool | `false` | Allow `home_assistant.url` to be a public/remote address. By default it's rejected unless it's private/loopback/link-local or a clearly local hostname (`*.local`, `homeassistant`, `supervisor`, etc.) — this is a defense against the access token being sent to an attacker-controlled host |
+| — | `home_assistant.allow_remote_url` | `GOALFEED_HOME_ASSISTANT_ALLOW_REMOTE_URL` | bool | `false` | Allow `home_assistant.url` to be a public/remote address. By default it's rejected unless it's private, loopback, or a clearly local hostname (`*.local`, `homeassistant`, `supervisor`, etc.); link-local is always rejected — this is a defense against the access token being sent to an attacker-controlled host |
+| — | `home_assistant.broadcast_delay_seconds` | `GOALFEED_HOME_ASSISTANT_BROADCAST_DELAY_SECONDS` | number | `0` | Hold back everything sent to Home Assistant by this many seconds (fractions allowed, capped at 900) so it lines up with your TV or stream. The web UI is not delayed |
 | — | `web.allow_config_writes` | `GOALFEED_WEB_ALLOW_CONFIG_WRITES` | bool | `false` | Let `POST /api/homeassistant/config` persist changes to `config.yaml` on disk. By default that endpoint only updates the running process's in-memory config for the current session |
 | `--test-goals` | `test-goals` | *(hyphenated key; use `env` rather than `export`)* | bool | `false` | Fire a synthetic `TEST` goal event once a minute, useful for testing automations |
 | `--web` | `web` | *(same caveat)* | bool | `false` | Start the REST/WebSocket/web UI server alongside the polling loop |
@@ -467,6 +536,7 @@ home_assistant:
   url: "http://homeassistant.local:8123"
   access_token: "your-long-lived-access-token"
   # allow_remote_url: false      # default; set true only for a genuinely remote HA
+  # broadcast_delay_seconds: 30  # hold HA updates back to match your TV or stream
 
 watch:
   nhl:
@@ -482,16 +552,17 @@ watch:
 Notes that bite people:
 
 - **`home_assistant.url` is validated before every outbound request, not just at
-  startup.** A URL that isn't loopback, private, link-local, or a recognizably local
-  hostname is rejected with an actionable error, even if it was set at runtime through
+  startup.** A URL that isn't loopback, private, or a recognizably local hostname is
+  rejected (link-local always is, since that range holds the cloud metadata endpoint) with an actionable error, even if it was set at runtime through
   `POST /api/homeassistant/config`. Set `home_assistant.allow_remote_url: true` if you
   genuinely run Home Assistant somewhere remote.
 - **`POST /api/homeassistant/config` doesn't touch disk by default.** It updates the
   running process only, so a config-writing API call surviving a restart requires
   `web.allow_config_writes: true`.
-- **There is no authentication on the REST/WebSocket API, and CORS is wide open**
-  (`AllowOrigins: ["*"]`, credentials allowed). Fine behind Home Assistant ingress or a
-  home network; don't expose it directly to the internet.
+- **There is no authentication on the REST/WebSocket API.** CORS is limited to
+  localhost origins with credentials disabled, but anything on your network can still
+  call the API directly. Fine behind Home Assistant ingress or a home network; don't
+  expose it directly to the internet.
 
 Full API reference (every route and field), the WebSocket message contract, and the Home
 Assistant automation walkthrough live at **[goalfeed.ca](https://goalfeed.ca)**, covering
