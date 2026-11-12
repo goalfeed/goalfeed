@@ -20,6 +20,9 @@ would serve no one. For the full per-tag record from that window, see
 
 ### Fixed
 
+- **No more false NHL goal events after a failed fetch.** If one request to the
+  NHL failed, the next good one fired a `goal` event for every goal already
+  scored in the game. A failed fetch now leaves the game as it was.
 - **Home Assistant sensors update during games again.** Since September 2025,
   per-team sensors such as `..._team_current_score`, `..._team_clock`,
   `..._team_period` and `..._team_shots` were set at startup and from the
