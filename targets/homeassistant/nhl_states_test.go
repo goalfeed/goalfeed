@@ -5,7 +5,6 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"strings"
 	"sync"
 	"testing"
@@ -40,11 +39,11 @@ func recordingHA(t *testing.T) (map[string]haState, *sync.Mutex) {
 		w.WriteHeader(http.StatusOK)
 	}))
 	t.Cleanup(srv.Close)
-	os.Setenv("SUPERVISOR_API", srv.URL)
-	os.Setenv("SUPERVISOR_TOKEN", "t")
+	setEnv(t, "SUPERVISOR_API", srv.URL)
+	setEnv(t, "SUPERVISOR_TOKEN", "t")
 	t.Cleanup(func() {
-		os.Unsetenv("SUPERVISOR_API")
-		os.Unsetenv("SUPERVISOR_TOKEN")
+		unsetEnv(t, "SUPERVISOR_API")
+		unsetEnv(t, "SUPERVISOR_TOKEN")
 	})
 	debounceAfter = 0
 	entityCache = map[string]entityCacheEntry{}

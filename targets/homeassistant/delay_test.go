@@ -6,7 +6,6 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"strings"
 	"sync"
 	"testing"
@@ -90,9 +89,9 @@ func TestPublishEntity_DelayedSendArrivesLater(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	}))
 	t.Cleanup(srv.Close)
-	os.Setenv("SUPERVISOR_API", srv.URL)
-	os.Setenv("SUPERVISOR_TOKEN", "t")
-	t.Cleanup(func() { os.Unsetenv("SUPERVISOR_API"); os.Unsetenv("SUPERVISOR_TOKEN") })
+	setEnv(t, "SUPERVISOR_API", srv.URL)
+	setEnv(t, "SUPERVISOR_TOKEN", "t")
+	t.Cleanup(func() { unsetEnv(t, "SUPERVISOR_API"); unsetEnv(t, "SUPERVISOR_TOKEN") })
 	debounceAfter = 0
 	entityCache = map[string]entityCacheEntry{}
 	withBroadcastDelay(t, 0.3)
@@ -130,9 +129,9 @@ func TestSendCustomEvent_DelayedKeepsRaiseTimestamp(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	}))
 	t.Cleanup(srv.Close)
-	os.Setenv("SUPERVISOR_API", srv.URL)
-	os.Setenv("SUPERVISOR_TOKEN", "t")
-	t.Cleanup(func() { os.Unsetenv("SUPERVISOR_API"); os.Unsetenv("SUPERVISOR_TOKEN") })
+	setEnv(t, "SUPERVISOR_API", srv.URL)
+	setEnv(t, "SUPERVISOR_TOKEN", "t")
+	t.Cleanup(func() { unsetEnv(t, "SUPERVISOR_API"); unsetEnv(t, "SUPERVISOR_TOKEN") })
 	withBroadcastDelay(t, 1.2)
 
 	raised := time.Now()
@@ -173,8 +172,8 @@ func TestDelayedSend_ResolvesAndGuardsURLAtSendTime(t *testing.T) {
 		return srv
 	}
 	srv1, srv2 := mk(first), mk(second)
-	os.Unsetenv("SUPERVISOR_API")
-	os.Unsetenv("SUPERVISOR_TOKEN")
+	unsetEnv(t, "SUPERVISOR_API")
+	unsetEnv(t, "SUPERVISOR_TOKEN")
 	viper.Set("home_assistant.access_token", "super-secret-token")
 	viper.Set("home_assistant.allow_remote_url", false)
 	t.Cleanup(func() {
@@ -325,9 +324,9 @@ func TestPublishEntity_DelayDroppedToZeroDoesNotOvertake(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	}))
 	t.Cleanup(srv.Close)
-	os.Setenv("SUPERVISOR_API", srv.URL)
-	os.Setenv("SUPERVISOR_TOKEN", "t")
-	t.Cleanup(func() { os.Unsetenv("SUPERVISOR_API"); os.Unsetenv("SUPERVISOR_TOKEN") })
+	setEnv(t, "SUPERVISOR_API", srv.URL)
+	setEnv(t, "SUPERVISOR_TOKEN", "t")
+	t.Cleanup(func() { unsetEnv(t, "SUPERVISOR_API"); unsetEnv(t, "SUPERVISOR_TOKEN") })
 	debounceAfter = 0
 	entityCache = map[string]entityCacheEntry{}
 
@@ -371,9 +370,9 @@ func TestEvents_ShareOneOrderedStream(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	}))
 	t.Cleanup(srv.Close)
-	os.Setenv("SUPERVISOR_API", srv.URL)
-	os.Setenv("SUPERVISOR_TOKEN", "t")
-	t.Cleanup(func() { os.Unsetenv("SUPERVISOR_API"); os.Unsetenv("SUPERVISOR_TOKEN") })
+	setEnv(t, "SUPERVISOR_API", srv.URL)
+	setEnv(t, "SUPERVISOR_TOKEN", "t")
+	t.Cleanup(func() { unsetEnv(t, "SUPERVISOR_API"); unsetEnv(t, "SUPERVISOR_TOKEN") })
 	useQueue(t, newDelayQueue())
 	withBroadcastDelay(t, 0.01)
 

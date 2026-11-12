@@ -8,7 +8,6 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"path/filepath"
 	"strings"
 	"sync/atomic"
@@ -31,7 +30,7 @@ func fakeDNS(t *testing.T, hosts map[string]net.IP) *net.Resolver {
 	t.Helper()
 	pc, err := net.ListenPacket("udp", "127.0.0.1:0")
 	require.NoError(t, err)
-	t.Cleanup(func() { pc.Close() })
+	t.Cleanup(func() { _ = pc.Close() })
 	go func() {
 		buf := make([]byte, 1500)
 		for {
@@ -72,8 +71,8 @@ func fakeDNS(t *testing.T, hosts map[string]net.IP) *net.Resolver {
 
 func withHAConfig(t *testing.T, url string, allowRemote bool) {
 	t.Helper()
-	os.Unsetenv("SUPERVISOR_API")
-	os.Unsetenv("SUPERVISOR_TOKEN")
+	unsetEnv(t, "SUPERVISOR_API")
+	unsetEnv(t, "SUPERVISOR_TOKEN")
 	viper.Set("home_assistant.url", url)
 	viper.Set("home_assistant.access_token", "super-secret-token")
 	viper.Set("home_assistant.allow_remote_url", allowRemote)
